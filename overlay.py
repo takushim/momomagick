@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, glob, argparse, numpy
+import sys, argparse, pathlib, numpy
 from skimage.external import tifffile
 from scipy.ndimage.interpolation import shift
 
@@ -40,35 +40,58 @@ crop_x, crop_y = args.image_origin
 crop_width, crop_height = args.image_size
 shift_x, shift_y = args.image_shift
 if args.output_file is None:
-    output_filename = os.path.splitext(os.path.basename(input_filename))[0] + '_out.tif'
+    output_filename = pathlib.Path(input_filename).stem.split('.')[0] + '_out.tif'
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename')
 else:
     output_filename = args.output_file[0]
 
-# read TIFF file
-orig_image = tifffile.imread(input_filename)
-if len(orig_image.shape) == 2:
-    orig_image = numpy.array([orig_image])
+# read TIFF file (assumes TZ(C)YX order)
+orig_image = []
+with tifffile.TiffFile(input_filename) as tiff:
+    axes = tiff.series[0].axes
+    image = tiff.asarray(series = 0)
+    print('Found axis:', axes)
+    print('Image shape', image.shape)
+    if 'T' in axes:
+        total_time = len(image)
+        orig_image = numpy.split(image, len(image)) # becomes a list of [1, height, width]
+    else:
+        total_time = 1
+        orig_image = [image]
 
-# overlay
-total_frame = orig_image.shape[-3]
-if crop_width is None:
-    crop_width = orig_image.shape[-1] // 2 - crop_x
+if 'Z' not in axes:
+    print('Adding temporary Z axis.')
+    for index in range(len(orig_image)):
+        orig_image[index] = orig_image[index][numpy.newaxis,]
+if 'C' in axes:
+    print('Using the first channel only.')
+    for index in range(len(orig_image)):
+        orig_image[index] = orig_image[index][..., 0:1, :, :]
+
+orig_image = numpy.asarray(orig_image)
+print('Original image was shaped into: ', orig_image.shape)
+
+# overlay dimensions should be in TZCYXS order
+total_frame = orig_image.shape[1]
 if crop_height is None:
     crop_height = orig_image.shape[-2] - crop_y
+if crop_width is None:
+    crop_width = orig_image.shape[-1] // 2 - crop_x
 
-output_image = numpy.zeros((2, total_frame, crop_height, crop_width), dtype = orig_image.dtype)
-output_image[1] = orig_image[:, crop_y:(crop_y + crop_height), crop_x:(crop_x + crop_width)]
+output_image = numpy.zeros((total_time, total_frame, 2, crop_height, crop_width), dtype = orig_image.dtype)
+print('Output image was shaped into: ', output_image.shape)
+output_image[:, :, 1, :, :] = orig_image[:, :, 0, crop_y:(crop_y + crop_height), crop_x:(crop_x + crop_width)]
 
-print(orig_image.shape, output_image.shape)
 split_shift = orig_image.shape[-1] // 2
-paste_image = orig_image[:, crop_y:(crop_y + crop_height), (split_shift + crop_x):(split_shift + crop_x + crop_width)]
-print(paste_image.shape)
-output_image[0] = shift(paste_image, (0, shift_y, shift_x))
+shift_array = (0, 0, 0, shift_y, shift_x)
+paste_image = orig_image[:, :, :, crop_y:(crop_y + crop_height), (split_shift + crop_x):(split_shift + crop_x + crop_width)]
+paste_image = shift(paste_image, shift_array)
+output_image[:, :, 0, :, :] = paste_image
+print('Pasting image was shaped by', shift_array)
 
 # output ImageJ, dimensions should be in TZCYXS order
-output_image = numpy.array(output_image).transpose(1, 0, 2, 3)
+#output_image = numpy.array(output_image).transpose(1, 0, 2, 3)
 tifffile.imsave(output_filename, output_image, imagej = True, \
                 resolution = (1 / xy_resolution, 1 / xy_resolution), \
                 metadata = {'spacing': z_spacing, 'unit': 'um', 'Composite mode': 'composite'})
