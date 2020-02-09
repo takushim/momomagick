@@ -1,24 +1,18 @@
 #!/usr/bin/env python
 
-import sys, numpy
+import sys, numpy, pprint
 from skimage.external import tifffile
 
 class MMTiff:
     def __init__ (self, filename):
         self.filename = filename
-        self.axes = None
-        self.image_list = []
-        self.metadata = None
-        self.total_time = 0
-        self.total_channel = 1
-        self.total_zstack = 1
-        self.width = 0
-        self.height = 0
-        self.colored = False
+        self.read_image()
 
+    def read_image (self):
         # read TIFF file (assumes TZ(C)YX(S) order)
+        print("Reading image:", self.filename)
         self.image_list = []
-        with tifffile.TiffFile(filename) as tiff:
+        with tifffile.TiffFile(self.filename) as tiff:
             axes = tiff.series[0].axes
             image = tiff.asarray(series = 0)
             if 'T' in axes:
@@ -29,6 +23,12 @@ class MMTiff:
                 self.image_list = [image]
             print('Image shape:', self.total_time, ' x ', image.shape)
             print('Image axes:', axes)
+
+            if tiff.is_micromanager:
+                self.micromanager_summary = tiff.micromanager_metadata['summary']
+                self.set_metadata()
+            else:
+                self.micromanager_summary = None
 
         if 'Z' not in axes:
             print('Adding temporary Z axis.')
@@ -49,8 +49,42 @@ class MMTiff:
         else:
             self.axes = 'TZCYX'
             self.colored = False
+        self.dtype = self.image_list[0].dtype
 
-        #print(vars(self))
-        print('Original image was shaped into: ', self.axes, self.total_time, ' x ', self.image_list[0].shape)
+        print('Original image was shaped into: ', self.total_time, ' x ', self.image_list[0].shape, self.axes)
 
+    def set_metadata (self):
+        if self.micromanager_summary:
+            self.starttime = self.micromanager_summary['StartTime']
+            self.exposure_ms = float(self.micromanager_summary['LaserExposure_ms'])
+            self.pixelsize_um = float(self.micromanager_summary['PixelSize_um'])
+            self.z_step_um = float(self.micromanager_summary['z-step_um'])
+        else:
+            self.starttime = '2019-11-08 11:09:13 -0500'
+            self.exposure_ms = 1000.0
+            self.pixelsize_um = 0.1625
+            self.z_step_um = 0.5
+            print("No micromanager summary. Setting default values.")
+
+    def as_list (self, channel = None, drop_channel = True):
+        if channel is None:
+            return self.image_list
+        else:
+            if drop_channel is True:
+                print("Using channel (dropping channel):", channel)
+                return [x[:, channel] for x in self.image_list]
+            else:
+                print("Using channel (keeping channel):", channel)
+                return [x[:, channel:(channel + 1)] for x in self.image_list]
+
+    def as_array (self, channel = None, drop_channel = True):
+        if channel is None:
+            return numpy.array(self.image_list)
+        else:
+            if drop_channel is True:
+                print("Using channel (dropping channel):", channel)
+                return numpy.array([x[:, channel] for x in self.image_list])
+            else:
+                print("Using channel (keeping channel):", channel)
+                return numpy.array([x[:, channel:(channel + 1)] for x in self.image_list])
 

@@ -13,12 +13,13 @@ crop_y = 0
 crop_width = None
 crop_height = None
 use_channel = None
+filename_suffix = '_crop.tif'
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Crop diSPIM image', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', nargs=1, default=output_filename, \
-                    help='output multipage TIFF file ([basename]_crop.tif by default)')
+                    help='output multipage TIFF file ([basename]%s by default)' % (filename_suffix))
 parser.add_argument('-g', '--image-origin', nargs=2, type=int, default=[crop_x, crop_y], \
                     metavar=('X', 'Y'), \
                     help='origin of cropping')
@@ -38,7 +39,7 @@ crop_width, crop_height = args.image_size
 if args.use_channel is not None:
     use_channel = args.use_channel[0]
 if args.output_file is None:
-    output_filename = pathlib.Path(input_filename).stem.split('.')[0] + '_crop.tif'
+    output_filename = pathlib.Path(input_filename).stem.split('.')[0] + filename_suffix
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename.')
 else:
