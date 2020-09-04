@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-import sys, argparse, pathlib, re, numpy
-from skimage.external import tifffile
+import sys, argparse, pathlib, re, numpy, tifffile
 from scipy.ndimage.interpolation import shift
 from mmtools import mmtiff
 

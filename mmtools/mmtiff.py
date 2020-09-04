@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-import sys, numpy, pprint
-from skimage.external import tifffile
+import sys, numpy, pprint, tifffile
 
 class MMTiff:
     def __init__ (self, filename):
@@ -21,21 +20,20 @@ class MMTiff:
             else:
                 self.total_time = 1
                 self.image_list = [image]
-            print('Image shape:', self.total_time, ' x ', image.shape)
-            print('Image axes:', axes)
+            print('Load image:', image.shape, axes)
 
+            #self.micromanager_summary = None
+            #self.set_metadata()
             if tiff.is_micromanager:
-                self.micromanager_summary = tiff.micromanager_metadata['summary']
+                self.micromanager_summary = tiff.micromanager_metadata['Summary']
                 self.set_metadata()
             else:
                 self.micromanager_summary = None
 
         if 'Z' not in axes:
-            print('Adding temporary Z axis.')
             for index in range(len(self.image_list)):
                 self.image_list[index] = self.image_list[index][numpy.newaxis]
         if 'C' not in axes:
-            print('Adding temporary C axis.')
             for index in range(len(self.image_list)):
                 self.image_list[index] = self.image_list[index][:, numpy.newaxis]
 
