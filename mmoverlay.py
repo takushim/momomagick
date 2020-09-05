@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, argparse, pathlib, re, numpy, pandas, tifffile
+import sys, argparse, pathlib, re, numpy, pandas, tifffile, itertools
 from scipy.ndimage.interpolation import shift
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from mmtools import mmtiff
@@ -11,6 +11,7 @@ output_filename = None
 align_images = False
 align_filename = 'align.txt'
 align_smoothing = False
+invert_channel_order = False
 shift_x = 0
 shift_y = 0
 filename_suffix = '_overlay.tif'
@@ -34,6 +35,9 @@ parser.add_argument('-f', '--align-filename', nargs=1, default = [align_filename
 parser.add_argument('-m', '--align-smoothing', action='store_true', default = align_smoothing, \
                     help='smoothing of alignment curves')
 
+parser.add_argument('-i', '--invert-channel-order', action='store_true', default = invert_channel_order, \
+                    help='invert the order of channels (an ad-hoc option for ImageJ)')
+
 parser.add_argument('input_file', nargs=2, default=input_filenames, \
                     help='two input (multipage) TIFF files (overlay, background)')
 args = parser.parse_args()
@@ -44,6 +48,7 @@ shift_x, shift_y = args.image_shift
 align_images = args.align_images
 align_filename = args.align_filename[0]
 align_smoothing = args.align_smoothing
+invert_channel_order = args.invert_channel_order
 if args.output_file is None:
     stem = pathlib.Path(input_filenames[0]).stem
     stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
@@ -66,10 +71,8 @@ input_images.append(input_tiffs[0].as_array())
 input_images.append(input_tiffs[1].as_array())
 
 # determine image size and dtype that can store both of the images
-overlay_width = max([x.width for x in input_tiffs])
-overlay_height = max([x.height for x in input_tiffs])
-overlay_zstack = max([x.total_zstack for x in input_tiffs])
-overlay_time = max([x.total_time for x in input_tiffs])
+overlay_shape = [max(x, y) for (x, y) in zip(input_images[0].shape, input_images[1].shape)]
+overlay_shape[2] = sum([x.total_channel for x in input_tiffs])
 if any([x.dtype == numpy.uint32 for x in input_tiffs]):
     output_dtype = numpy.uint32
 elif any([x.dtype == numpy.uint16 for x in input_tiffs]):
@@ -94,34 +97,27 @@ if align_images:
     move_y = move_y - align_y
 
 # list of output_images (list by channel)
-output_images = []
+output_images = numpy.zeros(overlay_shape, dtype = output_dtype)
+channel_offset = 0
 
 # shift
-for index in range(input_tiffs[0].total_channel):
-    image = numpy.zeros((overlay_time, overlay_zstack, overlay_height, overlay_width), dtype = output_dtype)
-    image[:] = input_images[0][:, :, index].copy()
-    for time in range(input_tiffs[0].total_time):
-        for zstack in range(input_tiffs[0].total_zstack):
-            image[time, zstack] = shift(image[time, zstack], (move_y[time], move_x[time]))
-            print("Time, stack, move", time, zstack, (move_y[time], move_x[time]))
-    output_images.append(image)
-    print("Shifted channel", index, "of Image 0.")
+for (time, zstack, channel) in itertools.product(range(input_tiffs[0].total_time), range(input_tiffs[0].total_channel), range(input_tiffs[0].total_zstack)):
+    #print(time, zstack, channel, (move_y[time], move_x[time]))
+    output_images[time, zstack, channel_offset + channel] = shift(input_images[0][time, zstack, channel], (move_y[time], move_x[time]))
+print("Image 0 shifted.")
+channel_offset = channel_offset + input_tiffs[0].total_channel
 
 # background
-for index in range(input_tiffs[1].total_channel):
-    image = numpy.zeros((overlay_time, overlay_zstack, overlay_height, overlay_width), dtype = output_dtype)
-    image[:] = input_images[1][:, :, index].copy()
-    if input_tiffs[1].total_time == 1:
-        print("Broadcasting the background image")
-    output_images.append(image)
-    print("Concatenated channel", index, "of Image 1.")
+output_images[:, :, channel_offset:(channel_offset + input_tiffs[1].total_channel)] = input_images[1]
+if input_tiffs[1].total_time == 1:
+    print("Broadcasting the background image")
+print("Image 1 concatenated.")
+channel_offset = channel_offset + input_tiffs[1].total_channel
 
 # output ImageJ, dimensions should be in TZCYXS order
-output_images = numpy.array(output_images)
-trans = numpy.arange(output_images.ndim)
-trans[0], trans[1], trans[2] = 1, 2, 0
-output_images = output_images.transpose(trans)[:, :, ::-1]
-
+if invert_channel_order:
+    print("Inverting the order of channels")
+    output_images = output_images[:, :, ::-1]
 print('Output image was shaped into:', output_images.shape)
 tifffile.imsave(output_filename, output_images, imagej = True, \
                 resolution = (1 / xy_resolution, 1 / xy_resolution), \
