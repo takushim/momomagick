@@ -11,9 +11,7 @@ output_filename = None
 filename_suffix = '_fit.tif'
 #use_plane = 0
 x_shift_range = [-20, 20, 0.5]
-y_shift_range = [-20, 20, 0.5]
-xy_resolution = 0.1625
-z_spacing = 0.5
+y_shift_range = [-10, 10, 0.5]
 
 # font
 if platform.system() == "Windows":
@@ -43,7 +41,7 @@ parser.add_argument('-Y', '--y-shift-range', nargs=3, type=float, default = y_sh
                     help='range of y shift to try for Image 0 (accepting floats)')
 
 parser.add_argument('input_file', nargs=2, default=input_filenames, \
-                    help='two input (multipage) TIFF files (image_0, image_1)')
+                    help='two input (multipage) TIFF files (overlay, background)')
 args = parser.parse_args()
 
 # set arguments
@@ -101,6 +99,6 @@ for (shift_y, shift_x) in itertools.product(shift_ys, shift_xs):
 
 # output ImageJ, dimensions should be in TZCYXS order
 tifffile.imsave(output_filename, numpy.array(output_images), imagej = True, \
-                resolution = (1 / xy_resolution, 1 / xy_resolution), \
-                metadata = {'spacing': z_spacing, 'unit': 'um', 'Composite mode': 'composite'})
+                resolution = (1 / input_tiffs[0].pixelsize_um, 1 / input_tiffs[0].pixelsize_um), \
+                metadata = {'spacing': input_tiffs[0].z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
 print("Output image:", output_filename)

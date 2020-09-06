@@ -26,9 +26,9 @@ class MMTiff:
             #self.set_metadata()
             if tiff.is_micromanager:
                 self.micromanager_summary = tiff.micromanager_metadata['Summary']
-                self.set_metadata()
             else:
                 self.micromanager_summary = None
+            self.set_metadata()
 
         if 'Z' not in axes:
             for index in range(len(self.image_list)):

@@ -16,8 +16,6 @@ mask_filename = None
 shift_x = 0
 shift_y = 0
 filename_suffix = '_plotted.tif'
-xy_resolution = 0.1625
-z_spacing = 0.5
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Plot fluorescent puncta to a background image', \
@@ -114,6 +112,6 @@ image_color = marker.mark_spots(output_image, spot_table)
 # output ImageJ, dimensions should be in TZCYXS order
 print('Output image was shaped into:', output_image.shape)
 tifffile.imsave(output_filename, output_image, imagej = True, \
-                resolution = (1 / xy_resolution, 1 / xy_resolution), \
-                metadata = {'spacing': z_spacing, 'unit': 'um', 'Composite mode': 'composite'})
+                resolution = (1 / input_tiff.pixelsize_um, 1 / input_tiff.pixelsize_um), \
+                metadata = {'spacing': input_tiff.z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
 

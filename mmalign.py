@@ -68,8 +68,10 @@ for time in range(input_tiff.total_time):
     for zstack in range(input_tiff.total_zstack):
         for channel in range(input_tiff.total_channel):
             output_image[time, zstack, channel] = shift(input_image[time, zstack, channel], (move_y[time], move_x[time]))
-            print(time, zstack, channel, (move_y[time], move_x[time]))
+            print(time, zstack, channel, (align_table.align_x[time], align_table.align_y[time]), (move_x[time], move_y[time]))
 
 # output multipage tiff
 print("Output image file to %s." % (output_filename))
-tifffile.imsave(output_filename, output_image)
+tifffile.imsave(output_filename, output_image, imagej = True, \
+                resolution = (1 / input_tiff.pixelsize_um, 1 / input_tiff.pixelsize_um), \
+                metadata = {'spacing': input_tiff.z_step_um, 'unit': 'um', 'Composite mode': 'composite'})

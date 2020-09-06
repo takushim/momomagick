@@ -15,7 +15,7 @@ parser.add_argument('-o', '--output-prefix', nargs=1, default=output_prefix, \
                     help='prefix of output TIFF file ([basename] by default)')
 
 parser.add_argument('-c', '--use-channel', nargs=1, type=int, default=use_channel, \
-                    help='sigma of LoG filter (try near the pixel diameter of spots)')
+                    help='select one channel to be output')
 
 parser.add_argument('input_file', nargs=1, default=input_filename, \
                     help='an input (multipage) TIFF file')
@@ -49,12 +49,9 @@ split_images.append(input_image[:, :, :, :, 0:split_width].copy())
 split_images.append(input_image[:, :, :, :, split_width:input_tiff.width].copy())
 
 # output ImageJ, dimensions should be in TZCYXS order
-xy_resolution = input_tiff.pixelsize_um
-z_spacing = input_tiff.z_step_um
-
 for index in range(len(split_images)):
     output_filename = "%s_%d.tif" % (output_prefix, index)
     tifffile.imsave(output_filename, split_images[index], imagej = True, \
-                    resolution = (1 / xy_resolution, 1 / xy_resolution), \
-                    metadata = {'spacing': z_spacing, 'unit': 'um', 'Composite mode': 'composite'})
+                    resolution = (1 / input_tiff.pixelsize_um, 1 / input_tiff.pixelsize_um), \
+                    metadata = {'spacing': input_tiff.z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
     print("Output image %d:" % (index), split_images[index].shape)

@@ -15,8 +15,6 @@ invert_channel_order = False
 shift_x = 0
 shift_y = 0
 filename_suffix = '_overlay.tif'
-xy_resolution = 0.1625
-z_spacing = 0.5
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Overlay two diSPIM images', \
@@ -24,7 +22,7 @@ parser = argparse.ArgumentParser(description='Overlay two diSPIM images', \
 parser.add_argument('-o', '--output-file', nargs=1, default=output_filename, \
                     help='output multipage TIFF file ([basename]{0} by default)'.format(filename_suffix))
 
-parser.add_argument('-s', '--image-shift', nargs=2, type=int, default=[shift_x, shift_y], \
+parser.add_argument('-s', '--image-shift', nargs=2, type=float, default=[shift_x, shift_y], \
                     metavar=('X', 'Y'), \
                     help='ajustment for overlay')
 
@@ -120,6 +118,6 @@ if invert_channel_order:
     output_images = output_images[:, :, ::-1]
 print('Output image was shaped into:', output_images.shape)
 tifffile.imsave(output_filename, output_images, imagej = True, \
-                resolution = (1 / xy_resolution, 1 / xy_resolution), \
-                metadata = {'spacing': z_spacing, 'unit': 'um', 'Composite mode': 'composite'})
+                resolution = (1 / input_tiffs[0].pixelsize_um, 1 / input_tiffs[0].pixelsize_um), \
+                metadata = {'spacing': input_tiffs[0].z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
 
