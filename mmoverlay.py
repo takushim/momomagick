@@ -10,7 +10,8 @@ input_filenames = None
 output_filename = None
 align_images = False
 align_filename = 'align.txt'
-align_smoothing = False
+calc_smoothing = False
+use_smoothing = False
 invert_channel_order = False
 shift_x = 0
 shift_y = 0
@@ -30,8 +31,12 @@ parser.add_argument('-A', '--align-images', action='store_true', default = align
                     help='align overlay images using a TSV file')
 parser.add_argument('-f', '--align-filename', nargs=1, default = [align_filename], \
                     help='aligning tsv file name ({0} if not specified)'.format(align_filename))
-parser.add_argument('-m', '--align-smoothing', action='store_true', default = align_smoothing, \
-                    help='smoothing of alignment curves')
+
+group = parser.add_mutually_exclusive_group()
+group.add_argument('-c', '--calc-smoothing', action='store_true', default = calc_smoothing, \
+                   help='smooth alignment curves by calculation')
+group.add_argument('-u', '--use-smoothing', action='store_true', default = use_smoothing, \
+                   help='use previously calculated smoothing curves in the file')
 
 parser.add_argument('-i', '--invert-channel-order', action='store_true', default = invert_channel_order, \
                     help='invert the order of channels (an ad-hoc option for ImageJ)')
@@ -45,7 +50,8 @@ input_filenames = args.input_file
 shift_x, shift_y = args.image_shift
 align_images = args.align_images
 align_filename = args.align_filename[0]
-align_smoothing = args.align_smoothing
+calc_smoothing = args.calc_smoothing
+use_smoothing = args.use_smoothing
 invert_channel_order = args.invert_channel_order
 if args.output_file is None:
     stem = pathlib.Path(input_filenames[0]).stem
@@ -87,10 +93,14 @@ if align_images:
     align_plane = numpy.array(align_table.align_plane)
     align_x = numpy.array(align_table.align_x)
     align_y = numpy.array(align_table.align_y)
-    if align_smoothing:
-        print("Smoothing on.")
+    if calc_smoothing:
+        print("Calculating smoothing. Smoothing data in the input file are ignored.")
         align_x = lowess(align_x, align_plane, frac = 0.1, return_sorted = False)
         align_y = lowess(align_y, align_plane, frac = 0.1, return_sorted = False)
+    elif use_smoothing:
+        print("Using smoothing data in the input file")
+        align_x = numpy.array(align_table.smooth_x)
+        align_y = numpy.array(align_table.smooth_y)
     move_x = move_x - align_x
     move_y = move_y - align_y
 
