@@ -2,7 +2,7 @@
 
 import sys, numpy, pandas, time
 
-class SpotAnalyzer:
+class Lifetime:
     def __init__ (self):
         self.lifetime_columns = ['life_count', 'life_time', 'spot_count']
 

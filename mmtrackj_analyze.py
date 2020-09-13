@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 import sys, pathlib, re, argparse, numpy, pandas
-from mmtools import trackj, spotanalyzer
+from mmtools import trackj, lifetime
 
 # algorhithms
 trackj_handler = trackj.TrackJ()
-analyzer = spotsnalyzer.SpotAnalyzer()
+lifetime_analyzer = lifetime.Lifetime()
 
 # default values
 input_filename = None
@@ -36,11 +36,11 @@ print("Read TrackJ CSV from %s." % (input_filename))
 spot_table = trackj_handler.read_spots(input_filename)
 
 # regression
-output_table = analyzer.regression(spot_table, time_scale)
+output_table = lifetime_analyzer.regression(spot_table, time_scale)
 output_table.to_csv(output_regression_filename, sep='\t', index=False)
 print("Output regression to %s." % (output_regression_filename))
 
 # lifetime
-output_table = analyzer.lifetime(spot_table, time_scale)
+output_table = lifetime_analyzer.lifetime(spot_table, time_scale)
 output_table.to_csv(output_lifetime_filename, sep='\t', index=False)
 print("Output lifetime to %s." % (output_lifetime_filename))
