@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
 import sys, pathlib, re, argparse, numpy, pandas
+from mmtools import trackj
+
+# algorhithms
+trackj_handler = trackj.TrackJ()
 
 # default values
 input_filename = None
@@ -50,18 +54,6 @@ print("Scaling factor:", scaling)
 spot_table['x'] = spot_table['x'] * float(scaling)
 spot_table['y'] = spot_table['y'] * float(scaling)
 
-# increment plane number for TrackerJ
-spot_table['plane'] = spot_table['plane'] + 1
-
-# open CSV file and output header
-output_file = open(output_filename, 'w', newline='')
-output_file.write("#speckles csv ver 1.2" + '\n')
-output_file.write("#x(double)\ty(double)\tsize(double)\tframe(int)\ttype(int)" + '\n')
-
-# loop for output
-for index, spots in spot_table.groupby('total_index'):
-    output_file.write("#%start speckle%" + '\n')
-    spots.to_csv(output_file, columns = ['x', 'y', 'plane'], sep='\t', index=False, header=False, mode='a')
-    output_file.write("#%stop speckle%" + '\n')
-
+# output
 print("Output csv file to %s." % (output_filename))
+trackj_handler.save_spots(output_filename, spot_table)
