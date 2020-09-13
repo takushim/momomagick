@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-import os, platform, sys, glob, argparse
-import numpy, pandas, tifffile
+import os, platform, sys, glob, argparse, numpy, pandas
 from matplotlib import pyplot
 from statsmodels.nonparametric.smoothers_lowess import lowess
 

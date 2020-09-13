@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import sys, pathlib, re, argparse, numpy, pandas, time
 import sys, pathlib, re, argparse, numpy, pandas
 from mmtools import trackj
 

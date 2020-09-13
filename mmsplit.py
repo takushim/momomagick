@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, argparse, re, pathlib, numpy, tifffile
+import os, sys, argparse, re, pathlib, numpy
 from mmtools import mmtiff
 
 # default values

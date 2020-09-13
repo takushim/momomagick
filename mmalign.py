@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, argparse, pathlib, re, numpy, pandas, itertools, tifffile
+import sys, argparse, pathlib, re, numpy, pandas, itertools
 from scipy.ndimage.interpolation import shift
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from mmtools import mmtiff

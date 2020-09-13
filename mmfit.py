@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, platform, argparse, re, pathlib, numpy, itertools, tifffile
+import os, sys, platform, argparse, re, pathlib, numpy, itertools
 from mmtools import mmtiff
 from scipy.ndimage.interpolation import shift
 from PIL import Image, ImageDraw, ImageFont
