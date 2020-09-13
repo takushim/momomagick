@@ -127,7 +127,5 @@ if invert_channel_order:
     print("Inverting the order of channels")
     output_images = output_images[:, :, ::-1]
 print('Output image was shaped into:', output_images.shape)
-tifffile.imsave(output_filename, output_images, imagej = True, \
-                resolution = (1 / input_tiffs[0].pixelsize_um, 1 / input_tiffs[0].pixelsize_um), \
-                metadata = {'spacing': input_tiffs[0].z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
+input_tiffs[0].save_image(output_filename, output_images)
 

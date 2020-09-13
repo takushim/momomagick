@@ -80,6 +80,4 @@ for (time, zstack, channel) in itertools.product(range(input_tiff.total_time), r
 
 # output multipage tiff
 print("Output image file to %s." % (output_filename))
-tifffile.imsave(output_filename, output_image, imagej = True, \
-                resolution = (1 / input_tiff.pixelsize_um, 1 / input_tiff.pixelsize_um), \
-                metadata = {'spacing': input_tiff.z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
+input_tiff.save_image(output_filename, output_image)

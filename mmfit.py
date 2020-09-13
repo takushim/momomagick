@@ -114,7 +114,5 @@ for (shift_y, shift_x) in itertools.product(shift_ys, shift_xs):
     output_images.append(numpy.array(overlay_images))
 
 # output ImageJ, dimensions should be in TZCYXS order
-tifffile.imsave(output_filename, numpy.array(output_images), imagej = True, \
-                resolution = (1 / input_tiffs[0].pixelsize_um, 1 / input_tiffs[0].pixelsize_um), \
-                metadata = {'spacing': input_tiffs[0].z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
 print("Output image:", output_filename)
+input_tiffs[0].save_image(output_filename, output_images)

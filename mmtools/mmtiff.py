@@ -85,4 +85,9 @@ class MMTiff:
             else:
                 print("Using channel (keeping channel):", channel)
                 return numpy.array([x[:, channel:(channel + 1)] for x in self.image_list])
+    
+    def save_image (self, filename, image_array):
+        tifffile.imsave(filename, numpy.array(image_array), imagej = True, \
+                resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
+                metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
 

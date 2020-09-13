@@ -51,7 +51,5 @@ split_images.append(input_image[:, :, :, :, split_width:input_tiff.width].copy()
 # output ImageJ, dimensions should be in TZCYXS order
 for index in range(len(split_images)):
     output_filename = "%s_%d.tif" % (output_prefix, index)
-    tifffile.imsave(output_filename, split_images[index], imagej = True, \
-                    resolution = (1 / input_tiff.pixelsize_um, 1 / input_tiff.pixelsize_um), \
-                    metadata = {'spacing': input_tiff.z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
     print("Output image %d:" % (index), split_images[index].shape)
+    input_tiff.save_image(output_filename, split_images[index])

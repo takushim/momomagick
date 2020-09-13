@@ -111,7 +111,5 @@ image_color = marker.mark_spots(output_image, spot_table)
 
 # output ImageJ, dimensions should be in TZCYXS order
 print('Output image was shaped into:', output_image.shape)
-tifffile.imsave(output_filename, output_image, imagej = True, \
-                resolution = (1 / input_tiff.pixelsize_um, 1 / input_tiff.pixelsize_um), \
-                metadata = {'spacing': input_tiff.z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
+input_tiff.save_image(output_filename, output_image)
 
