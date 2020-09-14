@@ -48,7 +48,7 @@ class SpotMark:
 
     def convert_to_color (self, orig_image):
         if (len(orig_image.shape) > 3):
-            print("Image with dimension > 3 was passed to conversion to color. Might be colored image. Conversion ignored.")
+            print("Image seems to contain RGB information. Conversion ignored.")
             return orig_image
 
         image_color = numpy.zeros(orig_image.shape + (3,), dtype = numpy.uint8)
@@ -64,32 +64,7 @@ class SpotMark:
         elif image_type == 'uint8':
             image_color[:,:,:,0] = image_color[:,:,:,1] = image_color[:,:,:,2] = orig_image
         else:
-            raise Exception('invalid image file format')
-        
-        if self.invert_image is True:
-            image_color = 255 - image_color
-
-        return image_color
-
-    def convert_image_to_color (self, orig_image):
-        if (len(orig_image.shape) > 3):
-            print("Image with dimension > 3 was passed to conversion to color. Might be colored image. Conversion ignored.")
-            return orig_image
-
-        image_color = numpy.zeros(orig_image.shape + (3,), dtype = numpy.uint8)
-
-        image_type = orig_image.dtype.name
-        if image_type == 'int32' or image_type == 'uint16':
-            mean = numpy.mean(orig_image)
-            sigma = numpy.std(orig_image)
-            image_min = max(0, mean - 3 * sigma)
-            image_max = min(mean + 4 * sigma, numpy.iinfo(orig_image.dtype).max)
-            image_8bit = (255.0 * (orig_image - image_min) / (image_max - image_min)).clip(0, 255).astype(numpy.uint8)
-            image_color[:,:,0] = image_color[:,:,1] = image_color[:,:,2] = image_8bit
-        elif image_type == 'uint8':
-            image_color[:,:,0] = image_color[:,:,1] = image_color[:,:,2] = orig_image
-        else:
-            raise Exception('invalid image file format')
+            raise Exception('Invalid image file format')
         
         if self.invert_image is True:
             image_color = 255 - image_color

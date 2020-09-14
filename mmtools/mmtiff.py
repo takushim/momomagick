@@ -1,11 +1,18 @@
 #!/usr/bin/env python
 
-import sys, numpy, pprint, tifffile
+import sys, numpy, pathlib, re, tifffile
 
 class MMTiff:
     def __init__ (self, filename):
         self.filename = filename
         self.read_image()
+
+    @staticmethod
+    def filename_stem (filename):
+        stem = pathlib.Path(filename).stem
+        stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
+
+        return stem
 
     def read_image (self):
         # read TIFF file (assumes TZ(C)YX(S) order)
@@ -87,6 +94,7 @@ class MMTiff:
                 return numpy.array([x[:, channel:(channel + 1)] for x in self.image_list])
     
     def save_image (self, filename, image_array):
+        print('Saving image: ', image_array.shape)
         tifffile.imsave(filename, numpy.array(image_array), imagej = True, \
                 resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
                 metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'})
