@@ -11,7 +11,7 @@ spot_shift = [0.0, 0.0]
 filename_suffix = '_assigned.txt'
 stereocilia_filename = 'Results.csv'
 background_image_filename = None
-draw_for_spot = False
+separate_spots = False
 output_image_filename = None
 output_image_suffix = '_plotted.tif'
 
@@ -30,10 +30,10 @@ parser.add_argument('-s', '--spot-shift', nargs = 2, type = float, default = spo
                     metavar = ('shift_x', 'shift_y'), help='shift of markers')
 
 parser.add_argument('-b', '--background-image-file', default = background_image_filename, \
-                    help='a background image to draw the results')
-parser.add_argument('-w', '--draw-for-spot', action = 'store_true', default = draw_for_spot, \
-                    help='draw images for each spot (debug mode)')
-parser.add_argument('-i', '--output-image-file', default = output_image_filename, \
+                    help='Draw results on a specified background image')
+parser.add_argument('-e', '--separate-spots', action = 'store_true', default = separate_spots, \
+                    help='separate the output image for each spot (debug mode)')
+parser.add_argument('-a', '--output-image-file', default = output_image_filename, \
                     help='output TIFF file ([background_image]{0} by default)'.format(output_image_suffix))
 
 parser.add_argument('input_file', default = input_filename, \
@@ -53,9 +53,9 @@ else:
 spot_scaling = args.spot_scaling
 spot_shift = args.spot_shift
 stereocilia_filename = args.stereocilia_file
-background_image_filename = args.background_image_file
-draw_for_spot = args.draw_for_spot
 if args.background_image_file is not None:
+    background_image_filename = args.background_image_file
+    separate_spots = args.separate_spots
     if args.output_image_file is None:
         output_image_filename = mmtiff.MMTiff.filename_stem(background_image_filename) + output_image_suffix
         if background_image_filename == output_image_filename:
@@ -84,11 +84,11 @@ if background_image_filename is not None:
     back_tiff = mmtiff.MMTiff(background_image_filename)
     back_image = back_tiff.as_array()[0, 0, 0]
 
-    if draw_for_spot:
+    if separate_spots:
         output_image = stereocilia_finder.draw_for_spot(back_image, spot_table)
     else:
         output_image = stereocilia_finder.draw_for_arrow(back_image, spot_table)
 
     # output ImageJ, dimensions should be in TZCYXS order
-    print("Draw results on", background_image_filename)
+    print("Drawing results on", background_image_filename)
     back_tiff.save_image(output_image_filename, output_image)

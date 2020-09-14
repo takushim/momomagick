@@ -10,9 +10,8 @@ class FindArrow:
         self.spot_scaling = spot_scaling
         self.arrow_filename = arrow_filename
         self.arrow_table = self.read_arrow_table (arrow_filename)
-        self.font_size = 20
 
-    def load_font (self):
+    def load_font (self, font_size = 20):
         if platform.system() == "Windows":
             font_filename = 'C:/Windows/Fonts/Arial.ttf'
         elif platform.system() == "Linux":
@@ -22,7 +21,7 @@ class FindArrow:
         else:
             raise Exception('Font file error.')
 
-        return ImageFont.truetype(font_filename, self.font_size)
+        return ImageFont.truetype(font_filename, font_size)
 
     def output_header (self, output_file):
         filename = pathlib.Path(self.arrow_filename).name
@@ -130,8 +129,9 @@ class FindArrow:
         # adjust coordinates
         work_table = self.scale_spots(spot_table)
 
+        text_font = self.load_font(int(back_image.shape[-2]//10))
         output_images = []
-        for index, arrow in self.arrow_table.iterrows():
+        for index, arrow in enumerate(self.arrow_table.itertuples()):
             # arrow (R)
             arrow_image = Image.fromarray(numpy.zeros_like(back_image))
             draw = ImageDraw.Draw(arrow_image)
@@ -142,13 +142,16 @@ class FindArrow:
             spot_image = Image.fromarray(numpy.zeros_like(back_image))
             draw = ImageDraw.Draw(spot_image)
             nearest_spot_table = work_table[work_table.arrow_index == index]
-            for spot_index, spot in nearest_spot_table.iterrows():
+            for spot in nearest_spot_table.itertuples():
                 point_x = decimal.Decimal(spot.x).quantize(decimal.Decimal('0'), rounding=decimal.ROUND_HALF_UP)
                 point_y = decimal.Decimal(spot.y).quantize(decimal.Decimal('0'), rounding=decimal.ROUND_HALF_UP)    
                 draw.point((point_x, point_y), fill = 'white')
+            text = "Arrow {0:d}: total {1:d} spots".format(len(nearest_spot_table), index)
+            draw.text((0, 0), text, font = text_font, fill = 'white')
 
             # background (B): back_image.copy()
 
+            # combine channels
             output_images.append([numpy.asarray(arrow_image), numpy.asarray(spot_image), back_image.copy()])
 
         return numpy.array(output_images)
@@ -157,9 +160,9 @@ class FindArrow:
         # adjust coordinates
         work_table = self.scale_spots(spot_table)
         
-        text_font = self.load_font()
+        text_font = self.load_font(int(back_image.shape[-2]//10))
         output_images = []
-        for index, spot in work_table.iterrows():
+        for index, spot in enumerate(work_table.itertuples()):
             # arrow (R)
             arrow_image = Image.fromarray(numpy.zeros_like(back_image))
             draw = ImageDraw.Draw(arrow_image)
@@ -170,13 +173,12 @@ class FindArrow:
             # spot (G)
             spot_image = Image.fromarray(numpy.zeros_like(back_image))
             draw = ImageDraw.Draw(spot_image)
-            nearest_spot_table = spot_table[spot_table.arrow_index == index]
             point_x = decimal.Decimal(spot.x).quantize(decimal.Decimal('0'), rounding=decimal.ROUND_HALF_UP)
             point_y = decimal.Decimal(spot.y).quantize(decimal.Decimal('0'), rounding=decimal.ROUND_HALF_UP)    
             draw.point((point_x, point_y), fill = 'white')
-            draw.text((0, 0), \
-                      "Spot {0:d}, arrow {1:d}, dist {2:.2f} pos {3:.2f}".format(index, int(spot.arrow_index), spot.arrow_dist, spot.arrow_pos), \
-                      font = text_font, fill = 'white')
+            text = "Spot {0:d}, arrow {1:d}, dist {2:.2f} pos {3:.2f}".\
+                   format(index, int(spot.arrow_index), spot.arrow_dist, spot.arrow_pos)
+            draw.text((0, 0), text, font = text_font, fill = 'white')
 
             # arrow (B)
             one_arrow_image = Image.fromarray(numpy.zeros_like(back_image))
@@ -186,6 +188,7 @@ class FindArrow:
 
             # background (C?): back_image.copy()
 
+            # combine channels
             output_images.append([numpy.asarray(arrow_image), numpy.asarray(spot_image), \
                                   numpy.asarray(one_arrow_image), back_image.copy()])
             
