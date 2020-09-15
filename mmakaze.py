@@ -3,9 +3,6 @@
 import sys, argparse, pathlib, re, numpy, pandas
 from mmtools import mmtiff, akaze
 
-# prepare aligner
-aligner = akaze.Akaze()
-
 # defaults
 input_filename = None
 output_filename = 'align.txt'
@@ -56,12 +53,13 @@ else:
     if ref_image.total_time > 1 or ref_image.total_zstack > 1 or ref_image.total_channel > 1:
         print("Reference image: time #0 and/or zstack #0 and/or channel #0 is being used.")
 
-# alignment
-results = aligner.calculate_alignments(input_image, ref_image)
+# alignment# prepare aligner
+alignment_algorhithm = akaze.Akaze()
+results = alignment_algorhithm.calculate_alignments(input_image, ref_image)
 
 # open tsv file and write header
 output_file = open(output_filename, 'w', newline='')
-aligner.output_header(output_file, input_filename, ref_image_filename)
+alignment_algorhithm.output_header(output_file, input_filename, ref_image_filename)
 output_file.write('\t'.join(results.columns) + '\n')
 
 # output result and close
