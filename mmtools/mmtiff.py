@@ -11,7 +11,6 @@ class MMTiff:
     def filename_stem (filename):
         stem = pathlib.Path(filename).stem
         stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
-
         return stem
 
     def read_image (self):
@@ -94,7 +93,7 @@ class MMTiff:
                 return numpy.array([x[:, channel:(channel + 1)] for x in self.image_list])
     
     def save_image (self, filename, image_array):
-        print('Saving image: ', image_array.shape)
+        print('Saving image: ', image_array.shape, image_array.dtype)
         tifffile.imsave(filename, numpy.array(image_array), imagej = True, \
                 resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
                 metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'})

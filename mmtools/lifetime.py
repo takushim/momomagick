@@ -3,10 +3,13 @@
 import sys, numpy, pandas, time
 
 class Lifetime:
-    def __init__ (self):
+    def __init__ (self, spot_table, time_scale = 1.0):
         self.lifetime_columns = ['life_count', 'life_time', 'spot_count']
+        self.time_scale = time_scale
+        self.spot_table = spot_table
 
-    def add_life_count (self, spot_table):
+    @staticmethod
+    def add_life_count (spot_table):
         work_table = spot_table.copy()
 
         work_table['life_count'] = (work_table.groupby('total_index').cumcount())
@@ -16,9 +19,9 @@ class Lifetime:
 
         return work_table
 
-    def regression (self, spot_table, time_scale = 1.0):
+    def regression (self):
         # regression
-        work_table = spot_table.copy()
+        work_table = self.spot_table.copy()
 
         # spots to be counted
         index_set = set(work_table[work_table.plane == 1].total_index.tolist())
@@ -33,7 +36,7 @@ class Lifetime:
             output_counts += [spot_count]
 
         # output data
-        output_times = [i * time_scale for i in output_indexes]
+        output_times = [i * self.time_scale for i in output_indexes]
         output_table = pandas.DataFrame({ \
                             self.lifetime_columns[0] : output_indexes, \
                             self.lifetime_columns[1] : output_times, \
@@ -42,15 +45,15 @@ class Lifetime:
 
         return output_table
     
-    def lifetime (self, spot_table, time_scale = 1.0):
+    def lifetime (self):
         # add lifetime columns
-        work_table = self.add_life_count(spot_table)
+        work_table = self.add_life_count(self.spot_table)
 
         # prepare data
         lifecount_max = work_table.life_total.max()
         work_table = work_table.drop_duplicates(subset='total_index', keep='last').reset_index(drop=True)
         output_indexes = [i for i in range(1, lifecount_max + 1)]
-        output_times = [i * time_scale for i in output_indexes]
+        output_times = [i * self.time_scale for i in output_indexes]
         output_counts = [len(work_table[work_table.life_count == i]) for i in output_indexes]
 
         # output data
@@ -62,16 +65,25 @@ class Lifetime:
 
         return output_table
     
-    def new_binding (self, spot_table, time_scale = 1.0):
+    def new_binding (self):
         # add lifetime columns
-        work_table = self.add_life_count(spot_table)
+        work_table = self.add_life_count(self.spot_table)
         
         # prepare data
         work_table = work_table.drop_duplicates(subset='total_index', keep='first').reset_index(drop=True)
-        work_table['life_time'] = work_table['life_total'] * time_scale
+        work_table['life_time'] = work_table['life_total'] * self.time_scale
 
         return work_table[['plane', 'life_total', 'life_time']]
 
+    ### These functions are recorded as a bad but important hack (now being used)
+    @staticmethod
+    def filter_spots_maskimage (spot_table, mask_image):
+        first_spot_table = spot_table.drop_duplicates(subset='total_index', keep='first').reset_index(drop=True)
+        first_spot_table['mask'] = mask_image[first_spot_table.y.values.astype(numpy.int), first_spot_table.x.values.astype(numpy.int)]
+        index_set = set(first_spot_table[first_spot_table['mask'] > 0].total_index.to_list())
+        return spot_table[spot_table.total_index.isin(index_set)]
+
+    ### These functions are recorded as a bad but important hack
     def filter_spots_lifetime (self, spot_table, lifetime_min = 0, lifetime_max = numpy.inf):
         spot_table = spot_table.sort_values(by = ['total_index', 'plane']).reset_index(drop=True)
         spot_table = spot_table[(lifetime_min <= spot_table.life_total) & \
@@ -101,11 +113,5 @@ class Lifetime:
         agg_dict['distance'] = numpy.sum
         spot_table = spot_table.groupby('total_index').agg(agg_dict).reset_index(drop=True)
         return spot_table
-
-    def filter_spots_maskimage (self, spot_table, mask_image):
-        first_spot_table = spot_table.drop_duplicates(subset='total_index', keep='first').reset_index(drop=True)
-        first_spot_table['mask'] = mask_image[first_spot_table.y.values.astype(numpy.int), first_spot_table.x.values.astype(numpy.int)]
-        index_set = set(first_spot_table[first_spot_table['mask'] > 0].total_index.to_list())
-        return spot_table[spot_table.total_index.isin(index_set)]
 
 

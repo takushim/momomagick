@@ -3,31 +3,14 @@
 import sys, numpy, pandas, time
 
 class TrackJ:
-    def __init__ (self):
+    def __init__ (self, filename):
         self.columns = ['total_index', 'plane', 'x', 'y']
-        self.headers = ["#speckles csv ver 1.2\n", \
-                        "#x(double)\ty(double)\tsize(double)\tframe(int)\ttype(int)\n"]
+        self.input_filename = filename
+        self.spot_table = self.read_spots(filename)
 
-    def output_header (self, output_file, input_filename):
+    def output_header (self, output_file):
         output_file.write('## Reconverted by mmtrackj_reconvert at {0}\n'.format(time.ctime()))
-        output_file.write('#   file = \'{0}\'; reference = %s\n'.format(input_filename))
-
-    def save_spots (self, output_filename, spot_table):
-        # increment plane number
-        work_table = spot_table.copy()
-        work_table['plane'] = work_table['plane'] + 1
-
-        # output
-        output_file = open(output_filename, 'w', newline='')
-        for header in self.headers:
-            output_file.write(header)
-
-        for index, spots in work_table.groupby('total_index'):
-            output_file.write("#%start speckle%" + '\n')
-            spots.to_csv(output_file, columns = ['x', 'y', 'plane'], sep='\t', index=False, header=False, mode='a')
-            output_file.write("#%stop speckle%" + '\n')
-        
-        output_file.close()
+        output_file.write('#   file = \'{0}\'; reference = %s\n'.format(self.input_filename))
 
     def read_spots (self, input_filename):
         # read lines
@@ -52,4 +35,26 @@ class TrackJ:
         spot_table = pandas.DataFrame(data = spot_list, columns = self.columns)
     
         return spot_table
+
+    @staticmethod
+    def save_spots (output_filename, spot_table):
+        headers = ["#speckles csv ver 1.2\n", \
+                   "#x(double)\ty(double)\tsize(double)\tframe(int)\ttype(int)\n"]
+
+        # increment plane number
+        work_table = spot_table.copy()
+        work_table['plane'] = work_table['plane'] + 1
+
+        # output
+        output_file = open(output_filename, 'w', newline='')
+        for header in headers:
+            output_file.write(header)
+
+        for index, spots in work_table.groupby('total_index'):
+            output_file.write("#%start speckle%" + '\n')
+            spots.to_csv(output_file, columns = ['x', 'y', 'plane'], sep='\t', index=False, header=False, mode='a')
+            output_file.write("#%stop speckle%" + '\n')
+        
+        output_file.close()
+
 

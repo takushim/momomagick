@@ -5,7 +5,6 @@ from mmtools import mmtiff, lifetime, spotmark
 
 # prepare spot marker
 spotmarker = spotmark.SpotMark()
-lifetime_analyzer = lifetime.Lifetime()
 
 # default values
 input_filename = None
@@ -81,7 +80,7 @@ input_image = input_tiff.as_array()[:, 0, 0]
 if mask_filename is not None:
     mask_image = tifffile.imread(mask_filename)
     total_spots = len(spot_table)
-    spot_table = lifetime_analyzer.filter_spots_maskimage(spot_table, mask_image)
+    spot_table = lifetime.Lifetime.filter_spots_maskimage(spot_table, mask_image)
     print("Filtered {0:d} spots using a mask image: {1}.".format(total_spots - len(spot_table), mask_filename))
 
 # make an output image

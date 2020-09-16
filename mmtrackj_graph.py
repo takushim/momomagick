@@ -4,10 +4,6 @@ import sys, pathlib, argparse, numpy, pandas
 from matplotlib import pyplot
 from mmtools import trackj, lifetime
 
-# algorhithms
-trackj_handler = trackj.TrackJ()
-lifetime_analyzer = lifetime.Lifetime()
-
 # default values
 input_filename = None
 time_scale = 1.0
@@ -35,11 +31,14 @@ pathlib.Path(output_folder).mkdir(parents = True, exist_ok = True)
 
 # read TrackJ CSV file
 print("Read TrackJ CSV from {0}.".format(input_filename))
-spot_table = trackj_handler.read_spots(input_filename)
+spot_table = trackj.TrackJ(input_filename).spot_table
+
+# lifetime
+lifetime_analyzer = lifetime.Lifetime(spot_table, time_scale)
 
 # regression graph
 output_filename = pathlib.Path(output_folder).joinpath('regression.png')
-output_table = lifetime_analyzer.regression(spot_table, time_scale)
+output_table = lifetime_analyzer.regression()
 
 print("Output a regression graph to {0}.".format(output_filename))
 figure = pyplot.figure(figsize = (12, 8), dpi = 300)
@@ -49,7 +48,7 @@ figure.savefig(output_filename, dpi = 300)
 
 # lifetime
 output_filename = pathlib.Path(output_folder).joinpath('lifetime.png')
-output_table = lifetime_analyzer.lifetime(spot_table, time_scale)
+output_table = lifetime_analyzer.lifetime()
 
 print("Output a lifetime graph to {0}.".format(output_filename))
 figure = pyplot.figure(figsize = (12, 8), dpi = 300)
@@ -59,7 +58,7 @@ figure.savefig(output_filename, dpi = 300)
 
 # new binding and lifetime
 output_filename = pathlib.Path(output_folder).joinpath('newbinding.png')
-output_table = lifetime_analyzer.new_binding(spot_table, time_scale)
+output_table = lifetime_analyzer.new_binding()
 
 print("Output a new-binding graph to {0}.".format(output_filename))
 figure = pyplot.figure(figsize = (12, 8), dpi = 300)

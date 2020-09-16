@@ -3,9 +3,6 @@
 import sys, pathlib, re, argparse, numpy, pandas
 from mmtools import trackj
 
-# algorhithms
-trackj_handler = trackj.TrackJ()
-
 # default values
 input_filename = None
 output_filename = None
@@ -34,12 +31,13 @@ else:
 
 # read TrackJ CSV file
 print("Read TrackJ CSV from %s." % (input_filename))
-spot_table = trackj_handler.read_spots(input_filename)
+trackj_handler = trackj.TrackJ(input_filename)
+spot_table = trackj_handler.spot_table
 
 # output data
 print("Output lifetime to %s." % (output_filename))
 output_file = open(output_filename, 'w', newline='')
-trackj_handler.output_header(input_filename)
+trackj_handler.output_header(output_file)
 spot_table.to_csv(output_file, sep='\t', index=False)
 output_file.close()
 

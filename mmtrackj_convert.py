@@ -3,9 +3,6 @@
 import sys, pathlib, re, argparse, numpy, pandas
 from mmtools import trackj
 
-# algorhithms
-trackj_handler = trackj.TrackJ()
-
 # default values
 input_filename = None
 output_filename = None
@@ -56,4 +53,4 @@ spot_table['y'] = spot_table['y'] * float(scaling)
 
 # output
 print("Output csv file to %s." % (output_filename))
-trackj_handler.save_spots(output_filename, spot_table)
+trackj.TrackJ.save_spots(output_filename, spot_table)

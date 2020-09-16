@@ -3,10 +3,6 @@
 import sys, pathlib, re, argparse, numpy, pandas
 from mmtools import trackj, lifetime
 
-# algorhithms
-trackj_handler = trackj.TrackJ()
-lifetime_analyzer = lifetime.Lifetime()
-
 # default values
 input_filename = None
 time_scale = 1.0
@@ -33,14 +29,17 @@ output_lifetime_filename = stem + filename_lifetime_suffix
 
 # read TrackJ CSV file
 print("Read TrackJ CSV from %s." % (input_filename))
-spot_table = trackj_handler.read_spots(input_filename)
+spot_table = trackj.TrackJ(input_filename).spot_table
+
+# lifetime
+lifetime_analyzer = lifetime.Lifetime(spot_table, time_scale)
 
 # regression
-output_table = lifetime_analyzer.regression(spot_table, time_scale)
+output_table = lifetime_analyzer.regression()
 output_table.to_csv(output_regression_filename, sep='\t', index=False)
 print("Output regression to %s." % (output_regression_filename))
 
 # lifetime
-output_table = lifetime_analyzer.lifetime(spot_table, time_scale)
+output_table = lifetime_analyzer.lifetime()
 output_table.to_csv(output_lifetime_filename, sep='\t', index=False)
 print("Output lifetime to %s." % (output_lifetime_filename))
