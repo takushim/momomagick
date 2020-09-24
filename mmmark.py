@@ -86,7 +86,7 @@ if mask_filename is not None:
 # make an output image
 output_image = spotmarker.convert_to_color(input_image)
 if input_tiff.total_time == 1:
-    output_image = numpy.array([x for index in range(spot_table.plane.max())])
+    output_image = numpy.array([output_image.copy() for index in range(spot_table.plane.max())])
 
 # make an output image
 print("Marked {0:d} spots on {1}.".format(len(spot_table), input_filename))
