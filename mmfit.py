@@ -115,4 +115,4 @@ for (shift_y, shift_x) in itertools.product(shift_ys, shift_xs):
 
 # output ImageJ, dimensions should be in TZCYXS order
 print("Output image:", output_filename)
-input_tiffs[0].save_image(output_filename, output_images)
+input_tiffs[0].save_image(output_filename, numpy.array(output_images))
