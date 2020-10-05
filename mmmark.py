@@ -72,8 +72,8 @@ total_planes = spot_table.plane.max() + 1
 
 # shift spots
 print("Shifting the stamp image:", shift_x, shift_y)
-spot_table['x'] = spot_table['x'] * scaling - shift_x
-spot_table['y'] = spot_table['y'] * scaling - shift_y
+spot_table['x'] = spot_table['x'] * scaling + shift_x
+spot_table['y'] = spot_table['y'] * scaling + shift_y
 
 # read TIFF files TZCYX(S)
 #input_image = tifffile.imread(input_filename)
