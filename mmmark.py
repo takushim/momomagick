@@ -13,6 +13,7 @@ marker_filename = 'spot_table.txt'
 mask_filename = None
 shift_x = 0
 shift_y = 0
+scaling = 1.0
 filename_suffix = '_marked.tif'
 
 # parse arguments
@@ -23,6 +24,8 @@ parser.add_argument('-o', '--output-file', default=output_filename, \
 
 parser.add_argument('-s', '--image-shift', nargs=2, type=int, default=[shift_x, shift_y], metavar=('X', 'Y'), \
                     help='shift of the image against spots')
+parser.add_argument('-x', '--scaling', type = float, default = scaling, \
+                    help='Scale cooredinates to use magnified images')
 
 parser.add_argument('-f', '--marker-file', default=marker_filename, \
                     help='name of TSV file (read [basename].txt if not specified)')
@@ -48,6 +51,7 @@ args = parser.parse_args()
 input_filename = args.input_file
 mask_filename = args.mask_image
 shift_x, shift_y = args.image_shift
+scaling = args.scaling
 marker_filename = args.marker_file
 spotmarker.marker_size = args.marker_size
 spotmarker.marker_colors = args.marker_colors
@@ -68,8 +72,8 @@ total_planes = spot_table.plane.max() + 1
 
 # shift spots
 print("Shifting the stamp image:", shift_x, shift_y)
-spot_table['x'] = spot_table['x'] - shift_x
-spot_table['y'] = spot_table['y'] - shift_y
+spot_table['x'] = spot_table['x'] * scaling - shift_x
+spot_table['y'] = spot_table['y'] * scaling - shift_y
 
 # read TIFF files TZCYX(S)
 #input_image = tifffile.imread(input_filename)
@@ -86,7 +90,7 @@ if mask_filename is not None:
 # make an output image
 output_image = spotmarker.convert_to_color(input_image)
 if input_tiff.total_time == 1:
-    output_image = numpy.array([output_image.copy() for index in range(spot_table.plane.max())])
+    output_image = numpy.array([output_image[0] for index in range(spot_table.plane.max())])
 
 # make an output image
 print("Marked {0:d} spots on {1}.".format(len(spot_table), input_filename))
