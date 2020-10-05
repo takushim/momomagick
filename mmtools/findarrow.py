@@ -145,8 +145,7 @@ class FindArrow:
 
     def draw_spots (self, back_image, spot_table, spot_index = None, arrow_index = None):
         text_font = ImageFont.truetype(self.font_path(), 20)
-        image_array = numpy.zeros_like(back_image)
-        image = Image.fromarray(image_array)
+        image = Image.fromarray(numpy.zeros_like(back_image)) # int8 fails... why?
         draw = ImageDraw.Draw(image)
 
         if spot_index is None:
