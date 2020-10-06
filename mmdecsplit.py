@@ -23,26 +23,26 @@ filename_spimb = 'SPIMB_0.tif'
 # parse arguments
 parser = argparse.ArgumentParser(description='Crop and save diSPIM image for deconvolution', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-g', '--image-origin', nargs=2, type=int, default=[crop_x, crop_y], \
+parser.add_argument('-g', '--image-origin', nargs=2, type=int, default = [crop_x, crop_y], \
                     metavar=('X', 'Y'), \
                     help='origin of cropping')
-parser.add_argument('-z', '--image-size', nargs=2, type=int, default=[crop_width, crop_height], \
+parser.add_argument('-z', '--image-size', nargs=2, type=int, default = [crop_width, crop_height], \
                     metavar=('WIDTH', 'HEIGHT'), \
                     help='size of cropped image')
-parser.add_argument('-s', '--stack-range', nargs=2, type=int, default=stack_range, \
+parser.add_argument('-s', '--stack-range', nargs=2, type=int, default = stack_range, \
                     metavar=('BEGIN', 'END'), \
                     help='range of stack to be used')
-parser.add_argument('-b', '--back-value', nargs=1, type=int, default=[back_value], \
+parser.add_argument('-b', '--back-value', type=int, default = back_value, \
                     help='background_value to subtract')
-parser.add_argument('input_file', nargs=1, default=input_filename, \
+parser.add_argument('input_file', default = input_filename, \
                     help='input (multipage) TIFF file')
 args = parser.parse_args()
 
 # set arguments
-input_filename = args.input_file[0]
+input_filename = args.input_file
 crop_x, crop_y = args.image_origin
 crop_width, crop_height = args.image_size
-back_value = args.back_value[0]
+back_value = args.back_value
 stack_range = args.stack_range
 
 # read TIFF file (assumes TZ(C)YX order)

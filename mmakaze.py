@@ -10,20 +10,20 @@ ref_image_filename = None
 
 parser = argparse.ArgumentParser(description='Calculate sample drift using A-KAZE feature matching', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-f', '--output-file', nargs=1, default = [output_filename], \
+parser.add_argument('-f', '--output-file', default = output_filename, \
                     help='output TSV file name ({0} if not specified)'.format(output_filename))
 
-parser.add_argument('-r', '--ref-image', nargs=1, default = [ref_image_filename], \
+parser.add_argument('-r', '--ref-image', default = ref_image_filename, \
                     help='specify an image as a reference')
 
-parser.add_argument('input_file', nargs=1, default = None, \
+parser.add_argument('input_file', default = input_filename, \
                     help='a multipage TIFF file(s) to align')
 args = parser.parse_args()
 
 # set arguments
-input_filename = args.input_file[0]
-output_filename = args.output_file[0]
-ref_image_filename = args.ref_image[0]
+input_filename = args.input_file
+output_filename = args.output_file
+ref_image_filename = args.ref_image
 
 # read input image
 input_tiff = mmtiff.MMTiff(input_filename)

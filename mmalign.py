@@ -16,8 +16,8 @@ output_filename = None
 parser = argparse.ArgumentParser(description='Align a multipage TIFF image.', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('-f', '--align-file', nargs=1, default = [align_filename], \
-                    help='aligning tsv file name ({0} if not specified)'.format(align_filename))
+parser.add_argument('-f', '--align-file', default = align_filename, \
+                    help='a tsv file used for alignment')
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument('-c', '--calc-smoothing', action='store_true', default = calc_smoothing, \
@@ -25,16 +25,16 @@ group.add_argument('-c', '--calc-smoothing', action='store_true', default = calc
 group.add_argument('-u', '--use-smoothing', action='store_true', default = use_smoothing, \
                    help='use previously calculated smoothing curves in the file')
 
-parser.add_argument('-o', '--output-file', nargs=1, default = None, \
+parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='output image file name ([basename]{0} by default)'.format(filename_suffix))
 
-parser.add_argument('input_file', nargs=1, default=None, \
+parser.add_argument('input_file', default = input_filename, \
                     help='input multpage-tiff file to align')
 args = parser.parse_args()
 
 # set arguments
-input_filename = args.input_file[0]
-align_filename = args.align_file[0]
+input_filename = args.input_file
+align_filename = args.align_file
 calc_smoothing = args.calc_smoothing
 use_smoothing = args.use_smoothing
 
@@ -45,7 +45,7 @@ if args.output_file is None:
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename')
 else:
-    output_filename = args.output_file[0]
+    output_filename = args.output_file
 
 # read input image(s)
 input_tiff = mmtiff.MMTiff(input_filename)

@@ -10,15 +10,15 @@ output_filename = 'align.png'
 
 parser = argparse.ArgumentParser(description='Show a graph of alignment curves', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-o', '--output-file', nargs=1, default = [output_filename], \
+parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='output image file name')
-parser.add_argument('input_file', nargs='?', default=[input_filename], \
+parser.add_argument('input_file', nargs = '?', default=input_filename, \
                     help='input a TSV file to prepare a graph')
 args = parser.parse_args()
 
 # set arguments
-input_filename = args.input_file[0]
-output_filename = args.output_file[0]
+input_filename = args.input_file
+output_filename = args.output_file
 
 # prepare a graph
 align_table = pandas.read_csv(input_filename, comment = '#', sep = '\t')

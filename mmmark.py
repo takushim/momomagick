@@ -11,8 +11,8 @@ input_filename = None
 output_filename = None
 marker_filename = 'spot_table.txt'
 mask_filename = None
-shift_x = 0
-shift_y = 0
+shift_x = 0.0
+shift_y = 0.0
 scaling = 1.0
 filename_suffix = '_marked.tif'
 
@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(description='Mark detected spots on background 
 parser.add_argument('-o', '--output-file', default=output_filename, \
                     help='output multipage TIFF file ([basename]{0} by default)'.format(filename_suffix))
 
-parser.add_argument('-s', '--image-shift', nargs=2, type=int, default=[shift_x, shift_y], metavar=('X', 'Y'), \
+parser.add_argument('-s', '--image-shift', nargs=2, type=float, default=[shift_x, shift_y], metavar=('X', 'Y'), \
                     help='shift of the image against spots')
 parser.add_argument('-x', '--scaling', type = float, default = scaling, \
                     help='Scale cooredinates to use magnified images')
@@ -30,7 +30,7 @@ parser.add_argument('-x', '--scaling', type = float, default = scaling, \
 parser.add_argument('-f', '--marker-file', default=marker_filename, \
                     help='name of TSV file (read [basename].txt if not specified)')
 parser.add_argument('-z', '--marker-size', type=int, default=spotmarker.marker_size, \
-                    help='marker size to draw')
+                    help='marker size to draw (dot == 0)')
 parser.add_argument('-c', '--marker-colors', nargs=4, type=str, default=spotmarker.marker_colors, \
                     metavar=('NEW', 'CONT', 'END', 'REDUN'), \
                     help='marker colors for new, tracked, disappearing, and redundant spots')

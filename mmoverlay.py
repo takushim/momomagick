@@ -20,7 +20,7 @@ filename_suffix = '_overlay.tif'
 # parse arguments
 parser = argparse.ArgumentParser(description='Overlay two diSPIM images', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-o', '--output-file', nargs=1, default=output_filename, \
+parser.add_argument('-o', '--output-file', default=output_filename, \
                     help='output multipage TIFF file ([basename]{0} by default)'.format(filename_suffix))
 
 parser.add_argument('-s', '--image-shift', nargs=2, type=float, default=[shift_x, shift_y], \
@@ -29,8 +29,8 @@ parser.add_argument('-s', '--image-shift', nargs=2, type=float, default=[shift_x
 
 parser.add_argument('-A', '--align-images', action='store_true', default = align_images, \
                     help='align overlay images using a TSV file')
-parser.add_argument('-f', '--align-filename', nargs=1, default = [align_filename], \
-                    help='aligning tsv file name ({0} if not specified)'.format(align_filename))
+parser.add_argument('-f', '--align-filename', default = align_filename, \
+                    help='a tsv file used for alignment')
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument('-c', '--calc-smoothing', action='store_true', default = calc_smoothing, \
@@ -49,7 +49,7 @@ args = parser.parse_args()
 input_filenames = args.input_file
 shift_x, shift_y = args.image_shift
 align_images = args.align_images
-align_filename = args.align_filename[0]
+align_filename = args.align_filename
 calc_smoothing = args.calc_smoothing
 use_smoothing = args.use_smoothing
 invert_channel_order = args.invert_channel_order
@@ -61,7 +61,7 @@ if args.output_file is None:
     if any([x == output_filename for x in input_filenames]):
         raise Exception('input_filename == output_filename.')
 else:
-    output_filename = args.output_file[0]
+    output_filename = args.output_file
 
 # read TIFF files
 input_tiffs = []

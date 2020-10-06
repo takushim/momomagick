@@ -11,20 +11,19 @@ use_channel = None
 # parse arguments
 parser = argparse.ArgumentParser(description='Split an image stack into left and right images', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-o', '--output-prefix', nargs=1, default=output_prefix, \
+parser.add_argument('-o', '--output-prefix', default=output_prefix, \
                     help='prefix of output TIFF file ([basename] by default)')
 
-parser.add_argument('-c', '--use-channel', nargs=1, type=int, default=use_channel, \
+parser.add_argument('-c', '--use-channel', type=int, default=use_channel, \
                     help='select one channel to be output')
 
-parser.add_argument('input_file', nargs=1, default=input_filename, \
+parser.add_argument('input_file', default=input_filename, \
                     help='an input (multipage) TIFF file')
 args = parser.parse_args()
 
 # set arguments
-input_filename = args.input_file[0]
-if args.use_channel is not None:
-    use_channel = args.use_channel[0]
+input_filename = args.input_file
+use_channel = args.use_channel
 if args.output_prefix is None:
     stem = pathlib.Path(input_filename).stem
     stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
@@ -32,7 +31,7 @@ if args.output_prefix is None:
     stem = re.sub('_$', '', stem, flags=re.IGNORECASE)
     output_prefix = stem
 else:
-    output_prefix = args.output_prefix[0]
+    output_prefix = args.output_prefix
 
 # read TIFF file (assumes TZCYX order)
 input_tiff = mmtiff.MMTiff(input_filename)

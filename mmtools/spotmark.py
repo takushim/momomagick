@@ -138,8 +138,8 @@ class SpotMark:
                 skipped_planes.append(index)
                 continue
 
-            spots['int_x'] = spots['x'].astype(numpy.int)
-            spots['int_y'] = spots['y'].astype(numpy.int)
+            spots['int_x'] = numpy.round(spots['x']).astype(numpy.int)
+            spots['int_y'] = numpy.round(spots['y']).astype(numpy.int)
             spots = spots.sort_values(by = ['int_x', 'int_y']).reset_index(drop=True)
 
             # check possible error spots (duplicated)
@@ -151,13 +151,18 @@ class SpotMark:
             image = Image.fromarray(image_color[index])
             draw = ImageDraw.Draw(image)
 
-            for row, spot in spots.iterrows():
-                # draw marker
-                if spot['status'] == 'emerge':
-                    draw.rectangle(((spot.int_x - self.marker_size, spot.int_y - self.marker_size),\
-                                   (spot.int_x + self.marker_size, spot.int_y + self.marker_size)),\
-                                   fill = None, width = self.marker_width, outline = spot.color)
-                else:
+            if self.marker_size == 0:
+                for spot in spots.itertuples():
+                    # draw marker
+                    draw.point(((spot.int_x, spot.int_y), outline = spot.color)
+
+                    # mark duplicated spot
+                    if spot['duplicated'] is True:
+                        draw.ellipse(((spot.int_x - 1, spot.int_y - 1),\
+                                      (spot.int_x + 1, spot.int_y + 1)),\
+                                    fill = None, width = self.marker_width, outline = self.marker_colors[3])
+            else:
+                for spot in spots.itertuples():
                     draw.ellipse(((spot.int_x - self.marker_size, spot.int_y - self.marker_size),\
                                 (spot.int_x + self.marker_size, spot.int_y + self.marker_size)),\
                                 fill = None, width = self.marker_width, outline = spot.color)
@@ -168,11 +173,11 @@ class SpotMark:
                                 (spot.int_x + self.marker_size, spot.int_y + self.marker_size)),\
                                 315, 135, width = self.marker_width, fill = marker_color_end)
 
-                # mark duplicated spot
-                if spot['duplicated'] is True:
-                    draw.ellipse(((spot.int_x - self.marker_size + 1, spot.int_y - self.marker_size + 1),\
-                                  (spot.int_x + self.marker_size + 1, spot.int_y + self.marker_size + 1)),\
-                                  fill = None, width = self.marker_width, outline = self.marker_colors[3])
+                    # mark duplicated spot
+                    if spot['duplicated'] is True:
+                        draw.ellipse(((spot.int_x - self.marker_size - 1, spot.int_y - self.marker_size - 1),\
+                                    (spot.int_x + self.marker_size + 1, spot.int_y + self.marker_size + 1)),\
+                                    fill = None, width = self.marker_width, outline = self.marker_colors[3])
 
             image_color[index] = numpy.asarray(image)
 

@@ -8,6 +8,7 @@ class Akaze:
         self.columns = ['align_plane', 'align_x', 'align_y', 'smooth_x', 'smooth_y']
         self.threshold = 0.00005
         self.matching_ratio = 0.15
+        self.use_ransac = False
 
     def output_header (self, output_file, input_filename, reference_filename):
         output_file.write('## Alignment by TaniAlign (AKAZE) at %s\n' % (time.ctime()))
@@ -42,21 +43,26 @@ class Akaze:
                 this_points[i, :] = this_kps[match.trainIdx].pt
 
             # reduce error matching by RANSAC
-            h, mask = cv2.findHomography(orig_points, this_points, cv2.RANSAC, 3.0)
-            matches_mask = mask.ravel().tolist() # does this need?
+            matching_method = 'RANSAC'
+            h, masks = cv2.findHomography(orig_points, this_points, cv2.RANSAC, 3.0)
+            masks = masks[:, 0]
+            if numpy.all(masks[0] == 0):
+                masks = numpy.ones_like(masks, dtype = numpy.int)
+                matching_method = 'Brute-Force'
 
             # calculate the drift
-            mvx=0
-            mvy=0
-            cnt=0
-            for k, v in enumerate(mask):
-                if v==1:
-                    mvx += this_points[k][0] - orig_points[k][0]
-                    mvy += this_points[k][1] - orig_points[k][1]
-                    cnt += 1
+            mvx = 0
+            mvy = 0
+            cnt = 0
+
+            for point_index in numpy.where(masks == 1)[0]:
+                mvx += this_points[point_index][0] - orig_points[point_index][0]
+                mvy += this_points[point_index][1] - orig_points[point_index][1]
+                cnt += 1
+
             mvx = mvx / cnt
             mvy = mvy / cnt
-            print("Plane %d, dislocation = (%f, %f)." % (index, mvx, mvy))
+            print("Plane {0:d}, dislocation = ({1:f}, {2:f}) using {3}.".format(index, mvx, mvy, matching_method))
 
             results.append([index, mvx, mvy])
 

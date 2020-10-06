@@ -4,7 +4,7 @@ import sys, numpy, pandas, time
 
 class Lifetime:
     def __init__ (self, spot_table, time_scale = 1.0):
-        self.lifetime_columns = ['life_count', 'life_time', 'spot_count', 'spot_regression']
+        self.lifetime_columns = ['life_count', 'life_time', 'spot_count']
         self.time_scale = time_scale
         self.spot_table = spot_table
 
@@ -55,18 +55,36 @@ class Lifetime:
         output_indexes = [i for i in range(1, lifecount_max + 1)]
         output_times = [i * self.time_scale for i in output_indexes]
         output_counts = [len(work_table[work_table.life_count == i]) for i in output_indexes]
-        output_regs = [len(work_table[work_table.life_count >= i]) for i in output_indexes]
 
         # output data
         output_table = pandas.DataFrame({ \
                             self.lifetime_columns[0] : output_indexes, \
                             self.lifetime_columns[1] : output_times, \
-                            self.lifetime_columns[2] : output_counts, \
-                            self.lifetime_columns[3] : output_regs}, \
+                            self.lifetime_columns[2] : output_counts}, \
                             columns = self.lifetime_columns)
 
         return output_table
     
+    def cumulative (self):
+        # add lifetime columns
+        work_table = self.add_life_count(self.spot_table)
+
+        # prepare data
+        lifecount_max = work_table.life_total.max()
+        work_table = work_table.drop_duplicates(subset='total_index', keep='last').reset_index(drop=True)
+        output_indexes = [i for i in range(1, lifecount_max + 1)]
+        output_times = [i * self.time_scale for i in output_indexes]
+        output_counts = [len(work_table[work_table.life_count >= i]) for i in output_indexes]
+
+        # output data
+        output_table = pandas.DataFrame({ \
+                            self.lifetime_columns[0] : output_indexes, \
+                            self.lifetime_columns[1] : output_times, \
+                            self.lifetime_columns[2] : output_counts}, \
+                            columns = self.lifetime_columns)
+
+        return output_table
+
     def new_binding (self):
         # add lifetime columns
         work_table = self.add_life_count(self.spot_table)
