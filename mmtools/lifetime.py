@@ -85,7 +85,7 @@ class Lifetime:
 
         return output_table
 
-    def new_binding (self):
+    def newbinding (self):
         # add lifetime columns
         work_table = self.add_life_count(self.spot_table)
         

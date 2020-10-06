@@ -47,8 +47,7 @@ args = parser.parse_args()
 # set arguments
 input_filename = args.input_file
 if args.output_file is None:
-    stem = pathlib.Path(input_filename).stem
-    output_filename = stem + filename_suffix
+    output_filename = mmtiff.MMTiff.stem(input_filename) + filename_suffix
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename.')
 else:

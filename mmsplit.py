@@ -25,11 +25,7 @@ args = parser.parse_args()
 input_filename = args.input_file
 use_channel = args.use_channel
 if args.output_prefix is None:
-    stem = pathlib.Path(input_filename).stem
-    stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
-    stem = re.sub('MMStack_Pos[0-9]+$', '', stem, flags=re.IGNORECASE)
-    stem = re.sub('_$', '', stem, flags=re.IGNORECASE)
-    output_prefix = stem
+    output_prefix = mmtiff.MMTiff.prefix(input_filename)
 else:
     output_prefix = args.output_prefix
 

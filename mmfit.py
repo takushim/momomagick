@@ -65,10 +65,7 @@ else:
     shift_range_y = [args.shift_fix_y, args.shift_fix_y, 1.0]
 
 if args.output_file is None:
-    stem = pathlib.Path(input_filenames[0]).stem
-    stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
-    stem = re.sub('_[0-9]+$', '', stem, flags=re.IGNORECASE)
-    output_filename = stem + filename_suffix
+    output_filename = mmtiff.MMTiff.stem(input_filename) + filename_suffix
 else:
     output_filename = args.output_file
 

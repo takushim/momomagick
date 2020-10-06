@@ -58,12 +58,12 @@ figure.savefig(output_filename, dpi = 300)
 
 # new binding and lifetime
 output_filename = pathlib.Path(output_folder).joinpath('newbinding.png')
-output_table = lifetime_analyzer.new_binding()
+output_table = lifetime_analyzer.newbinding()
 
 print("Output a new-binding graph to {0}.".format(output_filename))
 figure = pyplot.figure(figsize = (12, 8), dpi = 300)
 axes = figure.add_subplot(111)
 axes.scatter(output_table.plane, output_table.life_time)
 figure.savefig(output_filename, dpi = 300)
-output_table.to_csv("debug.csv")
+#output_table.to_csv("debug.csv")
 

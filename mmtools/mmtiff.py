@@ -8,10 +8,18 @@ class MMTiff:
         self.read_image()
 
     @staticmethod
-    def filename_stem (filename):
-        stem = pathlib.Path(filename).stem
-        stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
-        return stem
+    def stem (filename):
+        name = pathlib.Path(filename).stem
+        name = re.sub('\.ome$', '', name, flags=re.IGNORECASE)
+        return name
+
+    @staticmethod
+    def prefix (filename):
+        name = pathlib.Path(filename).stem
+        name = re.sub('\.ome$', '', name, flags=re.IGNORECASE)
+        name = re.sub('MMStack_Pos[0-9]+$', '', name, flags=re.IGNORECASE)
+        name = re.sub('_$', '', name, flags=re.IGNORECASE)
+        return name
 
     def read_image (self):
         # read TIFF file (assumes TZ(C)YX(S) order)

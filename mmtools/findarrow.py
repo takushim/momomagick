@@ -158,7 +158,8 @@ class FindArrow:
         else:
             if arrow_index is None:
                 spots_to_draw = spot_table[spot_table.index == spot_index]
-                draw_text = "Spot {0}".format(spot_index)
+                lifetime = spots_to_draw.life_total.to_list()[0]
+                draw_text = "Spot {0}: dwells {1} frames".format(spot_index, lifetime)
             else:
                 raise Exception("Either spot_index or arrow_index should be specified.")
 

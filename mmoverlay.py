@@ -54,10 +54,7 @@ calc_smoothing = args.calc_smoothing
 use_smoothing = args.use_smoothing
 invert_channel_order = args.invert_channel_order
 if args.output_file is None:
-    stem = pathlib.Path(input_filenames[0]).stem
-    stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
-    stem = re.sub('_[0-9]+$', '', stem, flags=re.IGNORECASE)
-    output_filename = stem + filename_suffix
+    output_filename = mmtiff.MMTiff.stem(input_filenames[0]) + filename_suffix
     if any([x == output_filename for x in input_filenames]):
         raise Exception('input_filename == output_filename.')
 else:

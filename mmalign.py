@@ -39,9 +39,7 @@ calc_smoothing = args.calc_smoothing
 use_smoothing = args.use_smoothing
 
 if args.output_file is None:
-    stem = pathlib.Path(input_filename).stem
-    stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
-    output_filename = stem + filename_suffix
+    output_filename = mmtiff.MMTiff.stem(input_filename) + filename_suffix
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename')
 else:
