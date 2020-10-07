@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys, numpy, pandas, time
+from scipy.optimize import curve_fit
 
 class Lifetime:
     def __init__ (self, spot_table, time_scale = 1.0):
@@ -18,6 +19,15 @@ class Lifetime:
                                   left_on='total_index', right_index=True, how='left')
 
         return work_table
+
+    @staticmethod
+    def fit_one_phase_decay (times, counts):
+        def one_phase_decay (x, a, b, c):
+            return a * numpy.exp(- b * x) + c
+
+        popt, pcov = curve_fit(one_phase_decay, times, counts)
+
+        return (lambda x: popt[0] * numpy.exp (- popt[1] * x) + popt[2]), popt, pcov
 
     def regression (self):
         # regression
