@@ -69,6 +69,7 @@ if output_graphs:
     print("Output a regression graph to {0}.".format(output_filename))
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
+    axes.set_title("Regression from t = 0", size = 'xx-large')
     axes.plot(output_table.life_time, curve_func(output_table.life_time), color = 'black', linestyle = ':')
     axes.scatter(output_table.life_time, output_table.spot_count, color = 'orange')
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
@@ -90,6 +91,7 @@ if output_graphs:
     print("Output a lifetime graph to {0}.".format(output_filename))
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
+    axes.set_title("Lifetime distribution", size = 'xx-large')
     width = output_table.life_time[0]
     axes.plot(output_table.life_time, curve_func(output_table.life_time), color = 'black', linestyle = ':')
     axes.bar(output_table.life_time, output_table.spot_count, width = -width/2, align = 'edge', color = 'orange')
@@ -112,6 +114,7 @@ if output_graphs:
     print("Output a cumulative graph to {0}.".format(output_filename))
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
+    axes.set_title("Cumulative regression", size = 'xx-large')
     axes.plot(output_table.life_time, curve_func(output_table.life_time), color = 'black', linestyle = ':')
     axes.scatter(output_table.life_time, output_table.spot_count, color = 'orange')
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
@@ -132,6 +135,7 @@ if output_graphs:
     print("Output a new-binding graph to {0}.".format(output_filename))
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
+    axes.set_title("Binding plane and lifetime", size = 'xx-large')
     axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
     axes.scatter(output_table.plane, output_table.life_time, color = 'orange')
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
