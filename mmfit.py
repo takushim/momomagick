@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 input_filenames = None
 output_filename = None
 filename_suffix = '_fit.tif'
-#use_plane = 0
+use_plane = 0
 shift_range_x = [-20, 20, 0.5]
 shift_range_y = [-10, 10, 0.5]
 
@@ -29,8 +29,8 @@ parser = argparse.ArgumentParser(description='Try overlay of two images using va
 parser.add_argument('-o', '--output-file', default=output_filename, \
                     help='filename of output TIFF file ([basename]%s by default)' % (filename_suffix))
 
-#parser.add_argument('-p', '--use-plane', nargs=1, type=int, default=[use_plane], \
-#                    help='frame to detect spots (the first frame if not specified)')
+parser.add_argument('-p', '--use-plane', type=int, default=use_plane, \
+                    help='frame to detect spots (the first frame if not specified)')
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument('-X', '--shift-range-x', nargs=3, type=float, default = shift_range_x, \
@@ -52,7 +52,7 @@ args = parser.parse_args()
 
 # set arguments
 input_filenames = args.input_file
-#use_plane = args.use_plane[0]
+use_plane = args.use_plane
 
 if args.shift_fix_x is None:
     shift_range_x = args.shift_range_x
@@ -65,7 +65,7 @@ else:
     shift_range_y = [args.shift_fix_y, args.shift_fix_y, 1.0]
 
 if args.output_file is None:
-    output_filename = mmtiff.MMTiff.stem(input_filename) + filename_suffix
+    output_filename = mmtiff.MMTiff.stem(input_filenames[0]) + filename_suffix
 else:
     output_filename = args.output_file
 
@@ -75,8 +75,10 @@ input_tiffs.append(mmtiff.MMTiff(input_filenames[0]))
 input_tiffs.append(mmtiff.MMTiff(input_filenames[1]))
 
 input_images = []
-input_images.append(input_tiffs[0].as_array()[0, 0, 0])
+input_images.append(input_tiffs[0].as_array()[use_plane, 0, 0])
 input_images.append(input_tiffs[1].as_array()[0, 0, 0])
+if use_plane > 0:
+    print("Using plane {0} of original image.".format(use_plane))
 
 overlay_width = max([x.width for x in input_tiffs])
 overlay_height = max([x.height for x in input_tiffs])

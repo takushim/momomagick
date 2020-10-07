@@ -59,7 +59,7 @@ spotmarker.marker_rainbow = args.rainbow_colors
 spotmarker.invert_image = args.invert_image
 
 if args.output_file is None:
-    output_filename = mmtiff.MMTiff.filename_stem(input_filename) + filename_suffix
+    output_filename = mmtiff.MMTiff.stem(input_filename) + filename_suffix
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename.')
 else:
