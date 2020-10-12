@@ -76,6 +76,7 @@ if output_graphs:
               "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec".format(popt[1], numpy.log(2) / popt[1]), \
               size = 'xx-large', ha = 'right', va = 'top')
     figure.savefig(output_filename, dpi = 300)
+print(".")
 
 # lifetime
 output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_lifetime + suffix_tsv_file)
@@ -99,6 +100,7 @@ if output_graphs:
               "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec".format(popt[1], numpy.log(2) / popt[1]), \
               size = 'xx-large', ha = 'right', va = 'top')
     figure.savefig(output_filename, dpi = 300)
+print(".")
 
 # cumulative lifetime
 output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_cumulative + suffix_tsv_file)
@@ -121,6 +123,7 @@ if output_graphs:
               "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec".format(popt[1], numpy.log(2) / popt[1]), \
               size = 'xx-large', ha = 'right', va = 'top')
     figure.savefig(output_filename, dpi = 300)
+print(".")
 
 # new binding and lifetime
 output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_newbinding + suffix_tsv_file)
@@ -142,4 +145,5 @@ if output_graphs:
               "Mean lifetime = {0:.3f} sec (plane > 0)".format(mean_lifetime), \
               size = 'xx-large', ha = 'right', va = 'top')
     figure.savefig(output_filename, dpi = 300)
+print(".")
 
