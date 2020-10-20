@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 import sys, numpy, pandas, time, cv2
-from statsmodels.nonparametric.smoothers_lowess import lowess
+from . import spotshift
 
 class Akaze:
     def __init__ (self):
-        self.columns = ['align_plane', 'align_x', 'align_y', 'smooth_x', 'smooth_y']
+        self.columns = ['align_plane', 'align_x', 'align_y']
         self.threshold = 0.00005
         self.matching_ratio = 0.15
         self.use_ransac = False
@@ -66,17 +66,13 @@ class Akaze:
 
             results.append([index, mvx, mvy])
 
-        # add smoothing
+        # prepare a table
         align_plane = numpy.array([result[0] for result in results])
         align_x = numpy.array([result[1] for result in results])
-        align_y = numpy.array([result[2] for result in results])        
-        smooth_x = lowess(align_x, align_plane, frac = 0.1, return_sorted = False)
-        smooth_y = lowess(align_y, align_plane, frac = 0.1, return_sorted = False)
-        print("Last dislocation (smoothed)", smooth_x[-1], smooth_y[-1])
+        align_y = numpy.array([result[2] for result in results])
+        align_table = pandas.DataFrame({self.columns[0]: align_plane, \
+                                       self.columns[1]: align_x, \
+                                       self.columns[2]: align_y, columns = self.columns
 
-        # make pandas dataframe
-        return pandas.DataFrame({self.columns[0]: align_plane, \
-                                 self.columns[1]: align_x, \
-                                 self.columns[2]: align_y, \
-                                 self.columns[3]: smooth_x, \
-                                 self.columns[4]: smooth_y}, columns = self.columns)
+        # add smoothing and return
+        return spotshift.SpotShift.add_smoothing(align_table)

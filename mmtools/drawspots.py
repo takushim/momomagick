@@ -34,7 +34,7 @@
 import sys, pandas, numpy
 from PIL import Image, ImageDraw
 
-class SpotMark:
+class DrawSpots:
     def __init__ (self):
         self.marker_size = 4
         self.marker_width = 1

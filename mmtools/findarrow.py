@@ -1,42 +1,16 @@
 #!/usr/bin/env python
 
 import platform, sys, pathlib, numpy, pandas, time
+from . import mmtiff
 from PIL import Image, ImageDraw, ImageFont
 
 class FindArrow:
-    def __init__ (self, arrow_filename, spot_scaling = 1.0, spot_shift = [0.0, 0.0]):
+    def __init__ (self, arrow_filename):
         self.dist_threshold = None
-        self.spot_shift = spot_shift
-        self.spot_scaling = spot_scaling
         self.arrow_filename = arrow_filename
-        self.arrow_table = self.read_arrow_table (arrow_filename)
-        #self.text_xy = (500, 50)
-        #self.text_xy = (460, 50)
-
-    @staticmethod
-    def font_path ():
-        if platform.system() == "Windows":
-            font_filename = 'C:/Windows/Fonts/Arial.ttf'
-        elif platform.system() == "Linux":
-            font_filename = '/usr/share/fonts/dejavu/DejaVuSans.ttf'
-        elif platform.system() == "Darwin":
-            font_filename = '/Library/Fonts/Verdana.ttf'
-        else:
-            raise Exception('Font file error.')
-
-        return font_filename
-
-    def scale_spots (self, spot_table):
-        work_table = spot_table.copy()
-        work_table['x'] = (work_table['x'] * self.spot_scaling) + self.spot_shift[0]
-        work_table['y'] = (work_table['y'] * self.spot_scaling) + self.spot_shift[1]
-        return work_table
-
-    def output_header (self, output_file):
-        filename = pathlib.Path(self.arrow_filename).name
-        output_file.write('## Output by FindArrow at {0} for {1}\n'.format(time.ctime(), filename))
-        output_file.write('#   spot_shift = [{0:f}, {1:f}]; spot_scaling = {2:f}\n'.\
-                          format(self.spot_shift[0], self.spot_shift[1], self.spot_scaling))
+        self.arrow_table = self.read_arrow_table(arrow_filename)
+        self.font_size = 20
+        self.max_distance = None
 
     def read_arrow_table (self, arrow_filename):
         # read an ImageJ arrow table (pixel unit)
@@ -72,17 +46,16 @@ class FindArrow:
         return arrow_table
 
     def find_nearest_arrow (self, spot_table):
-        # adjust coordinates
-        work_table = self.scale_spots(spot_table)
+        work_table = spot_table.copy()
 
         # find nearest arrow
         nearest_arrows = []
-        key_list = ['total_index', 'arrow_index', 'arrow_x0', 'arrow_y0', 'arrow_x1', 'arrow_y1', \
-                    'arrow_origin', 'arrow_dist0', 'arrow_dist1', 'arrow_dist', \
-                    'arrow_pos0', 'arrow_pos1', 'arrow_pos']
-        column_list = ['total_index', 'arrow_index', 'x0', 'y0', 'x1', 'y1', \
-                       'origin', 'dist0', 'dist1', 'dist', \
-                       'pos0', 'pos1', 'pos']
+        key_list = ['total_index', 'arrow_index', 'arrow_length', 'arrow_x0', 'arrow_y0', 'arrow_x1', 'arrow_y1', \
+                    'arrow_origin', 'arrow_dist_e0', 'arrow_dist_e1', 'arrow_dist_l0', 'arrow_dist_l1', \
+                    'arrow_dist_line', 'arrow_dist_min', 'arrow_pos0', 'arrow_pos1', 'arrow_pos']
+        column_list = ['total_index', 'arrow_index', 'length', 'x0', 'y0', 'x1', 'y1', \
+                       'origin', 'edge_dist0', 'edge_dist1', 'line_dist0', 'line_dist1', \
+                       'dist_line', 'dist_min', 'pos0', 'pos1', 'pos']
 
         for index, spot in work_table.iterrows():
             arrow_temp = self.arrow_table.copy()
@@ -100,33 +73,36 @@ class FindArrow:
             arrow_temp['origin'] = 0
             arrow_temp.loc[arrow_temp.edge_dist0 < arrow_temp.edge_dist1, 'origin'] = 1
 
-            #arrow_temp['dist0'] = numpy.amax((numpy.amin((arrow_temp['edge_dist0'], arrow_temp['edge_dist1']), axis = 0), arrow_temp['line_dist0']), axis = 0)
-            #arrow_temp['dist1'] = numpy.amax((numpy.amin((arrow_temp['edge_dist0'], arrow_temp['edge_dist1']), axis = 0), arrow_temp['line_dist1']), axis = 0)
-            arrow_temp['dist0'] = arrow_temp['line_dist0']
-            arrow_temp['dist1'] = arrow_temp['line_dist1']
             arrow_temp['pos0'] = numpy.diag(numpy.dot(numpy.array((spot.x - arrow_temp.x0, spot.y - arrow_temp.y0)).T, \
-                                                    numpy.array((arrow_temp.x1 - arrow_temp.x0, arrow_temp.y1 - arrow_temp.y0)))) \
+                                                      numpy.array((arrow_temp.x1 - arrow_temp.x0, arrow_temp.y1 - arrow_temp.y0)))) \
                                 / arrow_temp.length
             arrow_temp['pos1'] = arrow_temp.length - \
                                 numpy.diag(numpy.dot(numpy.array((spot.x - arrow_temp.x1, spot.y - arrow_temp.y1)).T, \
-                                            numpy.array((arrow_temp.x0 - arrow_temp.x1, arrow_temp.y0 - arrow_temp.y1)))) \
+                                                     numpy.array((arrow_temp.x0 - arrow_temp.x1, arrow_temp.y0 - arrow_temp.y1)))) \
                                 / arrow_temp.length
 
-            arrow_temp['dist'] = numpy.nan
-            arrow_temp.loc[arrow_temp.origin == 0, 'dist'] = arrow_temp['dist0']
-            arrow_temp.loc[arrow_temp.origin == 1, 'dist'] = arrow_temp['dist1']
+            arrow_temp['dist_line'] = numpy.nan
+            arrow_temp.loc[arrow_temp.origin == 0, 'dist_line'] = arrow_temp['line_dist0']
+            arrow_temp.loc[arrow_temp.origin == 1, 'dist_line'] = arrow_temp['line_dist1']
             arrow_temp['pos'] = numpy.nan
             arrow_temp.loc[arrow_temp.origin == 0, 'pos'] = arrow_temp['pos0']
             arrow_temp.loc[arrow_temp.origin == 1, 'pos'] = arrow_temp['pos1']
 
-            arrow_temp = arrow_temp.sort_values('dist')
+            arrow_temp['dist_min'] = arrow_temp['dist_line']
+            arrow_temp.loc[arrow_temp.pos < 0, 'dist_min'] = arrow_temp['edge_dist0']
+            arrow_temp.loc[arrow_temp.pos > arrow_temp.length, 'dist_min'] = arrow_temp['edge_dist1']
+
+            arrow_temp = arrow_temp.sort_values('dist_line')
 
             nearest = {key: arrow_temp[column].to_list()[0] for (key, column) in zip(key_list, column_list)}
             nearest_arrows.append(nearest)
 
         nearest_arrows = {key: [arrow[key] for arrow in nearest_arrows] for key in key_list}
+        nearest_arrow_table = pandas.DataFrame(nearest_arrows, columns = key_list)
+        if self.max_distance is not None:
+            nearest_arrow_table.loc[nearest_arrow_table.arrow_dist_min > self.max_distance, 'arrow_index'] = -1
         
-        return pandas.DataFrame(nearest_arrows, columns = key_list)
+        return nearest_arrow_table
 
     def draw_arrows (self, back_image, arrow_table, arrow_index = None):
         image = Image.fromarray(numpy.zeros_like(back_image, dtype = numpy.int8))
@@ -140,11 +116,12 @@ class FindArrow:
         for arrow in arrows_to_draw.itertuples():
             arrow_xy = numpy.array([arrow.x0, arrow.y0, arrow.x1, arrow.y1])
             draw.line(tuple(numpy.round(arrow_xy)), fill = 'white', width = 1)
+            #draw.ellipse((arrow.x0 - 2, arrow.y0 - 2, arrow.x0 + 2, arrow.y0 + 2), fill = None, outline = 'white')
 
         return numpy.array(image)
 
     def draw_spots (self, back_image, spot_table, spot_index = None, arrow_index = None):
-        text_font = ImageFont.truetype(self.font_path(), 20)
+        text_font = ImageFont.truetype(mmtiff.MMTiff.font_path(), self.font_size)
         image = Image.fromarray(numpy.zeros_like(back_image)) # int8 fails... why?
         draw = ImageDraw.Draw(image)
 
@@ -152,9 +129,12 @@ class FindArrow:
             if arrow_index is None:
                 spots_to_draw = spot_table
                 draw_text = "Total {0} spots".format(len(spots_to_draw))
-            else:
+            elif arrow_index >= 0:
                 spots_to_draw = spot_table[spot_table.arrow_index == arrow_index]
                 draw_text = "Arrow {0}: total {1} spots".format(arrow_index, len(spots_to_draw))
+            else:
+                spots_to_draw = spot_table[spot_table.arrow_index < 0]
+                draw_text = "Arrow unassigned: total {0} spots".format(len(spots_to_draw))
         else:
             if arrow_index is None:
                 spots_to_draw = spot_table[spot_table.index == spot_index]
@@ -171,9 +151,7 @@ class FindArrow:
         return numpy.array(image)
 
     def draw_for_arrow (self, back_image, spot_table):
-        # adjust coordinates
-        work_table = self.scale_spots(spot_table)
-
+        work_table = spot_table.copy()
         output_images = []
 
         # plot of all arrows
@@ -181,22 +159,31 @@ class FindArrow:
         spot_image = self.draw_spots(back_image, work_table)
         output_images.append([arrow_image, spot_image, back_image.copy()])
 
+        # plot for each arrow
         for index in range(len(self.arrow_table)):
             arrow_image = self.draw_arrows(back_image, self.arrow_table, index)
             spot_image = self.draw_spots(back_image, work_table, None, index)
             output_images.append([arrow_image, spot_image, back_image.copy()])
 
+        # plot of unassigned spots
+        if len(work_table[work_table.arrow_index < 0]) > 0:
+            arrow_image = self.draw_arrows(back_image, self.arrow_table)
+            spot_image = self.draw_spots(back_image, work_table, None, -1)
+            output_images.append([arrow_image, spot_image, back_image.copy()])
+
         return numpy.array(output_images, dtype = back_image.dtype)
 
     def draw_for_spot (self, back_image, spot_table):
-        # adjust coordinates
-        work_table = self.scale_spots(spot_table)
+        work_table = spot_table.copy()
         
         output_images = []
         for index, spot in enumerate(work_table.itertuples()):
             arrow_image = self.draw_arrows(back_image, self.arrow_table)
             spot_image = self.draw_spots(back_image, work_table, index)
-            one_arrow_image = self.draw_arrows(back_image, self.arrow_table, spot.arrow_index)
+            if spot.arrow_index >= 0:
+                one_arrow_image = self.draw_arrows(back_image, self.arrow_table, spot.arrow_index)
+            else:
+                one_arrow_image = numpy.zeros_like(back_image)
             output_images.append([arrow_image, spot_image, one_arrow_image, back_image.copy()])
             
         return numpy.array(output_images, dtype = back_image.dtype)

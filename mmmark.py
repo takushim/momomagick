@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import sys, argparse, pathlib, re, numpy, pandas, tifffile
-from mmtools import mmtiff, lifetime, spotmark
+from mmtools import mmtiff, lifetime, drawspots
 
 # prepare spot marker
-spotmarker = spotmark.SpotMark()
+spot_drawer = drawspots.DrawSpots()
 
 # default values
 input_filename = None
@@ -29,18 +29,18 @@ parser.add_argument('-x', '--scaling', type = float, default = scaling, \
 
 parser.add_argument('-f', '--marker-file', default=marker_filename, \
                     help='name of TSV file (read [basename].txt if not specified)')
-parser.add_argument('-z', '--marker-size', type=int, default=spotmarker.marker_size, \
+parser.add_argument('-z', '--marker-size', type=int, default=spot_drawer.marker_size, \
                     help='marker size to draw (dot == 0)')
-parser.add_argument('-c', '--marker-colors', nargs=4, type=str, default=spotmarker.marker_colors, \
+parser.add_argument('-c', '--marker-colors', nargs=4, type=str, default=spot_drawer.marker_colors, \
                     metavar=('NEW', 'CONT', 'END', 'REDUN'), \
                     help='marker colors for new, tracked, disappearing, and redundant spots')
-parser.add_argument('-r', '--rainbow-colors', action='store_true', default=spotmarker.marker_rainbow, \
+parser.add_argument('-r', '--rainbow-colors', action='store_true', default=spot_drawer.marker_rainbow, \
                     help='use rainbow colors to distinguish each tracking')
 
 parser.add_argument('-m', '--mask-image', default = mask_filename, \
                     help='read masking image to omit unnecessary area')
 
-parser.add_argument('-i', '--invert-image', action='store_true', default=spotmarker.invert_image, \
+parser.add_argument('-i', '--invert-image', action='store_true', default=spot_drawer.invert_image, \
                     help='invert the LUT of output image')
 
 parser.add_argument('input_file', default=input_filename, \
@@ -53,10 +53,10 @@ mask_filename = args.mask_image
 shift_x, shift_y = args.image_shift
 scaling = args.scaling
 marker_filename = args.marker_file
-spotmarker.marker_size = args.marker_size
-spotmarker.marker_colors = args.marker_colors
-spotmarker.marker_rainbow = args.rainbow_colors
-spotmarker.invert_image = args.invert_image
+spot_drawer.marker_size = args.marker_size
+spot_drawer.marker_colors = args.marker_colors
+spot_drawer.marker_rainbow = args.rainbow_colors
+spot_drawer.invert_image = args.invert_image
 
 if args.output_file is None:
     output_filename = mmtiff.MMTiff.stem(input_filename) + filename_suffix
@@ -88,13 +88,13 @@ if mask_filename is not None:
     print("Filtered {0:d} spots using a mask image: {1}.".format(total_spots - len(spot_table), mask_filename))
 
 # make an output image
-output_image = spotmarker.convert_to_color(input_image)
+output_image = spot_drawer.convert_to_color(input_image)
 if input_tiff.total_time == 1:
     output_image = numpy.array([output_image[0] for index in range(spot_table.plane.max())])
 
 # make an output image
 print("Marked {0:d} spots on {1}.".format(len(spot_table), input_filename))
-output_image = spotmarker.mark_spots(output_image, spot_table)
+output_image = spot_drawer.mark_spots(output_image, spot_table)
 
 # output ImageJ, dimensions should be in TZCYXS order
 print('Output image was shaped into:', output_image.shape)

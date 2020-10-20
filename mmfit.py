@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, platform, argparse, re, pathlib, numpy, itertools
+import os, sys, argparse, re, pathlib, numpy, itertools
 from mmtools import mmtiff
 from scipy.ndimage.interpolation import shift
 from PIL import Image, ImageDraw, ImageFont
@@ -14,14 +14,9 @@ shift_range_x = [-20, 20, 0.5]
 shift_range_y = [-10, 10, 0.5]
 
 # font
-if platform.system() == "Windows":
-    font_file = 'C:/Windows/Fonts/Arial.ttf'
-elif platform.system() == "Linux":
-    font_file = '/usr/share/fonts/dejavu/DejaVuSans.ttf'
-elif platform.system() == "Darwin":
-    font_file = '/Library/Fonts/Verdana.ttf'
-else:
-    raise Exception('font file error.')
+font_file = mmtiff.MMTiff.font_path()
+#font_color = 'white'
+font_color = 128
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Try overlay of two images using various alignments', \
@@ -85,7 +80,6 @@ overlay_height = max([x.height for x in input_tiffs])
 output_dtype = numpy.uint16
 
 font_size = overlay_height // 8
-font_color = 'white'
 font = ImageFont.truetype(font_file, font_size)
 
 print("X range", shift_range_x)
@@ -96,19 +90,22 @@ output_images = []
 for (shift_y, shift_x) in itertools.product(shift_ys, shift_xs):
     # prepare output image space
     overlay_images = []
-    shifted_image = numpy.zeros((overlay_height, overlay_width), dtype = output_dtype)
-    shifted_image[0:input_tiffs[0].height, 0:input_tiffs[0].width] = input_images[0]
-    shifted_image = shift(shifted_image, (shift_y, shift_x))
-    overlay_images.append(shifted_image)
 
+    # background
     orig_image = numpy.zeros((overlay_height, overlay_width), dtype = output_dtype)
     orig_image[0:input_tiffs[1].height, 0:input_tiffs[1].width] = input_images[1].copy()
 
+    # draw shifts
     image = Image.fromarray(orig_image)
     draw = ImageDraw.Draw(image)
     draw.text((0, 0), "X %+04.1f Y %+04.1f" % (shift_x, shift_y), font = font, fill = font_color)
     orig_image = numpy.array(image)
     overlay_images.append(orig_image)
+
+    # overlay
+    shifted_image = numpy.zeros((overlay_height, overlay_width), dtype = output_dtype)
+    shifted_image[0:input_tiffs[0].height, 0:input_tiffs[0].width] = input_images[0]
+    overlay_images.append(shift(shifted_image, (shift_y, shift_x)))
 
     output_images.append(numpy.array(overlay_images))
 

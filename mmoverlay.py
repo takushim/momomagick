@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys, argparse, pathlib, re, numpy, pandas, itertools
+from PIL import Image, ImageDraw, ImageFont
 from scipy.ndimage.interpolation import shift
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from mmtools import mmtiff
@@ -12,10 +13,12 @@ align_images = False
 align_filename = 'align.txt'
 calc_smoothing = False
 use_smoothing = False
+add_text = False
 invert_channel_order = False
 shift_x = 0
 shift_y = 0
 filename_suffix = '_overlay.tif'
+text_font = ImageFont.truetype(mmtiff.MMTiff.font_path(), 20)
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Overlay two diSPIM images', \
@@ -38,6 +41,9 @@ group.add_argument('-c', '--calc-smoothing', action='store_true', default = calc
 group.add_argument('-u', '--use-smoothing', action='store_true', default = use_smoothing, \
                    help='use previously calculated smoothing curves in the file')
 
+parser.add_argument('-t', '--add-text', action='store_true', default = add_text, \
+                    help='Add texts to record shifts')
+
 parser.add_argument('-i', '--invert-channel-order', action='store_true', default = invert_channel_order, \
                     help='invert the order of channels (an ad-hoc option for ImageJ)')
 
@@ -52,6 +58,7 @@ align_images = args.align_images
 align_filename = args.align_filename
 calc_smoothing = args.calc_smoothing
 use_smoothing = args.use_smoothing
+add_text = args.add_text
 invert_channel_order = args.invert_channel_order
 if args.output_file is None:
     output_filename = mmtiff.MMTiff.stem(input_filenames[0]) + filename_suffix
@@ -105,19 +112,26 @@ if align_images:
 output_images = numpy.zeros(overlay_shape, dtype = output_dtype)
 channel_offset = 0
 
-# shift
-for (time, zstack, channel) in itertools.product(range(input_tiffs[0].total_time), range(input_tiffs[0].total_channel), range(input_tiffs[0].total_zstack)):
-    #print(time, zstack, channel, (move_y[time], move_x[time]))
-    output_images[time, zstack, channel_offset + channel] = shift(input_images[0][time, zstack, channel], (move_y[time], move_x[time]))
-print("Image 0 shifted.")
-channel_offset = channel_offset + input_tiffs[0].total_channel
-
 # background
 output_images[:, :, channel_offset:(channel_offset + input_tiffs[1].total_channel)] = input_images[1]
+if add_text:
+    for (time, zstack, channel) in itertools.product(range(input_tiffs[1].total_time), range(input_tiffs[1].total_zstack), range(input_tiffs[1].total_channel)):
+        image = Image.fromarray(output_images[time, zstack, channel_offset + channel])
+        draw = ImageDraw.Draw(image)
+        draw_text = "X %+04.1f Y %+04.1f" % (move_x[time], move_y[time])
+        draw.text((0, 0), draw_text, font = text_font, color = 'white')
+        output_images[time, zstack, channel_offset + channel] = numpy.array(image)
 if input_tiffs[1].total_time == 1:
     print("Broadcasting the background image")
-print("Image 1 concatenated.")
+    output_images[:, :, channel_offset:(channel_offset + input_tiffs[1].total_channel)] = output_images[0, :, channel_offset:(channel_offset + input_tiffs[1].total_channel)]
+print("Image 1 (background) stored.")
 channel_offset = channel_offset + input_tiffs[1].total_channel
+
+# shift
+for (time, zstack, channel) in itertools.product(range(input_tiffs[0].total_time), range(input_tiffs[0].total_zstack), range(input_tiffs[0].total_channel)):
+    output_images[time, zstack, channel_offset + channel] = shift(input_images[0][time, zstack, channel], (move_y[time], move_x[time]))
+print("Image 0 (overlay) shifted and stored.")
+channel_offset = channel_offset + input_tiffs[0].total_channel
 
 # output ImageJ, dimensions should be in TZCYXS order
 if invert_channel_order:

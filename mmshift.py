@@ -6,17 +6,21 @@ from mmtools import mmtiff, spotshift
 
 # defaults
 input_filename = None
-align_filename = 'align.txt'
+image_shift = [0.0, 0.0]
+align_filename = None
 use_smoothing = False
 force_calc_smoothing = False
-filename_suffix = '_aligned.tif'
+filename_suffix = '_shifted.tif'
 output_filename = None
 
-parser = argparse.ArgumentParser(description='Align a multipage TIFF image.', \
+parser = argparse.ArgumentParser(description='Shift a multipage TIFF image.', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('-f', '--align-file', default = align_filename, \
-                    help='a tsv file used for alignment')
+parser.add_argument('-s', '--spot-shift', nargs=2, type=float, default=image_shift, metavar=('X', 'Y'), \
+                    help='Shift of images')
+
+parser.add_argument('-a', '--align-file', default = align_filename, \
+                    help='Align images using a tsv file.')
 
 parser.add_argument('-u', '--use-smoothing', action='store_true', default = use_smoothing, \
                    help='use previously calculated smoothing curves in the file')
@@ -32,6 +36,7 @@ args = parser.parse_args()
 
 # set arguments
 input_filename = args.input_file
+image_shift = args.image_shift
 align_filename = args.align_file
 use_smoothing = args.use_smoothing
 force_calc_smoothing = args.force_calc_smoothing
@@ -47,27 +52,29 @@ else:
 input_tiff = mmtiff.MMTiff(input_filename)
 input_image = input_tiff.as_array()
 
-# alignment
-move_x = numpy.zeros(input_tiff.total_time)
-move_y = numpy.zeros(input_tiff.total_time)
+# image shift
+print("Image shift:", image_shift)
+move_x = numpy.zeros(input_tiff.total_time) + image_shift[0]
+move_y = numpy.zeros(input_tiff.total_time) + image_shift[1]
 
-align_table = pandas.read_csv(align_filename, comment = '#', sep = '\t')
-print("Using %s for alignment." % (align_filename))
-if use_smoothing:
-    if (not {'smooth_x', 'smooth_y'} <= set(align_table.columns)) or force_calc_smoothing:
-        print("Calculating smoothing. Smoothing data in the input file are ignored.")
-        align_table = spotshift.add_smoothing(align_table)
-    move_x = move_x - numpy.array(align_table.smooth_x)
-    move_y = move_y - numpy.array(align_table.smooth_y)
-else:
-    move_x = move_x - numpy.array(align_table.align_x)
-    move_y = move_y - numpy.array(align_table.align_y)
+# alignment
+if align_filename is not None:
+    align_table = pandas.read_csv(align_filename, comment = '#', sep = '\t')
+    print("Using %s for alignment." % (align_filename))
+    if use_smoothing:
+        if (not {'smooth_x', 'smooth_y'} <= set(align_table.columns)) or force_calc_smoothing:
+            print("Calculating smoothing. Smoothing data in the input file are ignored.")
+            align_table = spotshift.add_smoothing(align_table)
+        move_x = move_x - numpy.array(align_table.smooth_x)
+        move_y = move_y - numpy.array(align_table.smooth_y)
+    else:
+        move_x = move_x - numpy.array(align_table.align_x)
+        move_y = move_y - numpy.array(align_table.align_y)
 
 # align image
 output_image = numpy.zeros_like(input_image)
 for (time, zstack, channel) in itertools.product(range(input_tiff.total_time), range(input_tiff.total_zstack), range(input_tiff.total_channel)):
     output_image[time, zstack, channel] = shift(input_image[time, zstack, channel], (move_y[time], move_x[time]))
-    #print(time, zstack, channel, (move_x[time], move_y[time]))
 print("Final movements: {0}, {1}".format(move_x[-1], move_y[-1]))
 
 # output multipage tiff

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, numpy, pathlib, re, tifffile
+import platform, sys, numpy, pathlib, re, tifffile
 
 class MMTiff:
     def __init__ (self, filename):
@@ -20,6 +20,19 @@ class MMTiff:
         name = re.sub('MMStack_Pos[0-9]+$', '', name, flags=re.IGNORECASE)
         name = re.sub('_$', '', name, flags=re.IGNORECASE)
         return name
+
+    @staticmethod
+    def font_path ():
+        if platform.system() == "Windows":
+            font_filename = 'C:/Windows/Fonts/Arial.ttf'
+        elif platform.system() == "Linux":
+            font_filename = '/usr/share/fonts/dejavu/DejaVuSans.ttf'
+        elif platform.system() == "Darwin":
+            font_filename = '/Library/Fonts/Verdana.ttf'
+        else:
+            raise Exception('Font file error.')
+
+        return font_filename
 
     def read_image (self):
         # read TIFF file (assumes TZ(C)YX(S) order)
