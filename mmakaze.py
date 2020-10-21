@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys, argparse, pathlib, re, numpy, pandas
-from mmtools import mmtiff, akaze
+from mmtools import mmtiff, akaze, spotshift
 
 # defaults
 input_filename = None
@@ -55,15 +55,15 @@ else:
 
 # alignment# prepare aligner
 alignment_algorhithm = akaze.Akaze()
-results = alignment_algorhithm.calculate_alignments(input_image, ref_image)
+align_table = alignment_algorhithm.calculate_alignments(input_image, ref_image)
+align_table = spotshift.SpotShift.add_smoothing(align_table)
 
 # open tsv file and write header
 output_file = open(output_filename, 'w', newline='')
 alignment_algorhithm.output_header(output_file, input_filename, ref_image_filename)
-output_file.write('\t'.join(results.columns) + '\n')
+output_file.write('\t'.join(align_table.columns) + '\n')
 
 # output result and close
-results.to_csv(output_file, columns = results.columns, \
-               sep='\t', index = False, header = False, mode = 'a')
+align_table.to_csv(output_file, sep='\t', index = False, header = False, mode = 'a')
 output_file.close()
 print("Output alignment tsv file to %s." % (output_filename))

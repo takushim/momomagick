@@ -96,6 +96,7 @@ for (shift_y, shift_x) in itertools.product(shift_ys, shift_xs):
     orig_image[0:input_tiffs[1].height, 0:input_tiffs[1].width] = input_images[1].copy()
 
     # draw shifts
+    #font_color = numpy.max(orig_image)
     image = Image.fromarray(orig_image)
     draw = ImageDraw.Draw(image)
     draw.text((0, 0), "X %+04.1f Y %+04.1f" % (shift_x, shift_y), font = font, fill = font_color)

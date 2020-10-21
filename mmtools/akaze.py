@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import sys, numpy, pandas, time, cv2
-from . import spotshift
 
 class Akaze:
     def __init__ (self):
@@ -62,7 +61,7 @@ class Akaze:
 
             mvx = mvx / cnt
             mvy = mvy / cnt
-            print("Plane {0:d}, dislocation = ({1:f}, {2:f}) using {3}.".format(index, mvx, mvy, matching_method))
+            print("Plane {0:d}, dislocation = ({1:f}, {2:f}), {3}.".format(index, mvx, mvy, matching_method))
 
             results.append([index, mvx, mvy])
 
@@ -71,8 +70,8 @@ class Akaze:
         align_x = numpy.array([result[1] for result in results])
         align_y = numpy.array([result[2] for result in results])
         align_table = pandas.DataFrame({self.columns[0]: align_plane, \
-                                       self.columns[1]: align_x, \
-                                       self.columns[2]: align_y, columns = self.columns
+                                        self.columns[1]: align_x, \
+                                        self.columns[2]: align_y}, columns = self.columns)
 
         # add smoothing and return
-        return spotshift.SpotShift.add_smoothing(align_table)
+        return align_table

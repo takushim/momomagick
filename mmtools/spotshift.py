@@ -30,10 +30,17 @@ class SpotShift:
         return work_table
 
     @staticmethod
-    def add_smoothing (align_table):
-        worK_table = align_table.copy()
-        smooth_x = lowess(work_table.align_x, work_table.align_plane, frac = 0.1, return_sorted = False)
-        smooth_y = lowess(work_table.align_y, work_table.align_plane, frac = 0.1, return_sorted = False)
+    def add_smoothing (align_table, fraction = 0.1):
+        work_table = align_table.copy()
+
+        # lowess algorithm
+        smooth_x = lowess(work_table.align_x, work_table.align_plane, frac = fraction, return_sorted = False)
+        smooth_y = lowess(work_table.align_y, work_table.align_plane, frac = fraction, return_sorted = False)
+
+        # adjust the alignment at t = 0 as (0, 0)
+        smooth_x = smooth_x - smooth_x[0]
+        smooth_y = smooth_y - smooth_y[0]
+
         work_table['smooth_x'] = smooth_x
         work_table['smooth_y'] = smooth_y
         return work_table
