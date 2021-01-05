@@ -7,7 +7,6 @@ from mmtools import trackj, lifetime
 # default values
 input_filename = None
 time_scale = 1.0
-output_graphs = False
 output_folder = 'analyze'
 suffix_tsv_file = ".txt"
 suffix_graph_file = ".png"
@@ -15,6 +14,8 @@ stemsuffix_regression = '_regression'
 stemsuffix_lifetime = '_lifetime'
 stemsuffix_newbinding = '_newbinding'
 stemsuffix_cumulative = '_cumulative'
+stemsuffix_histogram = '_histogram'
+xy_resolution = 0.1625
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Calculate lifetime and regression curves', \
@@ -22,9 +23,6 @@ parser = argparse.ArgumentParser(description='Calculate lifetime and regression 
 
 parser.add_argument('-x', '--time-scale', type = float, default=time_scale, \
                     help='interval of time-lapse (in seconds)')
-
-parser.add_argument('-G', '--output-graphs', action='store_true', default = output_graphs, \
-                   help='output graphs for analyzed data')
 
 parser.add_argument('input_file', default=input_filename, \
                     help='input TSV file or TrackJ CSV file')
@@ -36,7 +34,6 @@ input_filename = args.input_file
 output_filename_stem = pathlib.Path(input_filename).stem
 output_filename_stem = re.sub('\.ome$', '', output_filename_stem, flags=re.IGNORECASE)
 output_filename_stem = re.sub('\_speckles$', '', output_filename_stem, flags=re.IGNORECASE)
-output_graphs = args.output_graphs
 
 # prepare a folder
 print("Making an output folder {0}.".format(input_filename))
@@ -64,18 +61,18 @@ print("Output regression to {0}.".format(output_filename))
 output_table.to_csv(output_filename, sep='\t', index=False)
 print("One phase decay model: Off-rate = {0:f}, half-life = {1:f}".format(popt[1], numpy.log(2) / popt[1]))
 
-if output_graphs:
-    output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_regression + suffix_graph_file)
-    print("Output a regression graph to {0}.".format(output_filename))
-    figure = pyplot.figure(figsize = (12, 8), dpi = 300)
-    axes = figure.add_subplot(111)
-    axes.set_title("Regression from t = 0", size = 'xx-large')
-    axes.plot(output_table.life_time, curve_func(output_table.life_time), color = 'black', linestyle = ':')
-    axes.scatter(output_table.life_time, output_table.spot_count, color = 'orange')
-    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
-              "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec".format(popt[1], numpy.log(2) / popt[1]), \
-              size = 'xx-large', ha = 'right', va = 'top')
-    figure.savefig(output_filename, dpi = 300)
+output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_regression + suffix_graph_file)
+print("Output a regression graph to {0}.".format(output_filename))
+figure = pyplot.figure(figsize = (12, 8), dpi = 300)
+axes = figure.add_subplot(111)
+axes.set_title("Regression from t = 0", size = 'xx-large')
+axes.plot(output_table.life_time, curve_func(output_table.life_time), color = 'black', linestyle = ':')
+axes.scatter(output_table.life_time, output_table.spot_count, color = 'orange')
+axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
+            "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec".format(popt[1], numpy.log(2) / popt[1]), \
+            size = 'xx-large', ha = 'right', va = 'top')
+figure.savefig(output_filename, dpi = 300)
+
 print(".")
 
 # lifetime
@@ -87,19 +84,19 @@ print("Output lifetime to {0}.".format(output_filename))
 output_table.to_csv(output_filename, sep='\t', index=False)
 print("One phase decay model: Off-rate = {0:f}, half-life = {1:f}".format(popt[1], numpy.log(2) / popt[1]))
 
-if output_graphs:
-    output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_lifetime + suffix_graph_file)
-    print("Output a lifetime graph to {0}.".format(output_filename))
-    figure = pyplot.figure(figsize = (12, 8), dpi = 300)
-    axes = figure.add_subplot(111)
-    axes.set_title("Lifetime distribution", size = 'xx-large')
-    width = output_table.life_time[0]
-    axes.plot(output_table.life_time, curve_func(output_table.life_time), color = 'black', linestyle = ':')
-    axes.bar(output_table.life_time, output_table.spot_count, width = -width/2, align = 'edge', color = 'orange')
-    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
-              "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec".format(popt[1], numpy.log(2) / popt[1]), \
-              size = 'xx-large', ha = 'right', va = 'top')
-    figure.savefig(output_filename, dpi = 300)
+output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_lifetime + suffix_graph_file)
+print("Output a lifetime graph to {0}.".format(output_filename))
+figure = pyplot.figure(figsize = (12, 8), dpi = 300)
+axes = figure.add_subplot(111)
+axes.set_title("Lifetime distribution", size = 'xx-large')
+width = output_table.life_time[0]
+axes.plot(output_table.life_time, curve_func(output_table.life_time), color = 'black', linestyle = ':')
+axes.bar(output_table.life_time, output_table.spot_count, width = -width/2, align = 'edge', color = 'orange')
+axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
+            "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec".format(popt[1], numpy.log(2) / popt[1]), \
+            size = 'xx-large', ha = 'right', va = 'top')
+figure.savefig(output_filename, dpi = 300)
+
 print(".")
 
 # cumulative lifetime
@@ -111,18 +108,18 @@ print("Output cumulative lifetime to {0}.".format(output_filename))
 output_table.to_csv(output_filename, sep='\t', index=False)
 print("One phase decay model: Off-rate = {0:f}, half-life = {1:f}".format(popt[1], numpy.log(2) / popt[1]))
 
-if output_graphs:
-    output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_cumulative + suffix_graph_file)
-    print("Output a cumulative graph to {0}.".format(output_filename))
-    figure = pyplot.figure(figsize = (12, 8), dpi = 300)
-    axes = figure.add_subplot(111)
-    axes.set_title("Cumulative regression", size = 'xx-large')
-    axes.plot(output_table.life_time, curve_func(output_table.life_time), color = 'black', linestyle = ':')
-    axes.scatter(output_table.life_time, output_table.spot_count, color = 'orange')
-    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
-              "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec".format(popt[1], numpy.log(2) / popt[1]), \
-              size = 'xx-large', ha = 'right', va = 'top')
-    figure.savefig(output_filename, dpi = 300)
+output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_cumulative + suffix_graph_file)
+print("Output a cumulative graph to {0}.".format(output_filename))
+figure = pyplot.figure(figsize = (12, 8), dpi = 300)
+axes = figure.add_subplot(111)
+axes.set_title("Cumulative regression", size = 'xx-large')
+axes.plot(output_table.life_time, curve_func(output_table.life_time), color = 'black', linestyle = ':')
+axes.scatter(output_table.life_time, output_table.spot_count, color = 'orange')
+axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
+            "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec".format(popt[1], numpy.log(2) / popt[1]), \
+            size = 'xx-large', ha = 'right', va = 'top')
+figure.savefig(output_filename, dpi = 300)
+
 print(".")
 
 # new binding and lifetime
@@ -133,17 +130,16 @@ print("Output new bindings to {0}.".format(output_filename))
 mean_lifetime = output_table[output_table.plane > 0].life_time.mean()
 print("Mean lifetime = {0} sec (plane > 0).".format(mean_lifetime))
 
-if output_graphs:
-    output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_newbinding+ suffix_graph_file)
-    print("Output a new-binding graph to {0}.".format(output_filename))
-    figure = pyplot.figure(figsize = (12, 8), dpi = 300)
-    axes = figure.add_subplot(111)
-    axes.set_title("Binding plane and lifetime", size = 'xx-large')
-    axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
-    axes.scatter(output_table.plane, output_table.life_time, color = 'orange')
-    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
-              "Mean lifetime = {0:.3f} sec (plane > 0)".format(mean_lifetime), \
-              size = 'xx-large', ha = 'right', va = 'top')
-    figure.savefig(output_filename, dpi = 300)
-print(".")
+output_filename = pathlib.Path(output_folder).joinpath(output_filename_stem + stemsuffix_newbinding+ suffix_graph_file)
+print("Output a new-binding graph to {0}.".format(output_filename))
+figure = pyplot.figure(figsize = (12, 8), dpi = 300)
+axes = figure.add_subplot(111)
+axes.set_title("Binding plane and lifetime", size = 'xx-large')
+axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
+axes.scatter(output_table.plane, output_table.life_time, color = 'orange')
+axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
+            "Mean lifetime = {0:.3f} sec (plane > 0)".format(mean_lifetime), \
+            size = 'xx-large', ha = 'right', va = 'top')
+figure.savefig(output_filename, dpi = 300)
 
+print(".")

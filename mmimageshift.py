@@ -16,7 +16,7 @@ output_filename = None
 parser = argparse.ArgumentParser(description='Shift a multipage TIFF image.', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('-s', '--spot-shift', nargs=2, type=float, default=image_shift, metavar=('X', 'Y'), \
+parser.add_argument('-s', '--image-shift', nargs=2, type=float, default=image_shift, metavar=('X', 'Y'), \
                     help='Shift of images')
 
 parser.add_argument('-a', '--align-file', default = align_filename, \
@@ -64,7 +64,7 @@ if align_filename is not None:
     if use_smoothing:
         if (not {'smooth_x', 'smooth_y'} <= set(align_table.columns)) or force_calc_smoothing:
             print("Calculating smoothing. Smoothing data in the input file are ignored.")
-            align_table = spotshift.add_smoothing(align_table)
+            align_table = spotshift.SpotShift.add_smoothing(align_table)
         move_x = move_x - numpy.array(align_table.smooth_x)
         move_y = move_y - numpy.array(align_table.smooth_y)
     else:

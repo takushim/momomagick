@@ -22,10 +22,10 @@ parser = argparse.ArgumentParser(description='Mark detected spots on background 
 parser.add_argument('-o', '--output-file', default=output_filename, \
                     help='output multipage TIFF file ([basename]{0} by default)'.format(filename_suffix))
 
-parser.add_argument('-s', '--image-shift', nargs=2, type=float, default=[shift_x, shift_y], metavar=('X', 'Y'), \
-                    help='shift of the image against spots')
 parser.add_argument('-x', '--scaling', type = float, default = scaling, \
-                    help='Scale cooredinates to use magnified images')
+                    help='scaling of spot cooredinates (before shifting)')
+parser.add_argument('-s', '--image-shift', nargs=2, type=float, default=[shift_x, shift_y], metavar=('X', 'Y'), \
+                    help='shift of spots against images')
 
 parser.add_argument('-f', '--marker-file', default=marker_filename, \
                     help='name of TSV file (read [basename].txt if not specified)')

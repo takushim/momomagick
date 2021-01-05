@@ -23,9 +23,11 @@ class Lifetime:
     @staticmethod
     def fit_one_phase_decay (times, counts):
         def one_phase_decay (x, a, b, c):
-            return a * numpy.exp(- b * x) + c
+            return (a - c) * numpy.exp(- b * x) + c
 
-        popt, pcov = curve_fit(one_phase_decay, times, counts, bounds = ((0, 0, -numpy.inf), numpy.inf))
+        #popt, pcov = curve_fit(one_phase_decay, times, counts, bounds = ((0, 0, -numpy.inf), numpy.inf))
+        #popt, pcov = curve_fit(one_phase_decay, times, counts, bounds = ((-numpy.inf, 0, -numpy.inf), numpy.inf))
+        popt, pcov = curve_fit(one_phase_decay, times, counts)
 
         return (lambda x: popt[0] * numpy.exp (- popt[1] * x) + popt[2]), popt, pcov
 
