@@ -34,6 +34,10 @@ class Lifetime:
     def regression (self):
         # regression
         work_table = self.spot_table.copy()
+        start_plane = numpy.min(work_table.plane)
+        if start_plane > 1:
+            print("Setting plane {0} as the beginning".format(start_plane))
+            work_table.plane = work_table.plane - start_plane + 1
 
         # spots to be counted
         index_set = set(work_table[work_table.plane == 1].total_index.tolist())
@@ -60,6 +64,15 @@ class Lifetime:
     def lifetime (self):
         # add lifetime columns
         work_table = self.add_life_count(self.spot_table)
+        start_plane = numpy.min(work_table.plane)
+
+        if start_plane > 1:
+            print("Setting plane {0} as the beginning".format(start_plane))
+            work_table.plane = work_table.plane - start_plane + 1
+
+        print("Dropping the spots beggining from plane == {0}".format(start_plane))
+        print(work_table[work_table.plane == 1])
+        work_table = work_table[work_table.plane > 1].reset_index(drop=True)
 
         # prepare data
         lifecount_max = work_table.life_total.max()
