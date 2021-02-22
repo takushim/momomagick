@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys, argparse, pathlib, re, numpy, pandas, tifffile
-from mmtools import mmtiff, lifetime, drawspots
+from mmtools import mmtiff, trackj, lifetime, drawspots
 
 # prepare spot marker
 spot_drawer = drawspots.DrawSpots()
@@ -28,7 +28,7 @@ parser.add_argument('-s', '--image-shift', nargs=2, type=float, default=[shift_x
                     help='shift of spots against images')
 
 parser.add_argument('-f', '--marker-file', default=marker_filename, \
-                    help='name of TSV file (read [basename].txt if not specified)')
+                    help='TSV file or TrackJ CSV file ([basename].txt if not specified)')
 parser.add_argument('-z', '--marker-size', type=int, default=spot_drawer.marker_size, \
                     help='marker size to draw (dot == 0)')
 parser.add_argument('-c', '--marker-colors', nargs=4, type=str, default=spot_drawer.marker_colors, \
@@ -65,9 +65,15 @@ if args.output_file is None:
 else:
     output_filename = args.output_file
 
-# read TSV file
-print("Read spots from {0}.".format(marker_filename))
-spot_table = pandas.read_csv(marker_filename, comment = '#', sep = '\t')
+# read TSV or TrackJ CSV file
+if pathlib.Path(marker_filename).suffix.lower() == ".txt":
+    print("Read TSV from {0}.".format(marker_filename))
+    spot_table = pandas.read_csv(marker_filename, comment = '#', sep = '\t')
+elif pathlib.Path(marker_filename).suffix.lower() == ".csv":
+    print("Read TrackJ CSV from {0}.".format(marker_filename))
+    spot_table = trackj.TrackJ(marker_filename).spot_table
+else:
+    raise Exception("Unknown file format.")
 total_planes = spot_table.plane.max() + 1
 
 # shift spots
