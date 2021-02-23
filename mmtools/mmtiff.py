@@ -4,6 +4,12 @@ import platform, sys, numpy, pathlib, re, tifffile
 
 class MMTiff:
     def __init__ (self, filename):
+        # set default values
+        self.micromanager_summary = None
+        self.pixelsize_um = 0.1625
+        self.z_step_um = 0.5
+
+        # read image
         self.filename = filename
         self.read_image()
 
@@ -34,6 +40,14 @@ class MMTiff:
 
         return font_filename
 
+    @staticmethod
+    def float_to_int (image_array, dtype = numpy.uint16):
+        print("Using dtype:", dtype)
+        range_max = numpy.iinfo(dtype).max
+        image_max = numpy.max(image_array)
+        image_min = numpy.min(image_array)
+        return (image_array * (image_max - image_min) / image_max).astype(dtype)
+
     def read_image (self):
         # read TIFF file (assumes TZ(C)YX(S) order)
         print("Reading image:", self.filename)
@@ -52,10 +66,9 @@ class MMTiff:
             #self.micromanager_summary = None
             #self.set_metadata()
             if tiff.is_micromanager:
-                self.micromanager_summary = tiff.micromanager_metadata['Summary']
+                self.read_micromanager_metadata(tiff)
             else:
-                self.micromanager_summary = None
-            self.set_metadata()
+                self.read_image_metadata(tiff)
 
         if 'Z' not in axes:
             for index in range(len(self.image_list)):
@@ -78,41 +91,42 @@ class MMTiff:
 
         print('Original image was shaped into: ', self.total_time, ' x ', self.image_list[0].shape, self.axes)
 
-    def set_metadata (self):
-        if self.micromanager_summary:
-            self.starttime = self.micromanager_summary['StartTime']
-            self.exposure_ms = float(self.micromanager_summary['LaserExposure_ms'])
-            self.pixelsize_um = float(self.micromanager_summary['PixelSize_um'])
-            self.z_step_um = float(self.micromanager_summary['z-step_um'])
-        else:
-            self.starttime = '2019-11-08 11:09:13 -0500'
-            self.exposure_ms = 1000.0
-            self.pixelsize_um = 0.1625
-            self.z_step_um = 0.5
-            print("No micromanager summary. Setting default values.")
+    def read_micromanager_metadata (self, tiff):
+        self.micromanager_summary = tiff.micromanager_metadata['Summary']
+        self.pixelsize_um = float(self.micromanager_summary['PixelSize_um'])
+        self.z_step_um = float(self.micromanager_summary['z-step_um'])
+    
+    def read_image_metadata (self, tiff):
+        if 'XResolution' in tiff.pages[0].tags:
+            values = tiff.pages[0].tags['XResolution'].value
+            self.pixelsize_um = float(values[1]) / float(values[0])
+            print("Set pixelsize_um from the image", self.pixelsize_um)
+        if 'ImageDescription' in tiff.pages[0].tags:
+            self.z_step_um = tiff.imagej_metadata['spacing']
+            print("Set z_step_um from the image", self.z_step_um)
 
-    def as_list (self, channel = None, drop_channel = True):
+    def as_list (self, channel = None, drop = True):
         if channel is None:
             return self.image_list
         else:
-            if drop_channel is True:
+            if drop is True:
                 print("Using channel (dropping channel):", channel)
                 return [x[:, channel] for x in self.image_list]
             else:
                 print("Using channel (keeping channel):", channel)
                 return [x[:, channel:(channel + 1)] for x in self.image_list]
 
-    def as_array (self, channel = None, drop_channel = True):
+    def as_array (self, channel = None, drop = True):
         if channel is None:
             return numpy.array(self.image_list)
         else:
-            if drop_channel is True:
+            if drop is True:
                 print("Using channel (dropping channel):", channel)
                 return numpy.array([x[:, channel] for x in self.image_list])
             else:
                 print("Using channel (keeping channel):", channel)
                 return numpy.array([x[:, channel:(channel + 1)] for x in self.image_list])
-    
+
     def save_image (self, filename, image_array):
         print('Saving image: ', image_array.shape, image_array.dtype)
         tifffile.imsave(filename, numpy.array(image_array), imagej = True, \
