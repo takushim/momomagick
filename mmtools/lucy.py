@@ -39,7 +39,7 @@ class Lucy:
             # zoom image, may be zoomed when z_zoom = 1.0 (float)
             orig_image = zoom(orig_image, (z_zoom, 1.0, 1.0))
 
-        latent_est = input_image.copy()
+        latent_est = orig_image.copy()
         for i in range(iterations):
             latent_est = latent_est * \
                 convolve(orig_image / convolve(latent_est, self.psf_image, "same"), \
