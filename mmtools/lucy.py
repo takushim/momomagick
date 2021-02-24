@@ -5,15 +5,18 @@ from scipy.signal import convolve
 from scipy.ndimage import zoom
 from scipy.ndimage.interpolation import shift
 import cupy
-from cupyx.scipy.ndimage import zoom as cupyx_zoom
-from cupyx.scipy.ndimage import convolve as cupyx_convolve
+#from cupyx.scipy.ndimage import shift as cupyx_shift
+#from cupyx.scipy.ndimage import zoom as cupyx_zoom
+#from cupyx.scipy.ndimage import convolve as cupyx_convolve
 
 class Lucy:
     def __init__ (self, psf_image, gpu_id = None, use_fft = False):
-        self.psf_image = psf_image.astype(numpy.float) / numpy.sum(psf_image)
-        self.psf_hat = numpy.flip(self.psf_image)
+        self.psf = psf_image.astype(numpy.float) / numpy.sum(psf_image)
+        self.hat = numpy.flip(self.psf)
         self.gpu_id = gpu_id
         self.use_fft = use_fft
+        self.psf_fft = None
+        self.hat_fft = None
         if self.gpu_id is not None:
             device = cupy.cuda.Device(gpu_id)
             device.use()
@@ -40,6 +43,13 @@ class Lucy:
 
         return latent_est
 
+    def resized_psf (self, shape):
+        psf_resized = numpy.zeros(shape, dtype = self.psf.dtype)
+        limits = numpy.minimum(shape, self.psf.shape)
+        shifts = (numpy.array(shape) - numpy.array(self.psf.shape)) // 2
+        psf_resized[0:limits[0], 0:limits[1], 0:limits[2]] = self.psf[0:limits[0], 0:limits[1], 0:limits[2]]
+        return shift(psf_resized, shifts)
+
     def deconvolve_cpu_mat (self, input_image, iterations = 10, z_zoom = 1, zoom_result = False):
         orig_image = input_image.astype(numpy.float)
         if z_zoom != 1:
@@ -49,8 +59,7 @@ class Lucy:
         latent_est = orig_image.copy()
         for i in range(iterations):
             latent_est = latent_est * \
-                convolve(orig_image / convolve(latent_est, self.psf_image, "same"), \
-                         self.psf_hat, "same")
+                convolve(orig_image / convolve(latent_est, self.psf, "same"), self.hat, "same")
 
         if zoom_result and z_zoom != 1:
             latent_est = zoom(latent_est, (1.0/z_zoom, 1.0, 1.0))
@@ -63,19 +72,15 @@ class Lucy:
             # zoom image, may be zoomed when z_zoom = 1.0 (float)
             orig_image = zoom(orig_image, (z_zoom, 1.0, 1.0))
 
-        psf_resized = numpy.zeros_like(orig_image, dtype = numpy.float)
-        limits = numpy.minimum(orig_image.shape, self.psf_image.shape)
-        shifts = (numpy.array(orig_image.shape) - numpy.array(self.psf_image.shape)) // 2
-        psf_resized[0:limits[0], 0:limits[1], 0:limits[2]] = self.psf_image[0:limits[0], 0:limits[1], 0:limits[2]]
-        psf_resized = shift(psf_resized, shifts)
-
-        psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized))
-        hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized)))
+        if (self.psf_fft is None) or (self.psf_fft.shape != orig_image.shape):
+            psf_resized = self.resized_psf(orig_image.shape)
+            self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized))
+            self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized)))
 
         latent_est = orig_image.copy()
         for i in range(iterations):
-            ratio = orig_image / numpy.abs(numpy.fft.ifftn(psf_fft * numpy.fft.fftn(latent_est)))
-            latent_est = latent_est * numpy.abs(numpy.fft.ifftn(hat_fft * numpy.fft.fftn(ratio)))
+            ratio = orig_image / numpy.abs(numpy.fft.ifftn(self.psf_fft * numpy.fft.fftn(latent_est)))
+            latent_est = latent_est * numpy.abs(numpy.fft.ifftn(self.hat_fft * numpy.fft.fftn(ratio)))
 
         if zoom_result and z_zoom != 1:
             latent_est = zoom(latent_est, (1.0/z_zoom, 1.0, 1.0))
@@ -131,15 +136,13 @@ class Lucy:
             # zoom image, may be zoomed when z_zoom = 1.0 (float)
             orig_image = zoom(orig_image, (z_zoom, 1.0, 1.0))
 
-        psf_resized = numpy.zeros_like(orig_image, dtype = numpy.float)
-        limits = numpy.minimum(orig_image.shape, self.psf_image.shape)
-        shifts = (numpy.array(orig_image.shape) - numpy.array(self.psf_image.shape)) // 2
-        psf_resized[0:limits[0], 0:limits[1], 0:limits[2]] = self.psf_image[0:limits[0], 0:limits[1], 0:limits[2]]
-        psf_resized = shift(psf_resized, shifts)
-        psf_resized = cupy.array(psf_resized.astype(numpy.float32))
-
-        psf_fft = cupy.fft.fftn(cupy.fft.ifftshift(psf_resized))
-        hat_fft = cupy.fft.fftn(cupy.fft.ifftshift(cupy.flip(psf_resized)))
+        if (self.psf_fft is None) or (self.psf_fft.shape != orig_image.shape):
+            psf_resized = self.resized_psf(orig_image.shape).astype(numpy.float32)
+            self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized))
+            self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized)))
+        
+        psf_fft = cupy.array(self.psf_fft)
+        hat_fft = cupy.array(self.hat_fft)
 
         orig_image = cupy.array(orig_image)
         latent_est = orig_image.copy()
