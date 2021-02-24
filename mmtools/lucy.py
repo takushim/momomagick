@@ -9,30 +9,44 @@ import cupy
 #from cupyx.scipy.ndimage import convolve as cupyx_convolve
 
 class Lucy:
-    def __init__ (self, psf_image, gpu_id = None, use_fft = False):
+    def __init__ (self, psf_image, gpu_id = None, use_fft = False, save_memory = False):
         self.psf = psf_image.astype(numpy.float) / numpy.sum(psf_image)
         self.hat = numpy.flip(self.psf)
         self.gpu_id = gpu_id
         self.use_fft = use_fft
-        self.psf_resized = None
+        self.save_memory = save_memory
         self.psf_fft = None
         self.hat_fft = None
+        self.psf_fft_gpu = None
+        self.hat_fft_gpu = None
         if self.gpu_id is not None:
             device = cupy.cuda.Device(gpu_id)
             device.use()
             print("Turning on GPU: {0}, PCI-bus ID: {1}".format(self.gpu_id, device.pci_bus_id))
             if self.use_fft is False:
                 print("GPU version of the Matrix deconvolution is distabled. FFT used.")
+            if self.save_memory is False:
+                print("Memory saving disabled. The GPU may give an out-of-memory error.")
 
     def update_psf_fft (self, shape):
-        if (self.psf_resized is None) or (self.psf_resized.shape != shape):
+        if (self.psf_fft is None) or (self.psf_fft.shape != shape):
             psf_resized = numpy.zeros(shape, dtype = numpy.float)
             limits = numpy.minimum(shape, self.psf.shape)
             shifts = (numpy.array(shape) - numpy.array(self.psf.shape)) // 2
             psf_resized[0:limits[0], 0:limits[1], 0:limits[2]] = self.psf[0:limits[0], 0:limits[1], 0:limits[2]]
-            self.psf_resized = shift(psf_resized, shifts)
-            self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized))
-            self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized)))
+            psf_resized = shift(psf_resized, shifts)
+            if self.save_memory:
+                print("Preparing complex64 psf to save memory.")
+                self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized)).astype(numpy.complex64)
+                self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized))).astype(numpy.complex64)
+            else:
+                self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized))
+                self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized)))
+
+            # send psf images to the GPU
+            if self.gpu_id is not None:
+                self.psf_fft_gpu = cupy.array(self.psf_fft)
+                self.hat_fft_gpu = cupy.array(self.hat_fft)
 
     def deconvolve (self, input_image, iterations = 10, z_zoom = 1, zoom_result = False):
         if input_image.ndim < 3:
@@ -54,9 +68,13 @@ class Lucy:
         return latent_est
 
     def deconvolve_cpu_mat (self, input_image, iterations = 10, z_zoom = 1, zoom_result = False):
-        orig_image = input_image.astype(numpy.float)
+        if self.save_memory:
+            orig_image = input_image.astype(numpy.float32)
+        else:
+            orig_image = input_image.astype(numpy.float)
+
+        # zoom image, may be zoomed when z_zoom = 1.0 (float)
         if z_zoom != 1:
-            # zoom image, may be zoomed when z_zoom = 1.0 (float)
             orig_image = zoom(orig_image, (z_zoom, 1.0, 1.0))
 
         latent_est = orig_image.copy()
@@ -70,7 +88,11 @@ class Lucy:
         return latent_est
 
     def deconvolve_cpu_fft (self, input_image, iterations = 10, z_zoom = 1, zoom_result = False):
-        orig_image = input_image.astype(numpy.float)
+        if self.save_memory:
+            orig_image = input_image.astype(numpy.float32)
+        else:
+            orig_image = input_image.astype(numpy.float)
+
         if z_zoom != 1:
             # zoom image, may be zoomed when z_zoom = 1.0 (float)
             orig_image = zoom(orig_image, (z_zoom, 1.0, 1.0))
@@ -121,23 +143,22 @@ class Lucy:
         return cupy.asnumpy(latent_est_gpu)
 
     def deconvolve_gpu_fft (self, input_image, iterations = 10, z_zoom = 1, zoom_result = False):
-        orig_image = input_image.astype(numpy.float32)
+        if self.save_memory:
+            orig_image = input_image.astype(numpy.float32)
+        else:
+            orig_image = input_image.astype(numpy.float)
+
+        # zoom image, may be zoomed when z_zoom = 1.0 (float)
         if z_zoom != 1:
-            # zoom image, may be zoomed when z_zoom = 1.0 (float)
             orig_image = zoom(orig_image, (z_zoom, 1.0, 1.0))
 
         self.update_psf_fft(orig_image.shape)
 
-        # psf_fft/hat_fft needs to be calculated on the GPU to save GPU memory
-        psf_resized = cupy.array(self.psf_resized.astype(numpy.float32))
-        psf_fft = cupy.fft.fftn(cupy.fft.ifftshift(psf_resized))
-        hat_fft = cupy.fft.fftn(cupy.fft.ifftshift(cupy.flip(psf_resized)))
-
         orig_image = cupy.array(orig_image)
         latent_est = orig_image.copy()
         for i in range(iterations):
-            ratio = orig_image / cupy.abs(cupy.fft.ifftn(psf_fft * cupy.fft.fftn(latent_est)))
-            latent_est = latent_est * cupy.abs(cupy.fft.ifftn(hat_fft * cupy.fft.fftn(ratio)))
+            ratio = orig_image / cupy.abs(cupy.fft.ifftn(self.psf_fft_gpu * cupy.fft.fftn(latent_est)))
+            latent_est = latent_est * cupy.abs(cupy.fft.ifftn(self.hat_fft_gpu * cupy.fft.fftn(ratio)))
 
         latent_est = cupy.asnumpy(latent_est)
         if zoom_result and z_zoom != 1:
