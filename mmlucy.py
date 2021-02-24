@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, argparse, pathlib, numpy, tifffile
+import sys, argparse, pathlib, numpy, tifffile, time
 from mmtools import mmtiff, lucy
 
 # defaults
@@ -95,28 +95,36 @@ if time_range[1] == 0:
 else:
     time_count = min(len(input_list), time_range[1])
 
-output_list = []
-for index in range(time_start, time_count):
-    output_channels = []
-    for channel in range(input_tiff.total_channel):
-        input_image = input_list[index][:, channel]
-        if z_zoom_image:
-            zoom_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
-        else:
-            zoom_ratio = 1
-        print("Processing time frame: {0}, channel: {1}, z-zoom: {2}".format(index, channel, zoom_ratio))
-        output_channels.append(deconvolver.deconvolve(input_image, iterations, zoom_ratio, z_shrink_image))
-    output_list.append(output_channels)
+if z_zoom_image and input_tiff.total_zstack > 1:
+    zoom_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
+    print("Setting Z-zoom:", zoom_ratio)
+else:
+    zoom_ratio = 1
 
-# shape output
+# save results in the CTZYX order
+output_list = []
+print("Start deconvolution:", time.ctime())
+for channel in range(input_tiff.total_channel):
+    print("Prosessing channel {0}:".format(channel))
+    output_frames = []
+    print("Frames:", end = ' ')
+    for index in range(time_start, time_count):
+        input_image = input_list[index][:, channel]
+        print(index, end = ' ', flush = True)
+        output_frames.append(deconvolver.deconvolve(input_image, iterations, zoom_ratio, z_shrink_image))
+    output_list.append(output_frames)
+    print(".")
+print("End deconvolution:", time.ctime())
+
+# shape output into the TZCYX order
 output_image = numpy.array(output_list)
 output_axis = numpy.arange(output_image.ndim)
+output_axis[0] = 1
 output_axis[1] = 2
-output_axis[2] = 1
+output_axis[2] = 0
 output_image = output_image.transpose(output_axis)
 
 if input_tiff.dtype.kind == 'i' or input_tiff.dtype.kind == 'u':
-    print("Converting from float to int:", input_tiff.dtype.name)
     output_image = mmtiff.MMTiff.float_to_int(output_image, input_tiff.dtype)
 
 # output in the ImageJ format, dimensions should be in TZCYX order
