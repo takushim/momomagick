@@ -6,7 +6,7 @@ from scipy.ndimage import zoom
 from scipy.ndimage.interpolation import shift
 import cupy
 from cupyx.scipy.ndimage import zoom as cupyx_zoom
-from cupyx.scipy.ndimage import convolve as cupyx_convolve
+from cupyx.scipy.signal import convolve as cupyx_convolve
 
 class Lucy:
     def __init__ (self, psf_image, gpu_id = None, use_fft = False, save_memory = False):
@@ -35,8 +35,8 @@ class Lucy:
             if self.use_fft:
                 self.deconvolve = self.deconvolve_gpu_fft
             else:
-                self.deconvolve = self.deconvolve_gpu_fft
-                print("GPU version of the Matrix deconvolution is distabled. FFT used.")
+                print("GPU version of the Matrix deconvolution is under construction.")
+                self.deconvolve = self.deconvolve_gpu_mat
 
     def update_psf_fft (self, shape):
         if (self.psf_fft is None) or (self.psf_fft.shape != shape):
@@ -125,19 +125,9 @@ class Lucy:
 
         latent_est = orig_image.copy()
         for i in range(iterations):
-            print("Iteration:", i)
-            temp_image = cupyx_convolve(latent_est_gpu, psf_image, mode = "constant")
-            print("Convolution 1")
-            temp_image = orig_image / temp_image
-            print("Division")
-            temp_image = cupyx_convolve(latent_est_gpu, hat_image, mode = "constant")
-            print("Convolution 2")
-            latent_est = latent_est * temp_image
-            print("Done")
-            #latent_est_gpu = latent_est_gpu * \
-            #    cupyx_convolve(orig_image_gpu / cupyx_convolve(latent_est_gpu, self.psf_image_gpu, \
-            #                                                  mode = "constant"), \
-            #             self.psf_hat_gpu, mode = "constant")
+            latent_est = latent_est * \
+                cupyx_convolve(orig_image / cupyx_convolve(latent_est, psf_image, "same"), \
+                               hat_image, "same")
 
         if zoom_result and z_zoom != 1:
             latent_est = cupyx_zoom(latent_est, (1.0/z_zoom, 1.0, 1.0), order = 1)
