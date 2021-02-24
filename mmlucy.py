@@ -14,11 +14,15 @@ iterations = 10
 z_zoom_image = False
 z_shrink_image = False
 gpu_id = None
+use_fft = False
 
 parser = argparse.ArgumentParser(description='Deconvolve images using the Richardson-Lucy algorhythm', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='output image file name ([basename]{0} if not specified)'.format(output_suffix))
+
+parser.add_argument('-f', '--use-fft', action = 'store_true', default = use_fft, \
+                    help='Use FFT in the CPU mode')
 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='Turn on GPU use with the specified ID')
@@ -51,6 +55,7 @@ psf_filename = args.psf_image
 z_zoom_image = args.z_zoom_image
 z_shrink_image = args.z_shrink_image
 gpu_id = args.gpu_id
+use_fft = args.use_fft
 
 input_filename = args.input_file
 if args.output_file is None:
@@ -77,10 +82,7 @@ input_tiff = mmtiff.MMTiff(input_filename)
 input_list = input_tiff.as_list()
 
 # deconvolve
-if gpu_id is None:
-    deconvolver = lucy.Lucy(psf_image)
-else:
-    deconvolver = lucy.Lucy(psf_image, gpu_id)
+deconvolver = lucy.Lucy(psf_image, gpu_id, use_fft)
 
 time_start = time_range[0]
 if time_range[1] == 0:
