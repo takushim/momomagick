@@ -14,6 +14,7 @@ class Lucy:
         self.hat = numpy.flip(self.psf)
         self.gpu_id = gpu_id
         self.use_fft = use_fft
+        self.psf_resized = None
         self.psf_fft = None
         self.hat_fft = None
         if self.gpu_id is not None:
@@ -24,13 +25,12 @@ class Lucy:
                 print("GPU version of the Matrix deconvolution is distabled. FFT used.")
 
     def update_psf_fft (self, shape):
-        if (self.psf_fft is None) or (self.psf_fft.shape != shape):
+        if (self.psf_resized is None) or (self.psf_resized.shape != shape):
             psf_resized = numpy.zeros(shape, dtype = numpy.float)
             limits = numpy.minimum(shape, self.psf.shape)
             shifts = (numpy.array(shape) - numpy.array(self.psf.shape)) // 2
             psf_resized[0:limits[0], 0:limits[1], 0:limits[2]] = self.psf[0:limits[0], 0:limits[1], 0:limits[2]]
-            psf_resized = shift(psf_resized, shifts)
-
+            self.psf_resized = shift(psf_resized, shifts)
             self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized))
             self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized)))
 
@@ -126,13 +126,10 @@ class Lucy:
             # zoom image, may be zoomed when z_zoom = 1.0 (float)
             orig_image = zoom(orig_image, (z_zoom, 1.0, 1.0))
 
-        psf_resized = numpy.zeros_like(orig_image, dtype = numpy.float)
-        limits = numpy.minimum(orig_image.shape, self.psf.shape)
-        shifts = (numpy.array(orig_image.shape) - numpy.array(self.psf.shape)) // 2
-        psf_resized[0:limits[0], 0:limits[1], 0:limits[2]] = self.psf[0:limits[0], 0:limits[1], 0:limits[2]]
-        psf_resized = shift(psf_resized, shifts)
-        psf_resized = cupy.array(psf_resized.astype(numpy.float32))
+        self.update_psf_fft(orig_image.shape)
 
+        # psf_fft/hat_fft needs to be calculated on the GPU to save GPU memory
+        psf_resized = cupy.array(self.psf_resized.astype(numpy.float32))
         psf_fft = cupy.fft.fftn(cupy.fft.ifftshift(psf_resized))
         hat_fft = cupy.fft.fftn(cupy.fft.ifftshift(cupy.flip(psf_resized)))
 
