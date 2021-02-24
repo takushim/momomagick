@@ -42,7 +42,6 @@ class MMTiff:
 
     @staticmethod
     def float_to_int (image_array, dtype = numpy.uint16):
-        print("Using dtype:", dtype)
         range_max = numpy.iinfo(dtype).max
         image_max = numpy.max(image_array)
         image_min = numpy.min(image_array)
