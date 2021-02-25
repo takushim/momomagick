@@ -42,10 +42,7 @@ class MMTiff:
 
     @staticmethod
     def float_to_int (image_array, dtype = numpy.uint16):
-        range_max = numpy.iinfo(dtype).max
-        image_max = numpy.max(image_array)
-        image_min = numpy.min(image_array)
-        return (image_array * range_max * (image_max - image_min) / image_max).astype(dtype)
+        return numpy.clip(image_array, numpy.iinfo(dtype).min, numpy.iinfo(dtype).max).astype(dtype)
     
     @staticmethod
     def resize (image_array, shape, center = False):
