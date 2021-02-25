@@ -30,6 +30,10 @@ else:
     output_prefix = args.output_prefix
 
 # read TIFF file (assumes TZCYX order)
+if pathlib.Path(input_filename).exists() is False:
+    input_filename = input_filename + ".ome.tif"
+    print("Trying to complement the file name as:", input_filename)
+
 input_tiff = mmtiff.MMTiff(input_filename)
 input_image = input_tiff.as_array()
 if use_channel is not None:
