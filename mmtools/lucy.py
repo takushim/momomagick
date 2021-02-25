@@ -3,7 +3,8 @@
 import sys, numpy
 from scipy.signal import convolve
 from scipy.ndimage import zoom
-from scipy.ndimage.interpolation import shift
+from . import mmtiff
+
 import cupy
 from cupyx.scipy.ndimage import zoom as cupyx_zoom
 from cupyx.scipy.signal import convolve as cupyx_convolve
@@ -39,34 +40,33 @@ class Lucy:
                 self.deconvolve = self.deconvolve_gpu_mat
 
     def update_psf_fft (self, shape):
-        if (self.psf_fft is None) or (self.psf_fft.shape != shape):
-            psf_resized = numpy.zeros(shape, dtype = numpy.float)
-            limits = numpy.minimum(shape, self.psf.shape)
-            shifts = (numpy.array(shape) - numpy.array(self.psf.shape)) // 2
-            psf_resized[0:limits[0], 0:limits[1], 0:limits[2]] = self.psf[0:limits[0], 0:limits[1], 0:limits[2]]
-            psf_resized = shift(psf_resized, shifts)
+        if (self.psf_fft is not None) and (self.psf_fft.shape == shape):
+            return
+
+        # update psf and hat
+        psf_resized = mmtiff.MMTiff.resize(self.psf, shape, center = True)
+        if self.gpu_id is not None:
             # send psf images to the GPU
-            if self.gpu_id is not None:
-                if self.save_memory:
-                    psf_resized = cupy.array(psf_resized.astype(numpy.float32))
-                else:
-                    psf_resized = cupy.array(psf_resized)
-
-                # cupy seems to output complex64 for float32 input
-                self.psf_fft_gpu = cupy.fft.fftn(cupy.fft.ifftshift(psf_resized))
-                self.hat_fft_gpu = cupy.fft.fftn(cupy.fft.ifftshift(cupy.flip(psf_resized)))
-
-                # copy to cpu
-                self.psf_fft = cupy.asnumpy(self.psf_fft_gpu)
-                self.hat_fft = cupy.asnumpy(self.hat_fft_gpu)
+            if self.save_memory:
+                psf_resized = cupy.array(psf_resized.astype(numpy.float32))
             else:
-                if self.save_memory:
-                    print("Preparing complex64 psf to save memory.")
-                    self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized)).astype(numpy.complex64)
-                    self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized))).astype(numpy.complex64)
-                else:
-                    self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized))
-                    self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized)))
+                psf_resized = cupy.array(psf_resized)
+
+            # cupy seems to output complex64 for float32 input
+            self.psf_fft_gpu = cupy.fft.fftn(cupy.fft.ifftshift(psf_resized))
+            self.hat_fft_gpu = cupy.fft.fftn(cupy.fft.ifftshift(cupy.flip(psf_resized)))
+
+            # copy to cpu
+            self.psf_fft = cupy.asnumpy(self.psf_fft_gpu)
+            self.hat_fft = cupy.asnumpy(self.hat_fft_gpu)
+        else:
+            if self.save_memory:
+                print("Preparing complex64 psf to save memory.")
+                self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized)).astype(numpy.complex64)
+                self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized))).astype(numpy.complex64)
+            else:
+                self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized))
+                self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized)))
 
     def deconvolve_cpu_mat (self, input_image, iterations = 10, z_zoom = 1, zoom_result = False):
         if self.save_memory:

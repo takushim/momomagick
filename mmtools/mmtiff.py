@@ -45,7 +45,26 @@ class MMTiff:
         range_max = numpy.iinfo(dtype).max
         image_max = numpy.max(image_array)
         image_min = numpy.min(image_array)
-        return (image_array * (image_max - image_min) / image_max).astype(dtype)
+        return (image_array * range_max * (image_max - image_min) / image_max).astype(dtype)
+    
+    @staticmethod
+    def resize (image_array, shape, center = False):
+        resized_array = numpy.zeros(shape, dtype = image_array.dtype)
+        if center:
+            shifts = (numpy.array(shape) - numpy.array(image_array.shape)) // 2
+        else:
+            shifts = numpy.array([0 for i in range(image_array.ndim)])
+
+        src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, image_array.shape)]
+        src_bounds = numpy.minimum(image_array.shape, shape - shifts)
+        slices_src = tuple([slice(x, y) for x, y in zip(src_starts, src_bounds)])
+
+        tgt_starts = [0 if x < 0 else min(x, y) for x, y in zip(shifts, shape)]
+        tgt_bounds = numpy.minimum(image_array.shape + shifts, shape)
+        slices_tgt = tuple([slice(x, y) for x, y in zip(tgt_starts, tgt_bounds)])
+
+        resized_array[slices_tgt] = image_array[slices_src]
+        return resized_array
 
     def read_image (self):
         # read TIFF file (assumes TZ(C)YX(S) order)
