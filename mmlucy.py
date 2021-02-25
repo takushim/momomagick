@@ -12,12 +12,7 @@ output_suffix = '_dec.tif'
 time_range = [0, 0]
 psf_filename = 'diSPIM.tif'
 iterations = 10
-z_scale_image = False
-z_scale_psf = False
-keep_z_scale = False
 gpu_id = None
-use_matrix = False
-save_memory = False
 
 parser = argparse.ArgumentParser(description = 'Deconvolve images using the Richardson-Lucy algorhythm', \
                                  epilog = 'Psychiatric help: 5 cents. The doctor is *IN*.', \
@@ -31,13 +26,13 @@ parser.add_argument('-p', '--psf-image', default = psf_filename, \
 parser.add_argument('-n', '--number-of-iterations', default = iterations, \
                     help='number of iterations')
 
-group = parser.add_mutually_exclusive_group()
-group.add_argument('-z', '--z-scale-image', action = 'store_true', default = z_scale_image, \
-                    help='Scale z dimension of image to achieve xy_scale = z_scale')
-group.add_argument('-c', '--z-scale-psf', action = 'store_true', default = z_scale_psf, \
-                    help='Scale z dimension of psf to achieve xy_scale = z_scale')
+parser.add_argument('-d', '--disable-z-scale-image', action = 'store_true', \
+                    help='Disable scaling of image z dimension')
 
-parser.add_argument('-k', '--keep-z-scale', action = 'store_true', default = keep_z_scale, \
+parser.add_argument('-f', '--z-scale-psf', action = 'store_true', \
+                    help='Scale z dimension of psf')
+
+parser.add_argument('-k', '--keep-z-scale', action = 'store_true', \
                     help='Keep z scaling of images after deconvolution')
 
 parser.add_argument('-t', '--time-range', nargs = 2, type = int, default = time_range, \
@@ -47,10 +42,10 @@ parser.add_argument('-t', '--time-range', nargs = 2, type = int, default = time_
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='Turn on GPU use with the specified ID')
 
-parser.add_argument('-m', '--use-matrix', action = 'store_true', default = use_matrix, \
+parser.add_argument('-m', '--use-matrix', action = 'store_true', \
                     help='Disable FFT and use Matrix calculation.')
 
-parser.add_argument('-s', '--save-memory', action = 'store_true', default = save_memory, \
+parser.add_argument('-s', '--save-memory', action = 'store_true', \
                     help='Save memory using float32 and complex64 (mainly for GPU)')
 
 parser.add_argument('input_file', default = input_filename, \
@@ -62,7 +57,7 @@ args = parser.parse_args()
 time_range = args.time_range
 iterations = args.number_of_iterations
 psf_filename = args.psf_image
-z_scale_image = args.z_scale_image
+z_scale_image = not args.disable_z_scale_image
 keep_z_scale = args.keep_z_scale
 z_scale_psf = args.z_scale_psf
 gpu_id = args.gpu_id
