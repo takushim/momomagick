@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys, argparse, pathlib, numpy, tifffile, time
+from scipy.ndimage import zoom
 from mmtools import mmtiff, lucy
 
 # defaults
@@ -11,14 +12,16 @@ output_suffix = '_dec.tif'
 time_range = [0, 0]
 psf_filename = 'diSPIM.tif'
 iterations = 10
-z_zoom_image = False
-z_shrink_image = False
+z_scale_image = False
+z_scale_result = False
+z_scale_psf = False
 gpu_id = None
 use_fft = False
 save_memory = False
 
-parser = argparse.ArgumentParser(description='Deconvolve images using the Richardson-Lucy algorhythm', \
-                                    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(description = 'Deconvolve images using the Richardson-Lucy algorhythm', \
+                                 epilog = 'Psychiatric help: 5 cents. The doctor is *IN*.', \
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='output image file name ([basename]{0} if not specified)'.format(output_suffix))
 
@@ -28,11 +31,15 @@ parser.add_argument('-p', '--psf-image', default = psf_filename, \
 parser.add_argument('-n', '--number-of-iterations', default = iterations, \
                     help='number of iterations')
 
-parser.add_argument('-z', '--z-zoom-image', action = 'store_true', default = z_zoom_image, \
-                    help='Zoom z dimension to achieve xy_scale = z_scale')
+group = parser.add_mutually_exclusive_group()
+group.add_argument('-z', '--z-scale-image', action = 'store_true', default = z_scale_image, \
+                    help='Scale z dimension of image to achieve xy_scale = z_scale')
 
-parser.add_argument('-s', '--z-shrink-image', action = 'store_true', default = z_shrink_image, \
-                    help='Shrink z dimension after deconvolution')
+group.add_argument('-Z', '--z-scale-psf', action = 'store_true', default = z_scale_psf, \
+                    help='Scale z dimension of psf to achieve xy_scale = z_scale')
+
+parser.add_argument('-r', '--z-scale-result', action = 'store_true', default = z_scale_result, \
+                    help='Scale z dimension of result after deconvolution')
 
 parser.add_argument('-t', '--time-range', nargs = 2, type = int, default = time_range, \
                     metavar=('START', 'COUNT'), \
@@ -45,7 +52,7 @@ parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='Turn on GPU use with the specified ID')
 
 parser.add_argument('-m', '--save-memory', action = 'store_true', default = save_memory, \
-                    help='Save memory using float32 and complex64 (for GPU)')
+                    help='Save memory using float32 and complex64 (mainly for GPU)')
 
 parser.add_argument('input_file', default = input_filename, \
                     help='a multipage TIFF file to deconvolve')
@@ -56,8 +63,9 @@ args = parser.parse_args()
 time_range = args.time_range
 iterations = args.number_of_iterations
 psf_filename = args.psf_image
-z_zoom_image = args.z_zoom_image
-z_shrink_image = args.z_shrink_image
+z_scale_image = args.z_scale_image
+z_scale_result = args.z_scale_result
+z_scale_psf = args.z_scale_psf
 gpu_id = args.gpu_id
 use_fft = args.use_fft
 save_memory = args.save_memory
@@ -86,6 +94,19 @@ else:
 input_tiff = mmtiff.MMTiff(input_filename)
 input_list = input_tiff.as_list()
 
+# setting image scale
+if z_scale_image and input_tiff.total_zstack > 1:
+    z_scale_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
+    print("Setting z scaling of images:", z_scale_ratio)
+else:
+    z_scale_ratio = 1
+
+# z-zoom psf
+if z_scale_psf and input_tiff.total_zstack > 1:
+    psf_z_scale_ratio = input_tiff.pixelsize_um / input_tiff.z_step_um
+    psf_image = zoom(psf_image, (psf_z_scale_ratio, 1.0, 1.0))
+    print("Scaling psf image into:", psf_image.shape)
+
 # deconvolve
 deconvolver = lucy.Lucy(psf_image, gpu_id, use_fft, save_memory)
 
@@ -94,12 +115,6 @@ if time_range[1] == 0:
     time_count = len(input_list)
 else:
     time_count = min(len(input_list), time_range[1])
-
-if z_zoom_image and input_tiff.total_zstack > 1:
-    zoom_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
-    print("Setting Z-zoom:", zoom_ratio)
-else:
-    zoom_ratio = 1
 
 # save results in the CTZYX order
 output_list = []
@@ -111,7 +126,7 @@ for channel in range(input_tiff.total_channel):
     for index in range(time_start, time_count):
         input_image = input_list[index][:, channel]
         print(index, end = ' ', flush = True)
-        output_frames.append(deconvolver.deconvolve(input_image, iterations, zoom_ratio, z_shrink_image))
+        output_frames.append(deconvolver.deconvolve(input_image, iterations, z_scale_ratio, z_scale_result))
     output_list.append(output_frames)
     print(".")
 print("End deconvolution:", time.ctime())
