@@ -13,10 +13,10 @@ time_range = [0, 0]
 psf_filename = 'diSPIM.tif'
 iterations = 10
 z_scale_image = False
-z_scale_result = False
 z_scale_psf = False
+keep_z_scale = False
 gpu_id = None
-use_fft = False
+use_matrix = False
 save_memory = False
 
 parser = argparse.ArgumentParser(description = 'Deconvolve images using the Richardson-Lucy algorhythm', \
@@ -34,24 +34,23 @@ parser.add_argument('-n', '--number-of-iterations', default = iterations, \
 group = parser.add_mutually_exclusive_group()
 group.add_argument('-z', '--z-scale-image', action = 'store_true', default = z_scale_image, \
                     help='Scale z dimension of image to achieve xy_scale = z_scale')
-
-group.add_argument('-Z', '--z-scale-psf', action = 'store_true', default = z_scale_psf, \
+group.add_argument('-c', '--z-scale-psf', action = 'store_true', default = z_scale_psf, \
                     help='Scale z dimension of psf to achieve xy_scale = z_scale')
 
-parser.add_argument('-r', '--z-scale-result', action = 'store_true', default = z_scale_result, \
-                    help='Scale z dimension of result after deconvolution')
+parser.add_argument('-k', '--keep-z-scale', action = 'store_true', default = keep_z_scale, \
+                    help='Keep z scaling of images after deconvolution')
 
 parser.add_argument('-t', '--time-range', nargs = 2, type = int, default = time_range, \
                     metavar=('START', 'COUNT'), \
                     help='range of time to apply deconvolution (COUNT = 0 for all)')
 
-parser.add_argument('-f', '--use-fft', action = 'store_true', default = use_fft, \
-                    help='Use FFT in the CPU mode')
-
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='Turn on GPU use with the specified ID')
 
-parser.add_argument('-m', '--save-memory', action = 'store_true', default = save_memory, \
+parser.add_argument('-m', '--use-matrix', action = 'store_true', default = use_matrix, \
+                    help='Disable FFT and use Matrix calculation.')
+
+parser.add_argument('-s', '--save-memory', action = 'store_true', default = save_memory, \
                     help='Save memory using float32 and complex64 (mainly for GPU)')
 
 parser.add_argument('input_file', default = input_filename, \
@@ -64,10 +63,10 @@ time_range = args.time_range
 iterations = args.number_of_iterations
 psf_filename = args.psf_image
 z_scale_image = args.z_scale_image
-z_scale_result = args.z_scale_result
+keep_z_scale = args.keep_z_scale
 z_scale_psf = args.z_scale_psf
 gpu_id = args.gpu_id
-use_fft = args.use_fft
+use_matrix = args.use_matrix
 save_memory = args.save_memory
 
 input_filename = args.input_file
@@ -108,7 +107,7 @@ if z_scale_psf and input_tiff.total_zstack > 1:
     print("Scaling psf image into:", psf_image.shape)
 
 # deconvolve
-deconvolver = lucy.Lucy(psf_image, gpu_id, use_fft, save_memory)
+deconvolver = lucy.Lucy(psf_image, gpu_id, use_matrix, save_memory)
 
 time_start = time_range[0]
 if time_range[1] == 0:
@@ -126,7 +125,7 @@ for channel in range(input_tiff.total_channel):
     for index in range(time_start, time_count):
         input_image = input_list[index][:, channel]
         print(index, end = ' ', flush = True)
-        output_frames.append(deconvolver.deconvolve(input_image, iterations, z_scale_ratio, z_scale_result))
+        output_frames.append(deconvolver.deconvolve(input_image, iterations, z_scale_ratio, keep_z_scale))
     output_list.append(output_frames)
     print(".")
 print("End deconvolution:", time.ctime())
