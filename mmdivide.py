@@ -37,12 +37,13 @@ if pathlib.Path(input_filename).exists() is False:
 input_tiff = mmtiff.MMTiff(input_filename)
 input_image = input_tiff.as_array()
 if use_channel is not None:
+    print("Using channel:", use_channel)
     input_image = input_image[:, :, use_channel:(use_channel + 1)]
 
 # split image
 split_width = int(input_tiff.width // 2)
 if input_tiff.width > split_width * 2:
-    print("Input image cannot be split evenly. Input iamge shape:", input_image.shape)
+    print("Input image cannot be split evenly. Input image shape:", input_image.shape)
 split_images = []
 split_images.append(input_image[:, :, :, :, 0:split_width].copy())
 split_images.append(input_image[:, :, :, :, split_width:input_tiff.width].copy())
