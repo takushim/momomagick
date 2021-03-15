@@ -73,7 +73,6 @@ class Lucy:
             self.hat_fft = g_cupy.asnumpy(self.hat_fft_gpu)
         else:
             if self.save_memory:
-                print("Preparing complex64 psf to save memory.")
                 self.psf_fft = numpy.fft.fftn(numpy.fft.ifftshift(psf_resized)).astype(numpy.complex64)
                 self.hat_fft = numpy.fft.fftn(numpy.fft.ifftshift(numpy.flip(psf_resized))).astype(numpy.complex64)
             else:

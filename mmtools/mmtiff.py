@@ -117,8 +117,9 @@ class MMTiff:
             self.pixelsize_um = float(values[1]) / float(values[0])
             print("Set pixelsize_um from the image", self.pixelsize_um)
         if 'ImageDescription' in tiff.pages[0].tags:
-            self.z_step_um = tiff.imagej_metadata['spacing']
-            print("Set z_step_um from the image", self.z_step_um)
+            if 'spacing' in tiff.imagej_metadata:
+                self.z_step_um = tiff.imagej_metadata['spacing']
+                print("Set z_step_um from the image", self.z_step_um)
 
     def as_list (self, channel = None, drop = True):
         if channel is None:
