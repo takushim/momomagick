@@ -133,8 +133,11 @@ output_axis[1] = 2
 output_axis[2] = 0
 output_image = output_image.transpose(output_axis)
 
-if input_tiff.dtype.kind == 'i' or input_tiff.dtype.kind == 'u':
+if (input_tiff.dtype.kind == 'i' or input_tiff.dtype.kind == 'u') and \
+        numpy.max(output_image) <= numpy.iinfo(input_tiff.dtype).max:
     output_image = mmtiff.MMTiff.float_to_int(output_image, input_tiff.dtype)
+else:
+    output_image = output_image.astype(numpy.float32)
 
 # output in the ImageJ format, dimensions should be in TZCYX order
 input_tiff.save_image(output_filename, output_image)
