@@ -6,8 +6,7 @@ from mmtools import mmtiff
 # default values
 input_filename = None
 output_folder = None
-folder_path_a = "PathA"
-folder_path_b = "PathB"
+channel_prefix = "path"
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Split PathA and PathB of an image stack', \
@@ -15,12 +14,16 @@ parser = argparse.ArgumentParser(description='Split PathA and PathB of an image 
 parser.add_argument('-o', '--output-folder', default=output_folder, \
                     help='output folder (current folder by default)')
 
+parser.add_argument('-c', '--channel-prefix', default=channel_prefix, \
+                    help='prefix to the channel folders ([perfix]_[number])')
+
 parser.add_argument('input_file', default=input_filename, \
                     help='an input (multipage) TIFF file')
 args = parser.parse_args()
 
 # set arguments
 input_filename = args.input_file
+channel_prefix = args.channel_prefix
 if args.output_folder is None:
     output_folder = "."
 else:
@@ -36,16 +39,16 @@ input_image = input_tiff.as_array()
 input_prefix = mmtiff.MMTiff.prefix(input_filename)
 
 # set output filenames
-output_folder_path_a = pathlib.Path(output_folder).joinpath(folder_path_a)
-output_folder_path_b = pathlib.Path(output_folder).joinpath(folder_path_b)
-output_filename_path_a = output_folder_path_a.joinpath(input_prefix + "_PathA.ome.tif")
-output_filename_path_b = output_folder_path_b.joinpath(input_prefix + "_PathB.ome.tif")
+for channel in range(input_tiff.total_channel):
+    channel_folder = "{0}_{1}".format(channel_prefix, channel)
+    channel_path = pathlib.Path(output_folder).joinpath(channel_folder)
+    channel_filename = "{0}_{1}_{2}.ome.tif".format(input_prefix, channel_prefix, channel)
+    channel_fullpath = channel_path.joinpath(channel_filename)
 
-output_folder_path_a.mkdir(exist_ok = True)
-output_folder_path_b.mkdir(exist_ok = True)
+    # make an channel folder
+    channel_path.mkdir(exist_ok = True)
 
-# output ImageJ, dimensions should be in TZCYX(S) order
-image_slice_path_a = input_image[:, :, 0:1]
-image_slice_path_b = input_image[:, :, 1:2]
-input_tiff.save_image_ome(str(output_filename_path_a), image_slice_path_a)
-input_tiff.save_image_ome(str(output_filename_path_b), image_slice_path_b)
+    # output ImageJ, dimensions should be in TZCYX(S) order
+    print("Output:", channel_filename)
+    image_slice = input_image[:, :, channel:(channel + 1)]
+    input_tiff.save_image_ome(str(channel_fullpath), image_slice)
