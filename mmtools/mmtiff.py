@@ -143,12 +143,16 @@ class MMTiff:
                 print("Using channel (keeping channel):", channel)
                 return numpy.array([x[:, channel:(channel + 1)] for x in self.image_list])
 
-    def save_image (self, filename, image_array, axes = None):
+    def save_image (self, filename, image_array):
         print('Saving image: ', image_array.shape, image_array.dtype)
         metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
-        if axes is not None:
-            metadata['axes'] = axes
         tifffile.imsave(filename, numpy.array(image_array), imagej = True, \
                 resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
                 metadata = metadata)
 
+    def save_image_ome (self, filename, image_array):
+        print('Saving image: ', image_array.shape, image_array.dtype)
+        metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
+        tifffile.imsave(filename, numpy.array(image_array), ome = True, \
+                resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
+                metadata = metadata)
