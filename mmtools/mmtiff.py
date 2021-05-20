@@ -44,6 +44,24 @@ class MMTiff:
     def float_to_int (image_array, dtype = numpy.uint16):
         return numpy.clip(image_array, numpy.iinfo(dtype).min, numpy.iinfo(dtype).max).astype(dtype)
     
+
+    @staticmethod
+    def paste_slices (src_shape, tgt_shape, center = False):
+        if center:
+            shifts = (numpy.array(tgt_shape) - numpy.array(src_shape)) // 2
+        else:
+            shifts = numpy.array([0 for i in range(len(src_shape))])
+
+        src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, src_shape)]
+        src_bounds = numpy.minimum(src_shape, tgt_shape - shifts)
+        slices_src = tuple([slice(x, y) for x, y in zip(src_starts, src_bounds)])
+
+        tgt_starts = [0 if x < 0 else min(x, y) for x, y in zip(shifts, tgt_shape)]
+        tgt_bounds = numpy.minimum(src_shape + shifts, tgt_shape)
+        slices_tgt = tuple([slice(x, y) for x, y in zip(tgt_starts, tgt_bounds)])
+
+        return [slices_src, slices_tgt]
+
     @staticmethod
     def resize (image_array, shape, center = False):
         resized_array = numpy.zeros(shape, dtype = image_array.dtype)
