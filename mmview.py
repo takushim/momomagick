@@ -163,4 +163,4 @@ output_array = output_array.transpose((1, 2, 0, 3, 4))
 print(output_array.shape)
 
 output_array = output_array.astype(input_tiff.dtype)
-input_tiff.save_image(output_filename, output_array)
+input_tiff.save_image_ome(output_filename, output_array)
