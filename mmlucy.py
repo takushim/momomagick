@@ -66,7 +66,7 @@ save_memory = args.save_memory
 
 input_filename = args.input_file
 if args.output_file is None:
-    output_filename = mmtiff.MMTiff.stem(input_filename) + output_suffix
+    output_filename = mmtiff.stem(input_filename) + output_suffix
     if output_filename == input_filename:
         raise Exception('input_filename == output_filename.')
 else:
@@ -135,7 +135,7 @@ output_image = output_image.transpose(output_axis)
 
 if (input_tiff.dtype.kind == 'i' or input_tiff.dtype.kind == 'u') and \
         numpy.max(output_image) <= numpy.iinfo(input_tiff.dtype).max:
-    output_image = mmtiff.MMTiff.float_to_int(output_image, input_tiff.dtype)
+    output_image = mmtiff.float_to_int(output_image, input_tiff.dtype)
 else:
     output_image = output_image.astype(numpy.float32)
 

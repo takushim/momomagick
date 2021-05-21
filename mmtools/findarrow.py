@@ -121,7 +121,7 @@ class FindArrow:
         return numpy.array(image)
 
     def draw_spots (self, back_image, spot_table, spot_index = None, arrow_index = None):
-        text_font = ImageFont.truetype(mmtiff.MMTiff.font_path(), self.font_size)
+        text_font = ImageFont.truetype(mmtiff.font_path(), self.font_size)
         image = Image.fromarray(numpy.zeros_like(back_image)) # int8 fails... why?
         draw = ImageDraw.Draw(image)
 

@@ -25,7 +25,7 @@ args = parser.parse_args()
 input_filename = args.input_file
 use_channel = args.use_channel
 if args.output_prefix is None:
-    output_prefix = mmtiff.MMTiff.prefix(input_filename)
+    output_prefix = mmtiff.prefix(input_filename)
 else:
     output_prefix = args.output_prefix
 

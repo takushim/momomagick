@@ -57,7 +57,7 @@ args = parser.parse_args()
 # set arguments
 input_filename = args.input_file
 if args.output_file is None:
-    output_filename = mmtiff.MMTiff.stem(input_filename) + filename_suffix
+    output_filename = mmtiff.stem(input_filename) + filename_suffix
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename.')
 else:
@@ -74,7 +74,7 @@ if args.background_image_file is not None:
     background_image_filename = args.background_image_file
     separate_spots = args.separate_spots
     if args.output_image_file is None:
-        output_image_filename = mmtiff.MMTiff.stem(background_image_filename) + output_image_suffix
+        output_image_filename = mmtiff.stem(background_image_filename) + output_image_suffix
         if background_image_filename == output_image_filename:
             raise Exception('input_filename == output_filename.')
     else:

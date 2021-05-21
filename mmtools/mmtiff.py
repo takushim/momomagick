@@ -2,6 +2,56 @@
 
 import platform, sys, numpy, pathlib, re, tifffile
 
+def stem (filename):
+    name = pathlib.Path(filename).stem
+    name = re.sub('\.ome$', '', name, flags=re.IGNORECASE)
+    return name
+
+def prefix (filename):
+    name = pathlib.Path(filename).stem
+    name = re.sub('\.ome$', '', name, flags=re.IGNORECASE)
+    name = re.sub('MMStack_Pos[0-9]+$', '', name, flags=re.IGNORECASE)
+    name = re.sub('_$', '', name, flags=re.IGNORECASE)
+    return name
+
+def font_path ():
+    if platform.system() == "Windows":
+        font_filename = 'C:/Windows/Fonts/Arial.ttf'
+    elif platform.system() == "Linux":
+        font_filename = '/usr/share/fonts/dejavu/DejaVuSans.ttf'
+    elif platform.system() == "Darwin":
+        font_filename = '/Library/Fonts/Verdana.ttf'
+    else:
+        raise Exception('Font file error.')
+
+    return font_filename
+
+def float_to_int (image_array, dtype = numpy.uint16):
+    return numpy.clip(image_array, numpy.iinfo(dtype).min, numpy.iinfo(dtype).max).astype(dtype)
+
+
+def paste_slices (src_shape, tgt_shape, center = False):
+    if center:
+        shifts = (numpy.array(tgt_shape) - numpy.array(src_shape)) // 2
+    else:
+        shifts = numpy.array([0 for i in range(len(src_shape))])
+
+    src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, src_shape)]
+    src_bounds = numpy.minimum(src_shape, tgt_shape - shifts)
+    slices_src = tuple([slice(x, y) for x, y in zip(src_starts, src_bounds)])
+
+    tgt_starts = [0 if x < 0 else min(x, y) for x, y in zip(shifts, tgt_shape)]
+    tgt_bounds = numpy.minimum(src_shape + shifts, tgt_shape)
+    slices_tgt = tuple([slice(x, y) for x, y in zip(tgt_starts, tgt_bounds)])
+
+    return [slices_src, slices_tgt]
+
+def resize (image_array, shape, center = False):
+    resized_array = numpy.zeros(shape, dtype = image_array.dtype)
+    slices_src, slices_tgt = paste_slices(image_array.shape, shape, center)
+    resized_array[slices_tgt] = image_array[slices_src].copy()
+    return resized_array
+
 class MMTiff:
     def __init__ (self, filename):
         # set default values
@@ -12,74 +62,6 @@ class MMTiff:
         # read image
         self.filename = filename
         self.read_image()
-
-    @staticmethod
-    def stem (filename):
-        name = pathlib.Path(filename).stem
-        name = re.sub('\.ome$', '', name, flags=re.IGNORECASE)
-        return name
-
-    @staticmethod
-    def prefix (filename):
-        name = pathlib.Path(filename).stem
-        name = re.sub('\.ome$', '', name, flags=re.IGNORECASE)
-        name = re.sub('MMStack_Pos[0-9]+$', '', name, flags=re.IGNORECASE)
-        name = re.sub('_$', '', name, flags=re.IGNORECASE)
-        return name
-
-    @staticmethod
-    def font_path ():
-        if platform.system() == "Windows":
-            font_filename = 'C:/Windows/Fonts/Arial.ttf'
-        elif platform.system() == "Linux":
-            font_filename = '/usr/share/fonts/dejavu/DejaVuSans.ttf'
-        elif platform.system() == "Darwin":
-            font_filename = '/Library/Fonts/Verdana.ttf'
-        else:
-            raise Exception('Font file error.')
-
-        return font_filename
-
-    @staticmethod
-    def float_to_int (image_array, dtype = numpy.uint16):
-        return numpy.clip(image_array, numpy.iinfo(dtype).min, numpy.iinfo(dtype).max).astype(dtype)
-    
-
-    @staticmethod
-    def paste_slices (src_shape, tgt_shape, center = False):
-        if center:
-            shifts = (numpy.array(tgt_shape) - numpy.array(src_shape)) // 2
-        else:
-            shifts = numpy.array([0 for i in range(len(src_shape))])
-
-        src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, src_shape)]
-        src_bounds = numpy.minimum(src_shape, tgt_shape - shifts)
-        slices_src = tuple([slice(x, y) for x, y in zip(src_starts, src_bounds)])
-
-        tgt_starts = [0 if x < 0 else min(x, y) for x, y in zip(shifts, tgt_shape)]
-        tgt_bounds = numpy.minimum(src_shape + shifts, tgt_shape)
-        slices_tgt = tuple([slice(x, y) for x, y in zip(tgt_starts, tgt_bounds)])
-
-        return [slices_src, slices_tgt]
-
-    @staticmethod
-    def resize (image_array, shape, center = False):
-        resized_array = numpy.zeros(shape, dtype = image_array.dtype)
-        if center:
-            shifts = (numpy.array(shape) - numpy.array(image_array.shape)) // 2
-        else:
-            shifts = numpy.array([0 for i in range(image_array.ndim)])
-
-        src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, image_array.shape)]
-        src_bounds = numpy.minimum(image_array.shape, shape - shifts)
-        slices_src = tuple([slice(x, y) for x, y in zip(src_starts, src_bounds)])
-
-        tgt_starts = [0 if x < 0 else min(x, y) for x, y in zip(shifts, shape)]
-        tgt_bounds = numpy.minimum(image_array.shape + shifts, shape)
-        slices_tgt = tuple([slice(x, y) for x, y in zip(tgt_starts, tgt_bounds)])
-
-        resized_array[slices_tgt] = image_array[slices_src]
-        return resized_array
 
     def read_image (self):
         # read TIFF file (assumes TZ(C)YX(S) order)

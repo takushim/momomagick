@@ -36,7 +36,7 @@ if pathlib.Path(input_filename).exists() is False:
 
 input_tiff = mmtiff.MMTiff(input_filename)
 input_image = input_tiff.as_array()
-input_prefix = mmtiff.MMTiff.prefix(input_filename)
+input_prefix = mmtiff.prefix(input_filename)
 
 # set output filenames
 for channel in range(input_tiff.total_channel):

@@ -14,7 +14,7 @@ shift_range_x = [-20, 20, 0.5]
 shift_range_y = [-10, 10, 0.5]
 
 # font
-font_file = mmtiff.MMTiff.font_path()
+font_file = mmtiff.font_path()
 #font_color = 'white'
 font_color = 128
 
@@ -60,7 +60,7 @@ else:
     shift_range_y = [args.shift_fix_y, args.shift_fix_y, 1.0]
 
 if args.output_file is None:
-    output_filename = mmtiff.MMTiff.stem(input_filenames[0]) + filename_suffix
+    output_filename = mmtiff.stem(input_filenames[0]) + filename_suffix
 else:
     output_filename = args.output_file
 

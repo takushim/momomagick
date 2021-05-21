@@ -54,7 +54,7 @@ rotation_range = args.rotation_range
 rotation_range[1] = rotation_range[1] + rotation_range[2]
 
 if args.output_file is None:
-    output_filename = mmtiff.MMTiff.stem(input_filename) + filename_suffix
+    output_filename = mmtiff.stem(input_filename) + filename_suffix
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename')
 else:
@@ -114,7 +114,7 @@ for channel in range(input_tiff.total_channel):
 
         if gpu_id is None:
             zoomed_image = zoom(input_image, zoom = zoom_factors)
-            resized_image = mmtiff.MMTiff.resize(zoomed_image, resized_shape, center = True)
+            resized_image = mmtiff.resize(zoomed_image, resized_shape, center = True)
         else:
             device = cupy.cuda.Device(gpu_id)
             mempool = cupy.get_default_memory_pool()
@@ -145,8 +145,8 @@ for channel in range(input_tiff.total_channel):
 
             gpu_resized_image = cupy.zeros(resized_shape, dtype = data_type)
             slices_source, slices_target = \
-                mmtiff.MMTiff.paste_slices(gpu_zoomed_image.shape, gpu_resized_image.shape, \
-                                        center = True)
+                mmtiff.paste_slices(gpu_zoomed_image.shape, gpu_resized_image.shape, \
+                                    center = True)
             gpu_resized_image[slices_target] = gpu_zoomed_image[slices_source].copy()
             print("Memory: {0} vs {1}".format(mempool.used_bytes(), mempool.free_bytes()))
             print("Free memory:", device.mem_info)

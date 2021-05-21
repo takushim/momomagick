@@ -56,7 +56,7 @@ class Lucy:
             return
 
         # update psf and hat
-        psf_resized = mmtiff.MMTiff.resize(self.psf, shape, center = True)
+        psf_resized = mmtiff.resize(self.psf, shape, center = True)
         if self.gpu_id is not None:
             # send psf images to the GPU
             if self.save_memory:

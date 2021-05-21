@@ -42,7 +42,7 @@ use_smoothing = args.use_smoothing
 force_calc_smoothing = args.force_calc_smoothing
 
 if args.output_file is None:
-    output_filename = mmtiff.MMTiff.stem(input_filename) + filename_suffix
+    output_filename = mmtiff.stem(input_filename) + filename_suffix
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename')
 else:

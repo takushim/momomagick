@@ -18,7 +18,7 @@ invert_channel_order = False
 shift_x = 0
 shift_y = 0
 filename_suffix = '_overlay.tif'
-text_font = ImageFont.truetype(mmtiff.MMTiff.font_path(), 20)
+text_font = ImageFont.truetype(mmtiff.font_path(), 20)
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Overlay two diSPIM images', \
@@ -61,7 +61,7 @@ use_smoothing = args.use_smoothing
 add_text = args.add_text
 invert_channel_order = args.invert_channel_order
 if args.output_file is None:
-    output_filename = mmtiff.MMTiff.stem(input_filenames[0]) + filename_suffix
+    output_filename = mmtiff.stem(input_filenames[0]) + filename_suffix
     if any([x == output_filename for x in input_filenames]):
         raise Exception('input_filename == output_filename.')
 else:
