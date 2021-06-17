@@ -14,6 +14,10 @@ def prefix (filename):
     name = re.sub('_$', '', name, flags=re.IGNORECASE)
     return name
 
+def with_suffix (filename, suffix):
+    name = stem(filename)
+    return name + suffix
+
 def font_path ():
     if platform.system() == "Windows":
         font_filename = 'C:/Windows/Fonts/Arial.ttf'
@@ -29,6 +33,10 @@ def font_path ():
 def float_to_int (image_array, dtype = numpy.uint16):
     return numpy.clip(image_array, numpy.iinfo(dtype).min, numpy.iinfo(dtype).max).astype(dtype)
 
+def convert_to_uint8 (image_array):
+    max_value = image_array.max()
+    min_value = image_array.min()
+    return (image_array / (max_value - min_value) * 255.0).astype(numpy.uint8)
 
 def paste_slices (src_shape, tgt_shape, center = False):
     if center:
