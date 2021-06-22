@@ -17,7 +17,7 @@ aligned_image_suffix = '_affine.tif'
 parallel_shift_only = False
 gpu_id = None
 
-parser = argparse.ArgumentParser(description='Calculate sample shift using affine matrix and powell optimization', \
+parser = argparse.ArgumentParser(description='Calculate sample shift using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-f', '--output-file', default = output_filename, \
                     help='output TSV file name ({0} if not specified)'.format(output_filename))
