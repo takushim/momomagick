@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, argparse
+import sys, argparse, tifffile
 import numpy as np
 import pandas as pd
 from scipy import ndimage, optimize
@@ -76,7 +76,7 @@ else:
     ref_tiff = mmtiff.MMTiff(ref_filename)
     if ref_tiff.colored:
         raise Exception('Reference image: color reference image not accepted.')
-    ref_image = ref_tiff.as_list(use_channel = 0, drop = True)[0]
+    ref_image = ref_tiff.as_list(channel = use_channel, drop = True)[0]
 
 # hanning window
 hanning_z = np.hanning(input_tiff.total_zstack)
@@ -118,11 +118,17 @@ for index in range(len(input_images)):
         'poc_corr': max_val})
 
 # prepare normalized reference image
+def normalize (image):
+    clip_max = np.percentile(image, 99)
+    clip_min = np.percentile(image, 1)
+    return (image.clip(clip_min, clip_max) - clip_min) / (clip_max - clip_min)
+
+
 if gpu_id is None:
-    ref_float = ref_image * hanning_mat
+    ref_float = normalize(ref_image)
     ref_sigma = np.std(ref_float)
 else:
-    ref_float = cp.array(ref_image) * hanning_mat
+    ref_float = cp.array(normalize(ref_image))
     ref_sigma = cp.std(ref_float)
 
 matrix_list = []
@@ -130,54 +136,56 @@ shifted_image_list = []
 # optimization using an affine matrix
 # note: input = matrix * output + offset
 for index in range(len(input_images)):
+    print("Starting optimization:", index)
     init_x = shift_list[index]['init_x']
     init_y = shift_list[index]['init_y']
     init_z = shift_list[index]['init_z']
     if input_tiff.total_zstack == 1:
-        init_params = np.array([1.0, 0.0, init_y, 0.0, 1.0, init_x])
         input_image = input_images[index][0]
-        if gpu_id is None:
-            image_float = input_image * hanning_mat
-            def error_func (params):
-                matrix = np.array([params[0:3], params[3:6], [0.0, 0.0, 1.0]])
-                trans_float = ndimage.affine_transform(image_float, matrix)
-                trans_sigma = np.std(trans_float)
-                return -np.sum(ref_float * trans_float) / ref_sigma / trans_sigma / trans_float.size
-        else:
-            image_float = cp.array(input_image) * hanning_mat
-            def error_func (params):
-                matrix = cp.array([params[0:3], params[3:6], [0.0, 0.0, 1.0]])
-                trans_float = cpimage.affine_transform(image_float, matrix)
-                trans_sigma = cp.std(trans_float)
-                return cp.asnumpy(-cp.sum(ref_float * trans_float) / ref_sigma / trans_sigma / trans_float.size)
+        init_params = np.array([init_x, init_y, 0.0])
+        params_to_matrix = lambda p: np.array([[np.cos(p[2]), -np.sin(p[2]), p[1]], [np.sin(p[2]), np.cos(p[2]), p[0]], [0.0, 0.0, 1.0]])
     else:
-        init_params = np.array([1.0, 0.0, 0.0, init_z, 0.0, 1.0, 0.0, init_y, 0.0, 0.0, 1.0, init_x])
         input_image = input_images[index]
-        if gpu_id is None:
-            image_float = input_image * hanning_mat
-            def error_func (params):
-                matrix = np.array([params[0:4], params[4:8], params[8:12], [0.0, 0.0, 0.0, 1.0]])
-                trans_float = ndimage.affine_transform(image_float, matrix)
-                trans_sigma = np.std(trans_float)
-                return -np.sum(ref_float * trans_float) / ref_sigma / trans_sigma / trans_float.size
-        else:
-            image_float = cp.array(input_image) * hanning_mat
-            def error_func (params):
-                matrix = cp.array([params[0:4], params[4:8], params[8:12], [0.0, 0.0, 0.0, 1.0]])
-                trans_float = cpimage.affine_transform(image_float, matrix)
-                trans_sigma = cp.std(trans_float)
-                return cp.asnumpy(-cp.sum(ref_float * trans_float) / ref_sigma / trans_sigma / trans_float.size)
-    
-    results = optimize.minimize(error_func, init_params)
-    shift_list[index]['matrix'] = ','.join([str(x) for x in results.x])
-    print("Optimization performed. Matrix:", shift_list[index]['matrix'])
+        init_params = np.array([init_x, init_y, init_z, 0.0, 0.0, 0.0])
+        params_to_matrix = lambda p: np.array([[np.cos(p[5])*np.cos(p[4]), np.cos(p[5])*np.sin(p[4])*np.sin(p[3])-np.sin(p[5])*np.cos(p[3]), np.cos(p[5])*np.sin(p[4])*np.cos(p[3])+np.sin(p[5])*np.sin(p[3]), p[2]],
+                                               [np.sin(p[5])*np.cos(p[4]), np.sin(p[5])*np.sin(p[4])*np.sin(p[3])+np.cos(p[5])*np.cos(p[3]), np.sin(p[5])*np.sin(p[4])*np.cos(p[3])-np.cos(p[5])*np.sin(p[3]), p[1]],
+                                               [-np.sin(p[4]), np.cos(p[4])*np.sin(p[3]), np.cos(p[4])*np.cos(p[3]), p[0]],
+                                               [0.0, 0.0, 0.0, 1.0]])
+
+    if gpu_id is None:
+        #image_float = input_image * hanning_mat
+        image_float = normalize(input_image)
+        def error_func (params):
+            matrix = params_to_matrix(params)
+            trans_float = ndimage.affine_transform(image_float, matrix)
+            trans_sigma = np.std(trans_float)
+            #error = np.sum(ref_float * trans_float * hanning_mat) / ref_sigma / trans_sigma
+            error = np.sum(ref_float * trans_float * hanning_mat)
+            #print("Trial:", -error)
+            #print(matrix)
+            return -error
+    else:
+        image_float = cp.array(normalize(input_image))
+        #image_float = cp.array(input_image) * hanning_mat
+        def error_func (params):
+            matrix = cp.array(params_to_matrix(params))
+            trans_float = cpimage.affine_transform(image_float, matrix)
+            trans_sigma = cp.std(trans_float)
+            #error = cp.asnumpy(cp.sum(ref_float * trans_float * hanning_mat) / ref_sigma / trans_sigma)
+            error = cp.asnumpy(cp.sum(ref_float * trans_float * hanning_mat))
+            print("Trial:", -error)
+            #print(matrix)
+            return -error
+
+    results = optimize.minimize(error_func, init_params, method = "Nelder-Mead",
+                                options = {'xatol': 0.0001, 'fatol': 0.0001})
+    final_matrix = params_to_matrix(results.x)
 
     if output_shifted_image:
-        params = results.x
         if input_tiff.total_zstack == 1:
-            final_matrix = np.array([params[0:3], params[3:6], [0.0, 0.0, 1.0]])
+            input_image = input_images[index][0]
         else:
-            final_matrix = np.array([params[0:4], params[4:8], params[8:12], [0.0, 0.0, 0.0, 1.0]])
+            input_image = input_images[index]
 
         if gpu_id is None:
             shifted_image = ndimage.affine_transform(input_image, final_matrix)
@@ -186,12 +194,16 @@ for index in range(len(input_images)):
             shifted_image = cp.asnumpy(shifted_image)
 
         if input_tiff.total_zstack == 1:
-            shifted_image = shifted_image[np.newaxis, np.newaxis, :, :]
+            shifted_image = shifted_image[np.newaxis, np.newaxis]
         else:
-            shifted_image = shifted_image[:, np.newaxis, :, :]
+            shifted_image = shifted_image[:, np.newaxis]
 
-        print(final_matrix)
         shifted_image_list.append(shifted_image)
+
+    shift_list[index]['matrix'] = ','.join([str(x) for x in results.x])
+    print("Optimization performed. Matrix:", shift_list[index]['matrix'])
+    print(results)
+    print(final_matrix)
 
 # open tsv file and write header
 print("Output TSV:", output_filename)
