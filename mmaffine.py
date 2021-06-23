@@ -112,7 +112,7 @@ for index in range(len(input_images)):
     final_matrix = affine_result['matrix']
 
     if output_aligned_image:
-        output_image = affine_register.transform(input_image, final_matrix)
+        output_image = regist.affine_transform(input_image, final_matrix, gpu_id)
         if input_tiff.total_zstack == 1:
             output_image = output_image[np.newaxis, np.newaxis]
         else:
@@ -132,11 +132,12 @@ affine_register = None
 summary_list = []
 for index in range(len(input_images)):
     summary = {'index': index}
-    summary.update({"poc_{0}".format(x): y for x, y in zip(poc_result_list[index]['shift'][::-1], ['x', 'y', 'z'])})
+    summary.update({"poc_{0}".format(x): y for x, y in zip(['x', 'y', 'z'], poc_result_list[index]['shift'][::-1])})
     summary.update({"poc_corr": poc_result_list[index]['corr']})
-    summary.update({"init_{0}".format(x): y for x, y in zip(init_shift_list[index]['shift'][::-1], ['x', 'y', 'z'])})
+    summary.update({"init_{0}".format(x): y for x, y in zip(['x', 'y', 'z'], init_shift_list[index]['shift'][::-1])})
     summary.update({"aff_stat": affine_result_list[index]['results'].status})
     summary.update({"aff_mat": ",".join([str(x) for x in affine_result_list[index]['results'].x])})
+    summary_list.append(summary)
 
 # open tsv file and write header
 print("Output TSV:", output_tsv_filename)

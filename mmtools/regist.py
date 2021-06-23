@@ -32,7 +32,8 @@ def normalize (input_image, p_min = 1, p_max = 99):
     clip_max = np.percentile(input_image, p_max)
     return (input_image.clip(clip_min, clip_max).astype(float) - clip_min) / (clip_max - clip_min)
 
-def interpret_params (params):
+def csv_to_matrix (csv_text):
+    params = [float(x) for x in csv_text.split(',')]
     if len(params) == 2:
         matrix = drift_to_matrix_2d(params)
     elif len(params) == 3:
@@ -62,6 +63,15 @@ def drift_to_matrix_2d (params):
 def drift_to_matrix_3d (params):
     return np.array([[1.0, 0.0, 0.0, params[0]], [0.0, 1.0, 0.0, params[1]], \
                      [0.0, 0.0, 1.0, params[2]], [0.0, 0.0, 0.0, 1.0]])
+
+def affine_transform (input_image, matrix, gpu_id = None):
+    if gpu_id is None:
+        output_image = ndimage.affine_transform(input_image, matrix)
+    else:
+        output_image = cpimage.affine_transform(cp.array(input_image), cp.array(matrix))
+        output_image = cp.asnumpy(output_image)
+    return output_image
+
 
 class Poc:
     def __init__ (self, ref_image, window_func = np.hanning, gpu_id = None):
@@ -137,10 +147,3 @@ class Affine:
         results = optimize.minimize(error_func, init_params, method = optimizing_method)
         return {'matrix': params_to_matrix(results.x), 'results': results}
 
-    def transform (self, input_image, matrix):
-        if self.gpu_id is None:
-            output_image = ndimage.affine_transform(input_image, matrix)
-        else:
-            output_image = cpimage.affine_transform(cp.array(input_image), cp.array(matrix))
-            output_image = cp.asnumpy(output_image)
-        return output_image
