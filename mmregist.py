@@ -5,6 +5,11 @@ import numpy as np
 import pandas as pd
 from scipy import ndimage
 from mmtools import mmtiff
+try:
+    import cupy as cp
+    from cupyx.scipy import ndimage as cpimage
+except ImportError:
+    pass
 
 # defaults
 input_filename = None
@@ -44,8 +49,6 @@ else:
 
 # activate GPU
 if gpu_id is not None:
-    import cupy as cp
-    from cupyx.scipy import ndimage as cpimage
     device = cp.cuda.Device(gpu_id)
     device.use()
     print("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
