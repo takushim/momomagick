@@ -8,19 +8,20 @@ from mmtools import mmtiff
 
 # defaults
 input_filename = None
-output_filename = 'affine.txt'
+output_tsv_filename = None
+output_tsv_suffix = '_affine.txt'
 ref_filename = None
 use_channel = 0
 output_aligned_image = False
 aligned_image_filename = None
-aligned_image_suffix = '_affine.tif'
+aligned_image_suffix = '_reg.tif'
 parallel_shift_only = False
 gpu_id = None
 
 parser = argparse.ArgumentParser(description='Calculate sample shift using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-f', '--output-file', default = output_filename, \
-                    help='output TSV file name ({0} if not specified)'.format(output_filename))
+parser.add_argument('-o', '--output-tsv-file', default = output_tsv_filename, \
+                    help='output TSV file name ([basename]{0} if not specified)'.format(output_tsv_suffix))
 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
@@ -46,17 +47,21 @@ args = parser.parse_args()
 
 # set arguments
 input_filename = args.input_file
-output_filename = args.output_file
 ref_filename = args.ref_image
 use_channel = args.use_channel
 gpu_id = args.gpu_id
 parallel_shift_only = args.parallel_shift_only
 output_aligned_image = args.output_aligned_image
 
+if args.output_tsv_file is None:
+    output_tsv_filename = mmtiff.with_suffix(input_filename, output_tsv_suffix)
+else:
+    output_tsv_filename = args.output_tsv_file
+
 if args.aligned_image_file is None:
     aligned_image_filename = mmtiff.with_suffix(input_filename, aligned_image_suffix)
 else:
-    aligned_image_filename = args.aligned_image_filename
+    aligned_image_filename = args.aligned_image_file
 
 # activate GPU
 if gpu_id is not None:
@@ -128,7 +133,6 @@ def normalize (image):
     clip_min = np.percentile(image, 1)
     return (image.clip(clip_min, clip_max) - clip_min) / (clip_max - clip_min)
 
-
 if gpu_id is None:
     ref_float = normalize(ref_image)
 else:
@@ -136,7 +140,7 @@ else:
 
 matrix_list = []
 output_image_list = []
-# optimization using an affine matrix
+# optimization for each affine matrix
 # note: input = matrix * output + offset
 for index in range(len(input_images)):
     print("Starting optimization:", index)
@@ -190,7 +194,7 @@ for index in range(len(input_images)):
             input_image = input_images[index]
 
         if gpu_id is None:
-            aligned_image = ndimage.affine_transform(input_image, final_matrix)
+            output_image = ndimage.affine_transform(input_image, final_matrix)
         else:
             output_image = cpimage.affine_transform(cp.array(input_image), cp.array(final_matrix))
             output_image = cp.asnumpy(output_image)
@@ -208,9 +212,9 @@ for index in range(len(input_images)):
     print(".")
 
 # open tsv file and write header
-print("Output TSV:", output_filename)
+print("Output TSV:", output_tsv_filename)
 shift_table = pd.DataFrame(shift_list)
-shift_table.to_csv(output_filename, sep = '\t', index = False)
+shift_table.to_csv(output_tsv_filename, sep = '\t', index = False)
 
 # output images
 if output_aligned_image:
