@@ -1,15 +1,9 @@
 #!/usr/bin/env python
 
-import sys, argparse, tifffile
+import sys, argparse
 import numpy as np
 import pandas as pd
-from scipy import ndimage, optimize
-from mmtools import mmtiff
-try:
-    import cupy as cp
-    from cupyx.scipy import ndimage as cpimage
-except ImportError:
-    pass
+from mmtools import mmtiff, regist
 
 # defaults
 input_filename = None
@@ -20,10 +14,10 @@ use_channel = 0
 output_aligned_image = False
 aligned_image_filename = None
 aligned_image_suffix = '_reg.tif'
-parallel_shift_only = False
+transport_only = False
 gpu_id = None
 
-parser = argparse.ArgumentParser(description='Calculate sample shift using affine matrix and optimization', \
+parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-tsv-file', default = output_tsv_filename, \
                     help='output TSV file name ([basename]{0} if not specified)'.format(output_tsv_suffix))
@@ -37,8 +31,8 @@ parser.add_argument('-r', '--ref-image', default = ref_filename, \
 parser.add_argument('-c', '--use-channel', type = int, default = use_channel, \
                     help='specify the channel to process')
 
-parser.add_argument('-p', '--parallel-shift-only', action = 'store_true', \
-                    help='Optimize for parallel shift only')
+parser.add_argument('-t', '--transport-only', action = 'store_true', \
+                    help='Optimize for parallel transport only')
 
 parser.add_argument('-A', '--output-aligned-image', action = 'store_true', \
                     help='output aligned images')
@@ -55,7 +49,7 @@ input_filename = args.input_file
 ref_filename = args.ref_image
 use_channel = args.use_channel
 gpu_id = args.gpu_id
-parallel_shift_only = args.parallel_shift_only
+transport_only = args.transport_only
 output_aligned_image = args.output_aligned_image
 
 if args.output_tsv_file is None:
@@ -68,18 +62,14 @@ if args.aligned_image_file is None:
 else:
     aligned_image_filename = args.aligned_image_file
 
-# activate GPU
+# turn on GPU device
 if gpu_id is not None:
-    device = cp.cuda.Device(gpu_id)
-    device.use()
-    print("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
-    print("Free memory:", device.mem_info)
+    regist.turn_on_gpu(gpu_id)
 
 # read input image
 input_tiff = mmtiff.MMTiff(input_filename)
 if input_tiff.colored:
     raise Exception('Input_image: color image not accepted')
-
 input_images = input_tiff.as_list(channel = use_channel, drop = True)
 
 # read reference image
@@ -91,132 +81,66 @@ else:
         raise Exception('Reference image: color reference image not accepted.')
     ref_image = ref_tiff.as_list(channel = use_channel, drop = True)[0]
 
-# hanning window
-hanning_z = np.hanning(input_tiff.total_zstack)
-hanning_y = np.hanning(input_tiff.height)
-hanning_x = np.hanning(input_tiff.width)
-mesh_z, mesh_y, mesh_x = np.meshgrid(hanning_z, hanning_y, hanning_x, indexing = 'ij')
-hanning_mat = mesh_z * mesh_y * mesh_x
-
-# prepare fft_conj of reference images (center = no drifting)
-if gpu_id is None:
-    ref_fft_conj = np.conj(np.fft.fftn(ref_image * hanning_mat))
-else:
-    hanning_mat = cp.array(hanning_mat)
-    ref_fft_conj = cp.conj(cp.fft.fftn(cp.array(ref_image) * hanning_mat))
-
 # calculate POCs for pre-registration
-poc_image_list = []
-shift_list = []
-center = np.array(ref_image.shape) // 2
+poc_result_list = []
+poc_register = regist.Poc(ref_image, gpu_id = gpu_id)
+print("Pre-registrating using phase-only-correlation.")
 for index in range(len(input_images)):
-    if gpu_id is None:
-        image = input_images[index]
-        image_fft = np.fft.fftn(image * hanning_mat)
-        corr_image = ref_fft_conj * image_fft / np.abs(ref_fft_conj * image_fft)
-        poc_image = np.fft.fftshift(np.real(np.fft.ifftn(corr_image)))
-    else:
-        image = cp.array(input_images[index])
-        image_fft = cp.fft.fftn(image * hanning_mat)
-        corr_image = ref_fft_conj * image_fft / cp.abs(ref_fft_conj * image_fft)
-        poc_image = cp.fft.fftshift(cp.real(cp.fft.ifftn(corr_image)))
-        poc_image = cp.asnumpy(poc_image)
+    poc_result = poc_register.regist(input_images[index])
+    poc_result_list.append(poc_result)
 
-    max_pos = ndimage.maximum_position(poc_image)
-    max_val = poc_image[max_pos]
-    image_shift = (max_pos - center).astype(float)
-    print("POC performed. Index:", index, "Shift:", image_shift, "Corr:", max_val)
-    shift_list.append({'index': index, \
-        'init_x': image_shift[2], 'init_y': image_shift[1], 'init_z': image_shift[0], \
-        'poc_corr': max_val})
+# free gpu memory
+poc_register = None
 
-# prepare normalized reference image
-def normalize (image):
-    clip_max = np.percentile(image, 99)
-    clip_min = np.percentile(image, 1)
-    return (image.clip(clip_min, clip_max) - clip_min) / (clip_max - clip_min)
-
-if gpu_id is None:
-    ref_float = normalize(ref_image)
-else:
-    ref_float = cp.array(normalize(ref_image))
-
-matrix_list = []
-output_image_list = []
 # optimization for each affine matrix
 # note: input = matrix * output + offset
+init_shift_list = [{'shift': poc_result['shift']} for poc_result in poc_result_list]
+affine_result_list = []
+output_image_list = []
+affine_register = regist.Affine(ref_image, gpu_id = gpu_id)
 for index in range(len(input_images)):
     print("Starting optimization:", index)
-    init_x = shift_list[index]['init_x']
-    init_y = shift_list[index]['init_y']
-    init_z = shift_list[index]['init_z']
-    if parallel_shift_only:
-        print("Parallel shift only. Freedom = 3.")
-        if input_tiff.total_zstack == 1:
-            input_image = input_images[index][0]
-            init_params = np.array([init_y, init_x])
-            params_to_matrix = lambda params: np.array([[1.0, 0.0, params[0]], [0.0, 1.0, params[1]], [0.0, 0.0, 1.0]])
-        else:
-            input_image = input_images[index]
-            init_params = np.array([init_z, init_y, init_x])
-            params_to_matrix = lambda params: np.array([[1.0, 0.0, 0.0, params[0]], [0.0, 1.0, 0.0, params[1]], \
-                                                        [0.0, 0.0, 1.0, params[2]], [0.0, 0.0, 0.0, 1.0]])
-    else:
-        print("Full affine transformation. Freedom = 12.")
-        if input_tiff.total_zstack == 1:
-            input_image = input_images[index][0]
-            init_params = np.array([1.0, 0.0, init_y, 0.0, 1.0, init_x])
-            params_to_matrix = lambda params: np.array([params[0:3], params[3:6], [0.0, 0.0, 1.0]])
-        else:
-            input_image = input_images[index]
-            init_params = np.array([1.0, 0.0, 0.0, init_z, 0.0, 1.0, 0.0, init_y, 0.0, 0.0, 1.0, init_x])
-            params_to_matrix = lambda params: np.array([params[0:4], params[4:8], params[8:12], [0.0, 0.0, 0.0, 1.0]])
 
-    if gpu_id is None:
-        image_float = normalize(input_image)
-        def error_func (params):
-            matrix = params_to_matrix(params)
-            trans_float = ndimage.affine_transform(image_float, matrix)
-            error = np.sum((ref_float - trans_float) * (ref_float - trans_float) * hanning_mat)
-            return error
+    init_shift = init_shift_list[index]['shift']
+    if input_tiff.total_zstack == 1:
+        input_image = input_images[index][0]
     else:
-        image_float = cp.array(normalize(input_image))
-        def error_func (params):
-            matrix = cp.array(params_to_matrix(params))
-            trans_float = cpimage.affine_transform(image_float, matrix)
-            error = cp.asnumpy(cp.sum((ref_float - trans_float) * (ref_float - trans_float) * hanning_mat))
-            return error
+        input_image = input_images[index]
+    print("Initial shift:", init_shift)
 
-    results = optimize.minimize(error_func, init_params, method = "Powell")
-    final_matrix = params_to_matrix(results.x)
+    affine_result = affine_register.regist(input_image, init_shift, transport_only = transport_only)
+    final_matrix = affine_result['matrix']
 
     if output_aligned_image:
-        if input_tiff.total_zstack == 1:
-            input_image = input_images[index][0]
-        else:
-            input_image = input_images[index]
-
-        if gpu_id is None:
-            output_image = ndimage.affine_transform(input_image, final_matrix)
-        else:
-            output_image = cpimage.affine_transform(cp.array(input_image), cp.array(final_matrix))
-            output_image = cp.asnumpy(output_image)
-
+        output_image = affine_register.transform(input_image, final_matrix)
         if input_tiff.total_zstack == 1:
             output_image = output_image[np.newaxis, np.newaxis]
         else:
             output_image = output_image[:, np.newaxis]
-
         output_image_list.append(output_image)
 
-    shift_list[index]['matrix'] = ','.join([str(x) for x in results.x])
-    print(results.message, "Matrix:")
+    print(affine_result['results'].message, "Matrix:")
     print(final_matrix)
+
+    affine_result_list.append(affine_result)
     print(".")
+
+# free gpu memory
+affine_register = None
+
+# summarize the results
+summary_list = []
+for index in range(len(input_images)):
+    summary = {'index': index}
+    summary.update({"poc_{0}".format(x): y for x, y in zip(poc_result_list[index]['shift'][::-1], ['x', 'y', 'z'])})
+    summary.update({"poc_corr": poc_result_list[index]['corr']})
+    summary.update({"init_{0}".format(x): y for x, y in zip(init_shift_list[index]['shift'][::-1], ['x', 'y', 'z'])})
+    summary.update({"aff_stat": affine_result_list[index]['results'].status})
+    summary.update({"aff_mat": ",".join([str(x) for x in affine_result_list[index]['results'].x])})
 
 # open tsv file and write header
 print("Output TSV:", output_tsv_filename)
-shift_table = pd.DataFrame(shift_list)
+shift_table = pd.DataFrame(summary_list)
 shift_table.to_csv(output_tsv_filename, sep = '\t', index = False)
 
 # output images
