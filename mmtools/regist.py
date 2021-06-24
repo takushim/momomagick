@@ -32,25 +32,6 @@ def normalize (input_image, p_min = 1, p_max = 99):
     clip_max = np.percentile(input_image, p_max)
     return (input_image.clip(clip_min, clip_max).astype(float) - clip_min) / (clip_max - clip_min)
 
-def csv_to_matrix (csv_text):
-    params = [float(x) for x in csv_text.split(',')]
-    if len(params) == 2:
-        matrix = drift_to_matrix_2d(params)
-    elif len(params) == 3:
-        matrix = drift_to_matrix_2d(params)
-    elif len(params) == 6:
-        matrix = params_to_matrix_2d(params)
-    elif len(params) == 9:
-        matrix = np.array(params).reshape(3, 3)
-    elif len(params) == 12:
-        matrix = params_to_matrix_3d(params)
-    elif len(params) == 16:
-        matrix = np.array(params).reshape(4, 4)
-    else:
-        print("Cannot make a matrix.", params)
-        matrix = np.array([1.0])
-    return matrix
-
 def params_to_matrix_2d (params):
     return np.array([params[0:3], params[3:6], [0.0, 0.0, 1.0]])
 
@@ -79,7 +60,7 @@ class Poc:
         self.center = np.array(ref_image.shape) // 2
         self.gpu_id = gpu_id
         if gpu_id is None:
-            self.ref_fft_conj = np.conj(np.fft.fftn(ref_image * self.hanning_mat))
+            self.ref_fft_conj = np.conj(np.fft.fftn(ref_image * self.window_mat))
         else:
             self.window_mat = cp.array(self.window_mat)
             self.ref_fft_conj = cp.conj(cp.fft.fftn(cp.array(ref_image) * self.window_mat))
@@ -145,5 +126,6 @@ class Affine:
                 return error
 
         results = optimize.minimize(error_func, init_params, method = optimizing_method)
-        return {'matrix': params_to_matrix(results.x), 'results': results}
+        return {'matrix': params_to_matrix(results.x), 'init': init_shift, \
+                'transport_only': transport_only, 'results': results}
 

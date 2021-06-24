@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
-import sys, argparse
+import sys, argparse, json
 import numpy as np
-import pandas as pd
 from mmtools import mmtiff, regist
 
 # defaults
 input_filename = None
-tsv_filename = None
-tsv_suffix = '_affine.txt'
+txt_filename = None
+txt_suffix = '_affine.json'
 output_filename = None
 output_suffix = '_reg.tif'
 gpu_id = None
@@ -18,8 +17,8 @@ parser = argparse.ArgumentParser(description='Regist time-lapse images using aff
 parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='output image file name ([basename]{0} if not specified)'.format(output_suffix))
 
-parser.add_argument('-f', '--tsv-file', default = tsv_filename, \
-                    help='filename to output images ([basename]{0} if not specified)'.format(tsv_suffix))
+parser.add_argument('-f', '--txt-file', default = txt_filename, \
+                    help='JSON file recording matrices ([basename]{0} if not specified)'.format(txt_suffix))
 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
@@ -36,10 +35,10 @@ if args.output_file is None:
 else:
     output_filename = args.output_file
 
-if args.tsv_file is None:
-    tsv_filename = mmtiff.with_suffix(input_filename, tsv_suffix)
+if args.txt_file is None:
+    txt_filename = mmtiff.with_suffix(input_filename, txt_suffix)
 else:
-    tsv_filename = args.tsv_file
+    txt_filename = args.txt_file
 
 # activate GPU
 if gpu_id is not None:
@@ -51,8 +50,9 @@ if input_tiff.colored:
     raise Exception('Input_image: color image not accepted')
 input_images = input_tiff.as_list()
 
-# read TSV matrices and convert them to a list of dicts
-summary_list = pd.read_csv(tsv_filename, comment = '#', sep = '\t').to_dict('records')
+# read JSON file
+with open(txt_filename, 'r') as f:
+    summary_list = json.load(f)['summary_list']
 
 # registration using affine matrices
 # note: input = matrix * output + offset
@@ -63,7 +63,7 @@ for summary in summary_list:
     print(index, end = ' ', flush = True)
     input_image = input_images[index]
 
-    matrix = regist.csv_to_matrix(summary['aff_mat'])
+    matrix = np.array(summary['affine']['matrix'])
 
     channel_image_list = []
     for channel in range(input_tiff.total_channel):
