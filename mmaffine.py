@@ -4,6 +4,7 @@ import sys, argparse, json, time
 import numpy as np
 from pathlib import Path
 from numpyencoder import NumpyEncoder
+from statsmodels.nonparametric.smoothers_lowess import lowess
 from mmtools import mmtiff, regist
 
 # defaults
@@ -93,9 +94,18 @@ for index in range(len(input_images)):
 # free gpu memory
 poc_register = None
 
+# losess filter to exclude outliers
+values_list = []
+for i in range(len(ref_image.shape)):
+    values = np.array([x['shift'][i] for x in poc_result_list])
+    values = lowess(values, np.arange(len(input_images)), frac = 0.1, return_sorted = False)
+    values = values - values[0]
+    values_list.append(values)
+values_list = np.array(values_list)
+init_shift_list = [{'shift': values_list[:, i]} for i in range(len(input_images))]
+
 # optimization for each affine matrix
 # note: input = matrix * output + offset
-init_shift_list = [{'shift': poc_result['shift']} for poc_result in poc_result_list]
 affine_result_list = []
 output_image_list = []
 affine_register = regist.Affine(ref_image, gpu_id = gpu_id)
