@@ -103,6 +103,7 @@ for i in range(len(ref_image.shape)):
     values_list.append(values)
 values_list = np.array(values_list)
 init_shift_list = [{'shift': values_list[:, i]} for i in range(len(input_images))]
+print("Shift in the last plane:", init_shift_list[-1]['shift'])
 
 # optimization for each affine matrix
 # note: input = matrix * output + offset
