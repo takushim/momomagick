@@ -131,8 +131,17 @@ for index in range(len(input_images)):
             output_image = output_image[:, np.newaxis]
         output_image_list.append(output_image)
 
-    print(affine_result['results'].message, "Matrix:")
+    print(affine_result['results'].message)
+    print("Matrix:")
     print(final_matrix)
+
+    # interpret the affine matrix
+    decomposed_matrix = regist.decompose_matrix(final_matrix)
+    affine_result['decomposed'] = decomposed_matrix
+    print("Transport:", decomposed_matrix['transport'])
+    print("Rotation:", decomposed_matrix['rotation_angles'])
+    print("Zoom:", decomposed_matrix['zoom'])
+    print("Shear:", decomposed_matrix['shear'])
 
     affine_result_list.append(affine_result)
     print(".")

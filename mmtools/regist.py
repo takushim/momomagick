@@ -3,6 +3,7 @@
 import sys, argparse
 import numpy as np
 from functools import reduce
+from transforms3d import affines, euler
 from scipy import ndimage, optimize
 from mmtools import mmtiff
 try:
@@ -53,6 +54,19 @@ def affine_transform (input_image, matrix, gpu_id = None):
         output_image = cp.asnumpy(output_image)
     return output_image
 
+def decompose_matrix (matrix):
+    # interpret the affine matrix
+    trans, rot_mat, zoom, shear = affines.decompose(matrix)
+    if rot_mat.shape == (3, 3):
+        rot_angles = np.array(euler.mat2euler(rot_mat))
+    elif rot_mat.shape == (2, 2):
+        rot_angles = np.arccos(rot_mat[0, 0])
+    else:
+        print("Cannot analyze the roration matrix:", rot_mat)
+        rot_angles = None
+
+    return {'transport': trans, 'rotation_matrix': rot_mat, 'rotation_angles': rot_angles, \
+            'zoom': zoom, 'shear': shear}
 
 class Poc:
     def __init__ (self, ref_image, window_func = np.hanning, gpu_id = None):
