@@ -94,10 +94,12 @@ if output_image:
         axes = figure.add_subplot(2, 3, index + 1, title = title_list[index])
         y_values = np.array([x[plot_list[index]][::-1] for x in record_list])
         y_labels = ['x', 'y', 'z'][:len(y_values[1])]
+        if (len(y_labels) == 1):
+            y_labels = y_labels[0]
         axes.plot(x_values, y_values, label = y_labels)
-        handles, labels = axes.get_legend_handles_labels()
+        axes.legend()
 
-    figure.legend(handles, labels, loc = 'center right')
+    figure.tight_layout()
 
     print("Output graph image:", output_image_filename)
     figure.savefig(output_image_filename)

@@ -58,9 +58,9 @@ def decompose_matrix (matrix):
     # interpret the affine matrix
     trans, rot_mat, zoom, shear = affines.decompose(matrix)
     if rot_mat.shape == (3, 3):
-        rot_angles = np.array(euler.mat2euler(rot_mat))
+        rot_angles = np.array(euler.mat2euler(rot_mat)) / np.pi * 180
     elif rot_mat.shape == (2, 2):
-        rot_angles = np.arccos(rot_mat[0, 0])
+        rot_angles = np.array([np.arccos(rot_mat[0, 0])]) / np.pi * 180
     else:
         print("Cannot analyze the roration matrix:", rot_mat)
         rot_angles = None
