@@ -12,6 +12,8 @@ try:
 except ImportError:
     pass
 
+optimizing_method = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP", "None"]
+
 def turn_on_gpu (gpu_id):
     device = cp.cuda.Device(gpu_id)
     device.use()
@@ -108,7 +110,7 @@ class Affine:
             self.window_mat = cp.array(self.window_mat)
             self.ref_float = cp.array(self.ref_float)
 
-    def regist (self, input_image, init_shift, optimizing_method = "Powell", transport_only = False):
+    def regist (self, input_image, init_shift, method = "Powell", transport_only = False):
         if len(input_image.shape) == 2:
             init_params = np.array([1.0, 0.0, init_shift[0], 0.0, 1.0, init_shift[1]])
             if transport_only:
@@ -139,7 +141,19 @@ class Affine:
                 error = cp.asnumpy(cp.sum((self.ref_float - trans_float) * (self.ref_float - trans_float) * self.window_mat))
                 return error
 
-        results = optimize.minimize(error_func, init_params, method = optimizing_method)
-        return {'matrix': params_to_matrix(results.x), 'init': init_shift, \
+        if method == "None":
+            results = optimize.OptimizeResult()
+            results.x = init_params
+            results.success = True
+            results.message = 'Optimization not performed.'
+            final_matrix = params_to_matrix(init_params)
+        else:
+            if method == "Auto":
+                results = optimize.minimize(error_func, init_params)
+            else:
+                results = optimize.minimize(error_func, init_params, method = method)
+            final_matrix = params_to_matrix(results.x)
+
+        return {'matrix': final_matrix, 'init': init_shift, 'method': method, \
                 'transport_only': transport_only, 'results': results}
 

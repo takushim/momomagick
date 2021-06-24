@@ -18,6 +18,8 @@ aligned_image_filename = None
 aligned_image_suffix = '_reg.tif'
 transport_only = False
 gpu_id = None
+optimizing_method_list = regist.optimizing_method
+optimizing_method = "Powell"
 
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -36,6 +38,10 @@ parser.add_argument('-c', '--use-channel', type = int, default = use_channel, \
 parser.add_argument('-t', '--transport-only', action = 'store_true', \
                     help='Optimize for parallel transport only')
 
+parser.add_argument('-m', '--optimizing-method', type = str, default = optimizing_method, \
+                    choices = optimizing_method_list, \
+                    help='Method to optimize the affine matrices')
+
 parser.add_argument('-A', '--output-aligned-image', action = 'store_true', \
                     help='output aligned images')
 
@@ -53,6 +59,7 @@ use_channel = args.use_channel
 gpu_id = args.gpu_id
 transport_only = args.transport_only
 output_aligned_image = args.output_aligned_image
+optimizing_method = args.optimizing_method
 
 if args.output_txt_file is None:
     output_txt_filename = mmtiff.with_suffix(input_filename, output_txt_suffix)
@@ -112,6 +119,7 @@ output_image_list = []
 affine_register = regist.Affine(ref_image, gpu_id = gpu_id)
 for index in range(len(input_images)):
     print("Starting optimization:", index)
+    print("Method:", optimizing_method)
 
     if input_tiff.total_zstack == 1:
         init_shift = init_shift_list[index]['shift'][1:]
@@ -121,7 +129,7 @@ for index in range(len(input_images)):
         input_image = input_images[index]
     print("Initial shift:", init_shift)
 
-    affine_result = affine_register.regist(input_image, init_shift, transport_only = transport_only)
+    affine_result = affine_register.regist(input_image, init_shift, method = optimizing_method, transport_only = transport_only)
     final_matrix = affine_result['matrix']
 
     if output_aligned_image:
