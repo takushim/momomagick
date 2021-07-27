@@ -16,6 +16,8 @@ def prefix (filename):
 
 def with_suffix (filename, suffix):
     name = stem(filename)
+    if name == name + suffix:
+        raise Exception('Empty suffix. May overwrite the original file. Exiting.')
     return name + suffix
 
 def font_path ():
@@ -125,9 +127,14 @@ class MMTiff:
             self.pixelsize_um = float(values[1]) / float(values[0])
             print("Set pixelsize_um from the image", self.pixelsize_um)
         if 'ImageDescription' in tiff.pages[0].tags:
-            if 'spacing' in tiff.imagej_metadata:
-                self.z_step_um = tiff.imagej_metadata['spacing']
-                print("Set z_step_um from the image", self.z_step_um)
+            if tiff.imagej_metadata is not None:
+                if 'spacing' in tiff.imagej_metadata:
+                    self.z_step_um = tiff.imagej_metadata['spacing']
+                    print("Set z_step_um from the imagej metadata", self.z_step_um)
+            elif tiff.ome_metadata is not None:
+                if 'spacing' in tiff.ome_metadata:
+                    self.z_step_um = tiff.ome_metadata['spacing']
+                    print("Set z_step_um from the ome metadata", self.z_step_um)
 
     def as_list (self, channel = None, drop = True, list_channel = False):
         if channel is None:
@@ -174,7 +181,10 @@ class MMTiff:
 
     def save_image_ome (self, filename, image_array):
         print('Saving image: ', image_array.shape, image_array.dtype)
+        #metadata = {'PhysicalSizeX': self.pixelsize_um, 'PhysicalSizeXUnit': 'um', \
+        #            'PhysicalSizeY': self.pixelsize_um, 'PhysicalSizeYUnit': 'um', \
+        #            'PhysicalSizeZ': self.z_step_um, 'PhysicalSizeZUnit': 'um'}
         metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
         tifffile.imsave(filename, numpy.array(image_array), ome = True, \
-                resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
-                metadata = metadata)
+                        resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
+                        metadata = metadata)

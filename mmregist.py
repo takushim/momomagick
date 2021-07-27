@@ -16,11 +16,11 @@ use_channel = 0
 output_aligned_image = False
 aligned_image_filename = None
 aligned_image_suffix = '_reg.tif'
+gpu_id = None
 registing_method = 'Full'
 registing_method_list = regist.registing_methods
-gpu_id = None
-optimizing_method_list = regist.optimizing_methods
 optimizing_method = "Powell"
+optimizing_method_list = regist.optimizing_methods
 
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -59,8 +59,8 @@ input_filename = args.input_file
 ref_filename = args.ref_image
 use_channel = args.use_channel
 gpu_id = args.gpu_id
-registing_method = args.registing_method
 output_aligned_image = args.output_aligned_image
+registing_method = args.registing_method
 optimizing_method = args.optimizing_method
 
 if args.output_txt_file is None:
@@ -191,4 +191,4 @@ with open(output_txt_filename, 'w') as f:
 # output images
 if output_aligned_image:
     print("Output image:", aligned_image_filename)
-    input_tiff.save_image_ome(aligned_image_filename, np.array(output_image_list))
+    input_tiff.save_image(aligned_image_filename, np.array(output_image_list))
