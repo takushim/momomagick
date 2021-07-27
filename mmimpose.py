@@ -15,6 +15,7 @@ output_suffix = '_impose.tif'
 input_channel = 0
 overlay_channel = 0
 gpu_id = None
+regist_all = False
 registing_method = 'Full'
 registing_method_list = regist.registing_methods
 optimizing_method = "Powell"
@@ -36,6 +37,9 @@ parser.add_argument('-n', '--input-channel', type = int, default = input_channel
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
 
+parser.add_argument('-a', '--regist-all', action = 'store_true', \
+                    help='Perform registration for each pair of images')
+
 parser.add_argument('-e', '--registing-method', type = str, default = registing_method, \
                     choices = registing_method_list, \
                     help='Optimize for parallel transport only')
@@ -45,7 +49,7 @@ parser.add_argument('-p', '--optimizing-method', type = str, default = optimizin
                     help='Method to optimize the affine matrices')
 
 parser.add_argument('overlay_file', default = overlay_filename, \
-                    help='TIFF file used for overlay (broadcasted)')
+                    help='TIFF file used for overlay (broadcasted if necessary)')
 
 parser.add_argument('input_file', default = input_filename, \
                     help='TIFF file (original image)')
@@ -57,6 +61,7 @@ overlay_filename = args.overlay_file
 input_channel = args.input_channel
 overlay_channel = args.overlay_channel
 gpu_id = args.gpu_id
+regist_all = args.regist_all
 registing_method = args.registing_method
 optimizing_method = args.optimizing_method
 if args.output_file is None:
@@ -76,47 +81,58 @@ input_image_list = input_tiff.as_list(list_channel = True)
 overlay_tiff = mmtiff.MMTiff(overlay_filename)
 overlay_image_list = overlay_tiff.as_list(list_channel = True)
 
-# calculate POCs for pre-registration
+# registration
 print("Pre-registrating using phase-only-correlation.")
-poc_register = regist.Poc(input_image_list[0][input_channel], gpu_id = gpu_id)
-poc_result = poc_register.regist(overlay_image_list[0][overlay_channel])
-print("Initial shift:", poc_result['shift'])
-
-# free gpu memory
-poc_register = None
-
-# calculate an affine matrix for registration
-affine_register = regist.Affine(input_image_list[0][input_channel], gpu_id = gpu_id)
 print("Registing Method:", registing_method)
 print("Optimizing Method:", optimizing_method)
 
-if input_tiff.total_zstack == 1:
-    init_shift = poc_result['shift'][1:]
-    input_image = input_image_list[0][input_channel][0]
-else:
-    init_shift = poc_result['shift']
-    input_image = input_image_list[0][input_channel]
-
-affine_result = affine_register.regist(input_image, init_shift, opt_method = optimizing_method, reg_method = registing_method)
-affine_matrix = affine_result['matrix']
-
-print(affine_result['results'].message)
-print("Matrix:")
-print(affine_matrix)
-
-# interpret the affine matrix
-decomposed_matrix = regist.decompose_matrix(affine_matrix)
-print("Transport:", decomposed_matrix['transport'])
-print("Rotation:", decomposed_matrix['rotation_angles'])
-print("Zoom:", decomposed_matrix['zoom'])
-print("Shear:", decomposed_matrix['shear'])
-
-# prepare output images
 output_image_list = []
+affine_result_list = []
 for index in range(input_tiff.total_time):
+    # handle broadcasting
+    overlay_index = index % overlay_tiff.total_time
+
+    if regist_all or index == 0:
+        # calculate POCs for pre-registration
+        poc_register = regist.Poc(input_image_list[index][input_channel], gpu_id = gpu_id)
+        poc_result = poc_register.regist(overlay_image_list[overlay_index][overlay_channel])
+        poc_register = None
+
+        # calculate an affine matrix for registration
+        affine_register = regist.Affine(input_image_list[index][input_channel], gpu_id = gpu_id)
+        if input_tiff.total_zstack == 1:
+            init_shift = poc_result['shift'][1:]
+            input_image = input_image_list[index][input_channel][0]
+            overlay_image = overlay_image_list[overlay_index][input_channel][0]
+        else:
+            init_shift = poc_result['shift']
+            input_image = input_image_list[index][input_channel]
+            overlay_image = overlay_image_list[overlay_index][input_channel]
+
+        affine_result = affine_register.regist(overlay_image, init_shift, opt_method = optimizing_method, reg_method = registing_method)
+        affine_matrix = affine_result['matrix']
+
+        print(affine_result['results'].message)
+        print("Matrix:")
+        print(affine_matrix)
+
+        # interpret the affine matrix
+        decomposed_matrix = regist.decompose_matrix(affine_matrix)
+        print("Transport:", decomposed_matrix['transport'])
+        print("Rotation:", decomposed_matrix['rotation_angles'])
+        print("Zoom:", decomposed_matrix['zoom'])
+        print("Shear:", decomposed_matrix['shear'])
+        print(".")
+
+        # save result
+        affine_result_list.append(affine_result)
+        affine_register = None
+    else:
+        affine_matrix = affine_result_list[0]['matrix']
+
+    # prepare output images
     image_list = input_image_list[index]
     for channel in range(overlay_tiff.total_channel):
-        overlay_index = index % overlay_tiff.total_time
         if overlay_tiff.total_zstack == 1:
             image = regist.affine_transform(overlay_image_list[overlay_index][channel][0], affine_matrix, gpu_id = gpu_id)
             image = image[np.newaxis]
