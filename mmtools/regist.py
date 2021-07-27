@@ -12,7 +12,8 @@ try:
 except ImportError:
     pass
 
-optimizing_method = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP", "None"]
+optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP"]
+registing_methods = ["Full", "Rigid", "Drift", "None"]
 
 def turn_on_gpu (gpu_id):
     device = cp.cuda.Device(gpu_id)
@@ -47,6 +48,18 @@ def drift_to_matrix_2d (params):
 def drift_to_matrix_3d (params):
     return np.array([[1.0, 0.0, 0.0, params[0]], [0.0, 1.0, 0.0, params[1]], \
                      [0.0, 0.0, 1.0, params[2]], [0.0, 0.0, 0.0, 1.0]])
+
+def rbm_to_matrix_2d (params):
+    return np.array([[np.cos(params[2]), -np.sin(params[2]), params[0]], \
+                     [np.sin(params[2]),  np.cos(params[2]), params[1]], \
+                     [0.0, 0.0, 1.0]])
+
+def rbm_to_matrix_3d (params):
+    matrix = np.array([[1.0, 0.0, 0.0, params[0]], [0.0, 1.0, 0.0, params[1]], \
+                       [0.0, 0.0, 1.0, params[2]], [0.0, 0.0, 0.0, 1.0]])
+    matrix[0:3, 0:3] = euler.euler2mat(*params[3:6])
+    return matrix
+
 
 def affine_transform (input_image, matrix, gpu_id = None):
     if gpu_id is None:
@@ -110,19 +123,31 @@ class Affine:
             self.window_mat = cp.array(self.window_mat)
             self.ref_float = cp.array(self.ref_float)
 
-    def regist (self, input_image, init_shift, method = "Powell", transport_only = False):
+    def regist (self, input_image, init_shift, opt_method = "Powell", reg_method = "Full"):
         if len(input_image.shape) == 2:
-            init_params = np.array([1.0, 0.0, init_shift[0], 0.0, 1.0, init_shift[1]])
-            if transport_only:
+            if reg_method == 'Drift' or reg_method == 'None':
+                init_params = init_shift.flatten()
                 params_to_matrix = drift_to_matrix_2d
-            else:
+            elif reg_method == 'Rigid':
+                init_params = np.array([init_shift[0], init_shift[1], 0.0])
+                params_to_matrix = rbm_to_matrix_2d
+            elif reg_method == 'Full':
+                init_params = np.array([1.0, 0.0, init_shift[0], 0.0, 1.0, init_shift[1]])
                 params_to_matrix = params_to_matrix_2d
-        elif len(input_image.shape) == 3:
-            init_params = np.array([1.0, 0.0, 0.0, init_shift[0], 0.0, 1.0, 0.0, init_shift[1], 0.0, 0.0, 1.0, init_shift[2]])
-            if transport_only:
-                params_to_matrix = drift_to_matrix_3d
             else:
+                raise Exception("Unknown registration method:", reg_method)
+        elif len(input_image.shape) == 3:
+            if reg_method == 'Drift' or reg_method == 'None':
+                init_params = init_shift.flatten()
+                params_to_matrix = drift_to_matrix_3d
+            elif reg_method == 'Rigid':
+                init_params = np.array([init_shift, [0.0, 0.0, 0.0]]).flatten()
+                params_to_matrix = rbm_to_matrix_3d
+            elif reg_method == 'Full':
+                init_params = np.array([1.0, 0.0, 0.0, init_shift[0], 0.0, 1.0, 0.0, init_shift[1], 0.0, 0.0, 1.0, init_shift[2]])
                 params_to_matrix = params_to_matrix_3d
+            else:
+                raise Exception("Unknown registration method:", reg_method)
         else:
             raise Exception("Input images must be 2D or 3D grayscale.")
 
@@ -141,19 +166,19 @@ class Affine:
                 error = cp.asnumpy(cp.sum((self.ref_float - trans_float) * (self.ref_float - trans_float) * self.window_mat))
                 return error
 
-        if method == "None":
+        if reg_method == "None":
             results = optimize.OptimizeResult()
             results.x = init_params
             results.success = True
-            results.message = 'Optimization not performed.'
+            results.message = 'Registration not performed.'
             final_matrix = params_to_matrix(init_params)
         else:
-            if method == "Auto":
+            if opt_method == "Auto":
                 results = optimize.minimize(error_func, init_params)
             else:
-                results = optimize.minimize(error_func, init_params, method = method)
+                results = optimize.minimize(error_func, init_params, method = opt_method)
             final_matrix = params_to_matrix(results.x)
 
-        return {'matrix': final_matrix, 'init': init_shift, 'method': method, \
-                'transport_only': transport_only, 'results': results}
+        return {'matrix': final_matrix, 'init': init_shift, 'opt_method': opt_method, \
+                'reg_method': reg_method, 'results': results}
 

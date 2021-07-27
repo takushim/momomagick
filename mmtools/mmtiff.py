@@ -129,27 +129,41 @@ class MMTiff:
                 self.z_step_um = tiff.imagej_metadata['spacing']
                 print("Set z_step_um from the image", self.z_step_um)
 
-    def as_list (self, channel = None, drop = True):
+    def as_list (self, channel = None, drop = True, list_channel = False):
         if channel is None:
-            return self.image_list
+            if list_channel:
+                return [[x[:, i] for i in range(self.total_channel)] for x in self.image_list]
+            else:
+                return self.image_list
         else:
             if drop is True:
                 print("Using channel (dropping channel):", channel)
                 return [x[:, channel] for x in self.image_list]
             else:
                 print("Using channel (keeping channel):", channel)
-                return [x[:, channel:(channel + 1)] for x in self.image_list]
+                if list_channel:
+                    return [[x[:, channel]] for x in self.image_list]
+                else:
+                    return [x[:, channel:(channel + 1)] for x in self.image_list]
 
-    def as_array (self, channel = None, drop = True):
+    def as_array (self, channel = None, drop = True, channel_first = False):
         if channel is None:
-            return numpy.array(self.image_list)
+            image_array = numpy.array(self.image_list)
+            if channel_first:
+                return image_array.swapaxes(1, 2)
+            else:
+                return image_array
         else:
             if drop is True:
                 print("Using channel (dropping channel):", channel)
                 return numpy.array([x[:, channel] for x in self.image_list])
             else:
                 print("Using channel (keeping channel):", channel)
-                return numpy.array([x[:, channel:(channel + 1)] for x in self.image_list])
+                image_array = numpy.array([x[:, channel:(channel + 1)] for x in self.image_list])
+                if channel_first:
+                    image_array.swapaxes(1, 2)
+                else:
+                    return image_array
 
     def save_image (self, filename, image_array):
         print('Saving image: ', image_array.shape, image_array.dtype)

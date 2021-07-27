@@ -16,9 +16,10 @@ use_channel = 0
 output_aligned_image = False
 aligned_image_filename = None
 aligned_image_suffix = '_reg.tif'
-transport_only = False
+registing_method = 'Full'
+registing_method_list = regist.registing_methods
 gpu_id = None
-optimizing_method_list = regist.optimizing_method
+optimizing_method_list = regist.optimizing_methods
 optimizing_method = "Powell"
 
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
@@ -35,10 +36,11 @@ parser.add_argument('-r', '--ref-image', default = ref_filename, \
 parser.add_argument('-c', '--use-channel', type = int, default = use_channel, \
                     help='specify the channel to process')
 
-parser.add_argument('-t', '--transport-only', action = 'store_true', \
+parser.add_argument('-e', '--registing-method', type = str, default = registing_method, \
+                    choices = registing_method_list, \
                     help='Optimize for parallel transport only')
 
-parser.add_argument('-m', '--optimizing-method', type = str, default = optimizing_method, \
+parser.add_argument('-p', '--optimizing-method', type = str, default = optimizing_method, \
                     choices = optimizing_method_list, \
                     help='Method to optimize the affine matrices')
 
@@ -57,7 +59,7 @@ input_filename = args.input_file
 ref_filename = args.ref_image
 use_channel = args.use_channel
 gpu_id = args.gpu_id
-transport_only = args.transport_only
+registing_method = args.registing_method
 output_aligned_image = args.output_aligned_image
 optimizing_method = args.optimizing_method
 
@@ -119,7 +121,10 @@ output_image_list = []
 affine_register = regist.Affine(ref_image, gpu_id = gpu_id)
 for index in range(len(input_images)):
     print("Starting optimization:", index)
-    print("Method:", optimizing_method)
+    print("Registing Method:", registing_method)
+    print("Optimizing Method:", optimizing_method)
+
+    start_time = time.perf_counter()
 
     if input_tiff.total_zstack == 1:
         init_shift = init_shift_list[index]['shift'][1:]
@@ -129,7 +134,7 @@ for index in range(len(input_images)):
         input_image = input_images[index]
     print("Initial shift:", init_shift)
 
-    affine_result = affine_register.regist(input_image, init_shift, method = optimizing_method, transport_only = transport_only)
+    affine_result = affine_register.regist(input_image, init_shift, opt_method = optimizing_method, reg_method = registing_method)
     final_matrix = affine_result['matrix']
 
     if output_aligned_image:
@@ -151,6 +156,11 @@ for index in range(len(input_images)):
     print("Rotation:", decomposed_matrix['rotation_angles'])
     print("Zoom:", decomposed_matrix['zoom'])
     print("Shear:", decomposed_matrix['shear'])
+
+    # Output time required for calculation
+    elapsed_time = time.perf_counter() - start_time
+    print("Elapsed time:", elapsed_time)
+    affine_result['elapsed_time'] = elapsed_time
 
     affine_result_list.append(affine_result)
     print(".")
