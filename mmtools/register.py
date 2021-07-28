@@ -13,7 +13,7 @@ except ImportError:
     pass
 
 optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP"]
-registing_methods = ["Full", "Rigid", "Drift", "None"]
+registering_methods = ["Full", "Rigid", "Drift", "None"]
 
 def turn_on_gpu (gpu_id):
     device = cp.cuda.Device(gpu_id)
@@ -90,27 +90,33 @@ def z_scale (input_image, ratio = 1.0, gpu_id = None):
         output_image = cp.asnumpy(output_image)
     return output_image
 
-def regist (ref_image, input_image, gpu_id = None, reg_method = "Full", opt_method = "Powell"):
+def z_rotate (input_image, angle = 0.0, gpu_id = None):
+    rotate_tuple = (1, 2)
+    if gpu_id is None:
+        image = ndimage.rotate(input_image, angle, axes = rotate_tuple, reshape = False)
+    else:
+        image = cp.asarray(input_image)
+        image = cpimage.rotate(image, angle, axes = rotate_tuple, order = 1, reshape = False)
+        image = cupy.asnumpy(image)
+
+    return image
+ 
+def register (ref_image, input_image, gpu_id = None, reg_method = "Full", opt_method = "Powell"):
     # calculate POCs for pre-registration
-    print("Pre-registrating using phase-only-correlation.")
     poc_register = Poc(ref_image, gpu_id = gpu_id)
-    poc_result = poc_register.regist(input_image)
+    poc_result = poc_register.register(input_image)
     poc_register = None
-    print("Initial shift:", poc_result["shift"])
 
     # calculate an affine matrix for registration
-    print("Registing Method:", reg_method)
-    print("Optimizing Method:", opt_method)
     if input_image.shape[0] == 1:
         affine_register = Affine(ref_image[0], gpu_id = gpu_id)
         init_shift = poc_result['shift'][1:]
-        affine_result = affine_register.regist(input_image[0], init_shift, opt_method = opt_method, reg_method = reg_method)
+        affine_result = affine_register.register(input_image[0], init_shift, opt_method = opt_method, reg_method = reg_method)
     else:
         affine_register = Affine(ref_image, gpu_id = gpu_id)
         init_shift = poc_result['shift']
-        affine_result = affine_register.regist(input_image, init_shift, opt_method = opt_method, reg_method = reg_method)
+        affine_result = affine_register.register(input_image, init_shift, opt_method = opt_method, reg_method = reg_method)
 
-    print(".")
     return affine_result
 
 class Poc:
@@ -124,7 +130,7 @@ class Poc:
             self.window_mat = cp.array(self.window_mat)
             self.ref_fft_conj = cp.conj(cp.fft.fftn(cp.array(ref_image) * self.window_mat))
 
-    def poc_image(self, input_image):
+    def poc_image (self, input_image):
         if self.gpu_id is None:
             image_fft = np.fft.fftn(input_image * self.window_mat)
             corr_image = self.ref_fft_conj * image_fft / np.abs(self.ref_fft_conj * image_fft)
@@ -137,7 +143,7 @@ class Poc:
             poc_image = cp.asnumpy(poc_image)
         return poc_image
 
-    def regist(self, input_image):
+    def register (self, input_image):
         poc_image = self.poc_image(input_image)
         max_pos = ndimage.maximum_position(poc_image)
         max_val = poc_image[max_pos]
@@ -153,7 +159,7 @@ class Affine:
             self.window_mat = cp.array(self.window_mat)
             self.ref_float = cp.array(self.ref_float)
 
-    def regist (self, input_image, init_shift, opt_method = "Powell", reg_method = "Full"):
+    def register (self, input_image, init_shift, opt_method = "Powell", reg_method = "Full"):
         if len(input_image.shape) == 2:
             if reg_method == 'Drift' or reg_method == 'None':
                 init_params = init_shift.flatten()

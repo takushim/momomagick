@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 from numpyencoder import NumpyEncoder
 from statsmodels.nonparametric.smoothers_lowess import lowess
-from mmtools import mmtiff, regist
+from mmtools import mmtiff, register
 
 # defaults
 input_filename = None
@@ -17,10 +17,10 @@ output_aligned_image = False
 aligned_image_filename = None
 aligned_image_suffix = '_reg.tif'
 gpu_id = None
-registing_method = 'Full'
-registing_method_list = regist.registing_methods
+registering_method = 'Full'
+registering_method_list = register.registering_methods
 optimizing_method = "Powell"
-optimizing_method_list = regist.optimizing_methods
+optimizing_method_list = register.optimizing_methods
 
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -36,9 +36,9 @@ parser.add_argument('-r', '--ref-image', default = ref_filename, \
 parser.add_argument('-c', '--use-channel', type = int, default = use_channel, \
                     help='specify the channel to process')
 
-parser.add_argument('-e', '--registing-method', type = str, default = registing_method, \
-                    choices = registing_method_list, \
-                    help='Optimize for parallel transport only')
+parser.add_argument('-e', '--registering-method', type = str, default = registering_method, \
+                    choices = registering_method_list, \
+                    help='Method used for registration')
 
 parser.add_argument('-p', '--optimizing-method', type = str, default = optimizing_method, \
                     choices = optimizing_method_list, \
@@ -60,7 +60,7 @@ ref_filename = args.ref_image
 use_channel = args.use_channel
 gpu_id = args.gpu_id
 output_aligned_image = args.output_aligned_image
-registing_method = args.registing_method
+registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 
 if args.output_txt_file is None:
@@ -75,7 +75,7 @@ else:
 
 # turn on GPU device
 if gpu_id is not None:
-    regist.turn_on_gpu(gpu_id)
+    register.turn_on_gpu(gpu_id)
 
 # read input image
 input_tiff = mmtiff.MMTiff(input_filename)
@@ -94,10 +94,10 @@ else:
 
 # calculate POCs for pre-registration
 poc_result_list = []
-poc_register = regist.Poc(ref_image, gpu_id = gpu_id)
+poc_register = register.Poc(ref_image, gpu_id = gpu_id)
 print("Pre-registrating using phase-only-correlation.")
 for index in range(len(input_images)):
-    poc_result = poc_register.regist(input_images[index])
+    poc_result = poc_register.register(input_images[index])
     poc_result_list.append(poc_result)
 
 # free gpu memory
@@ -118,10 +118,10 @@ print("Shift in the last plane:", init_shift_list[-1]['shift'])
 # note: input = matrix * output + offset
 affine_result_list = []
 output_image_list = []
-affine_register = regist.Affine(ref_image, gpu_id = gpu_id)
+affine_register = register.Affine(ref_image, gpu_id = gpu_id)
 for index in range(len(input_images)):
     print("Starting optimization:", index)
-    print("Registing Method:", registing_method)
+    print("Registering Method:", registering_method)
     print("Optimizing Method:", optimizing_method)
 
     start_time = time.perf_counter()
@@ -134,11 +134,11 @@ for index in range(len(input_images)):
         input_image = input_images[index]
     print("Initial shift:", init_shift)
 
-    affine_result = affine_register.regist(input_image, init_shift, opt_method = optimizing_method, reg_method = registing_method)
+    affine_result = affine_register.register(input_image, init_shift, opt_method = optimizing_method, reg_method = registering_method)
     final_matrix = affine_result['matrix']
 
     if output_aligned_image:
-        output_image = regist.affine_transform(input_image, final_matrix, gpu_id)
+        output_image = register.affine_transform(input_image, final_matrix, gpu_id)
         if input_tiff.total_zstack == 1:
             output_image = output_image[np.newaxis, np.newaxis]
         else:
@@ -150,7 +150,7 @@ for index in range(len(input_images)):
     print(final_matrix)
 
     # interpret the affine matrix
-    decomposed_matrix = regist.decompose_matrix(final_matrix)
+    decomposed_matrix = register.decompose_matrix(final_matrix)
     affine_result['decomposed'] = decomposed_matrix
     print("Transport:", decomposed_matrix['transport'])
     print("Rotation:", decomposed_matrix['rotation_angles'])

@@ -3,7 +3,7 @@
 import sys, argparse
 import numpy as np
 from pathlib import Path
-from mmtools import mmtiff, regist
+from mmtools import mmtiff, register
 
 # default values
 input_filename = None
@@ -13,11 +13,11 @@ output_suffix = '_impose.tif'
 input_channel = 0
 overlay_channel = 0
 gpu_id = None
-regist_all = False
-registing_method = 'Full'
-registing_method_list = regist.registing_methods
+register_all = False
+registering_method = 'Full'
+registierng_method_list = register.registering_methods
 optimizing_method = "Powell"
-optimizing_method_list = regist.optimizing_methods
+optimizing_method_list = register.optimizing_methods
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Impose two series of time-lapse/still images', \
@@ -34,12 +34,12 @@ parser.add_argument('-n', '--input-channel', type = int, default = input_channel
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
 
-parser.add_argument('-a', '--regist-all', action = 'store_true', \
+parser.add_argument('-a', '--register-all', action = 'store_true', \
                     help='Perform registration for each pair of images')
 
-parser.add_argument('-e', '--registing-method', type = str, default = registing_method, \
-                    choices = registing_method_list, \
-                    help='Optimize for parallel transport only')
+parser.add_argument('-e', '--registering-method', type = str, default = registering_method, \
+                    choices = registering_method_list, \
+                    help='Method used for registration')
 
 parser.add_argument('-p', '--optimizing-method', type = str, default = optimizing_method, \
                     choices = optimizing_method_list, \
@@ -58,8 +58,8 @@ overlay_filename = args.overlay_file
 input_channel = args.input_channel
 overlay_channel = args.overlay_channel
 gpu_id = args.gpu_id
-regist_all = args.regist_all
-registing_method = args.registing_method
+register_all = args.register_all
+registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 if args.output_file is None:
     output_filename = mmtiff.with_suffix(input_filename, output_suffix)
@@ -68,7 +68,7 @@ else:
 
 # turn on GPU device
 if gpu_id is not None:
-    regist.turn_on_gpu(gpu_id)
+    register.turn_on_gpu(gpu_id)
 
 # read input TIFF
 input_tiff = mmtiff.MMTiff(input_filename)
@@ -102,10 +102,13 @@ for index in range(input_tiff.total_time):
     # handle broadcasting
     overlay_index = index % overlay_tiff.total_time
 
-    if regist_all or index == 0:
-        affine_result = regist.regist(input_image_list[index][input_channel], \
-                                      overlay_image_list[overlay_index][overlay_channel], \
-                                      gpu_id = gpu_id, reg_method = registing_method, opt_method = optimizing_method)
+    if register_all or index == 0:
+        print("Registering Method:", registering_method)
+        print("Optimizing Method:", optimizing_method)
+        affine_result = register.register(input_image_list[index][input_channel], \
+                                          overlay_image_list[overlay_index][overlay_channel], \
+                                          gpu_id = gpu_id, reg_method = registerng_method, \
+                                          opt_method = optimizing_method)
         affine_matrix = affine_result['matrix']
 
         print(affine_result['results'].message)
@@ -113,7 +116,7 @@ for index in range(input_tiff.total_time):
         print(affine_matrix)
 
         # interpret the affine matrix
-        decomposed_matrix = regist.decompose_matrix(affine_matrix)
+        decomposed_matrix = register.decompose_matrix(affine_matrix)
         print("Transport:", decomposed_matrix['transport'])
         print("Rotation:", decomposed_matrix['rotation_angles'])
         print("Zoom:", decomposed_matrix['zoom'])
@@ -129,21 +132,21 @@ for index in range(input_tiff.total_time):
     if z_scaling and z_scale_input:
         image_list = []
         for channel in range(input_tiff.total_channel):
-            image = regist.z_scale(input_image_list[index][channel], z_ratio, gpu_id = gpu_id)
+            image = register.z_scale(input_image_list[index][channel], z_ratio, gpu_id = gpu_id)
             image_list.append(image)
     else:
         image_list = input_image_list[index]
 
     for channel in range(overlay_tiff.total_channel):
         if overlay_tiff.total_zstack == 1:
-            image = regist.affine_transform(overlay_image_list[overlay_index][channel][0], affine_matrix, gpu_id = gpu_id)
+            image = register.affine_transform(overlay_image_list[overlay_index][channel][0], affine_matrix, gpu_id = gpu_id)
             image = image[np.newaxis]
         else:
             image = overlay_image_list[overlay_index][channel]
             # z_scaling
             if z_scaling and (z_scale_input is False):
-                image = regist.z_scale(image, z_ratio, gpu_id = gpu_id)
-            image = regist.affine_transform(image, affine_matrix, gpu_id = gpu_id)
+                image = register.z_scale(image, z_ratio, gpu_id = gpu_id)
+            image = register.affine_transform(image, affine_matrix, gpu_id = gpu_id)
         image_list.append(image)
 
     output_image_list.append(image_list)
