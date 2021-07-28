@@ -86,6 +86,23 @@ print("Pre-registrating using phase-only-correlation.")
 print("Registing Method:", registing_method)
 print("Optimizing Method:", optimizing_method)
 
+if input_tiff.total_zstack == 1 or overlay_tiff.total_zstack == 1:
+    print("No z-scaling for 2D images")
+    z_scaling = False
+elif np.isclose(input_tiff.z_step_um, overlay_tiff.z_step_um):
+    print("No z-scaling since z-step sizes are close")
+    z_scaling = False
+else:
+    z_scaling = True
+    if input_tiff.z_step_um > overlay_tiff.z_step_um:
+        z_scale_input = True
+        z_ratio = input_tiff.z_step_um / overlay_tiff.z_step_um
+        print("Z-scaling for input images:", z_ratio)
+    else:
+        z_scale_input = False
+        z_ratio = overlay_tiff.z_step_um / input_tiff.z_step_um
+        print("Z-scaling for overlay images:", z_ratio)
+
 output_image_list = []
 affine_result_list = []
 for index in range(input_tiff.total_time):
@@ -131,14 +148,26 @@ for index in range(input_tiff.total_time):
         affine_matrix = affine_result_list[0]['matrix']
 
     # prepare output images
-    image_list = input_image_list[index]
+    if z_scaling and z_scale_input:
+        image_list = []
+        for channel in range(input_tiff.total_channel):
+            image = regist.z_scale(input_image_list[index][channel], z_ratio, gpu_id = gpu_id)
+            image_list.append(image)
+    else:
+        image_list = input_image_list[index]
+
     for channel in range(overlay_tiff.total_channel):
         if overlay_tiff.total_zstack == 1:
             image = regist.affine_transform(overlay_image_list[overlay_index][channel][0], affine_matrix, gpu_id = gpu_id)
             image = image[np.newaxis]
         else:
-            image = regist.affine_transform(overlay_image_list[overlay_index][channel], affine_matrix, gpu_id = gpu_id)
+            image = overlay_image_list[overlay_index][channel]
+            # z_scaling
+            if z_scaling and (z_scale_input is False):
+                image = regist.z_scale(image, z_ratio, gpu_id = gpu_id)
+            image = regist.affine_transform(image, affine_matrix, gpu_id = gpu_id)
         image_list.append(image)
+
     output_image_list.append(image_list)
 
 # output image

@@ -60,7 +60,6 @@ def rbm_to_matrix_3d (params):
     matrix[0:3, 0:3] = euler.euler2mat(*params[3:6])
     return matrix
 
-
 def affine_transform (input_image, matrix, gpu_id = None):
     if gpu_id is None:
         output_image = ndimage.affine_transform(input_image, matrix)
@@ -82,6 +81,14 @@ def decompose_matrix (matrix):
 
     return {'transport': trans, 'rotation_matrix': rot_mat, 'rotation_angles': rot_angles, \
             'zoom': zoom, 'shear': shear}
+
+def z_scale (input_image, ratio = 1.0, gpu_id = None):
+    if gpu_id is None:
+        output_image = ndimage.zoom(input_image, (ratio, 1.0, 1.0))
+    else:
+        output_image = cpimage.zoom(cp.array(input_image), (ratio, 1.0, 1.0))
+        output_image = cp.asnumpy(output_image)
+    return output_image
 
 class Poc:
     def __init__ (self, ref_image, window_func = np.hanning, gpu_id = None):
