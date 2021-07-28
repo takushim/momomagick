@@ -92,12 +92,15 @@ def z_scale (input_image, ratio = 1.0, gpu_id = None):
 
 def regist (ref_image, input_image, gpu_id = None, reg_method = "Full", opt_method = "Powell"):
     # calculate POCs for pre-registration
+    print("Pre-registrating using phase-only-correlation.")
     poc_register = Poc(ref_image, gpu_id = gpu_id)
     poc_result = poc_register.regist(input_image)
     poc_register = None
     print("Initial shift:", poc_result["shift"])
 
     # calculate an affine matrix for registration
+    print("Registing Method:", reg_method)
+    print("Optimizing Method:", opt_method)
     if input_image.shape[0] == 1:
         affine_register = Affine(ref_image[0], gpu_id = gpu_id)
         init_shift = poc_result['shift'][1:]
@@ -107,6 +110,7 @@ def regist (ref_image, input_image, gpu_id = None, reg_method = "Full", opt_meth
         init_shift = poc_result['shift']
         affine_result = affine_register.regist(input_image, init_shift, opt_method = opt_method, reg_method = reg_method)
 
+    print(".")
     return affine_result
 
 class Poc:

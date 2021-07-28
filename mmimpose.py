@@ -19,7 +19,6 @@ registing_method_list = regist.registing_methods
 optimizing_method = "Powell"
 optimizing_method_list = regist.optimizing_methods
 
-
 # parse arguments
 parser = argparse.ArgumentParser(description='Impose two series of time-lapse/still images', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -80,10 +79,6 @@ overlay_tiff = mmtiff.MMTiff(overlay_filename)
 overlay_image_list = overlay_tiff.as_list(list_channel = True)
 
 # registration
-print("Pre-registrating using phase-only-correlation.")
-print("Registing Method:", registing_method)
-print("Optimizing Method:", optimizing_method)
-
 if input_tiff.total_zstack == 1 or overlay_tiff.total_zstack == 1:
     print("No z-scaling for 2D images")
     z_scaling = False
