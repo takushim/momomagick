@@ -3,8 +3,6 @@
 import sys, argparse
 import numpy as np
 from pathlib import Path
-
-from scipy.ndimage.interpolation import affine_transform
 from mmtools import mmtiff, regist
 
 # default values
@@ -110,23 +108,9 @@ for index in range(input_tiff.total_time):
     overlay_index = index % overlay_tiff.total_time
 
     if regist_all or index == 0:
-        # calculate POCs for pre-registration
-        poc_register = regist.Poc(input_image_list[index][input_channel], gpu_id = gpu_id)
-        poc_result = poc_register.regist(overlay_image_list[overlay_index][overlay_channel])
-        poc_register = None
-
-        # calculate an affine matrix for registration
-        affine_register = regist.Affine(input_image_list[index][input_channel], gpu_id = gpu_id)
-        if input_tiff.total_zstack == 1:
-            init_shift = poc_result['shift'][1:]
-            input_image = input_image_list[index][input_channel][0]
-            overlay_image = overlay_image_list[overlay_index][input_channel][0]
-        else:
-            init_shift = poc_result['shift']
-            input_image = input_image_list[index][input_channel]
-            overlay_image = overlay_image_list[overlay_index][input_channel]
-
-        affine_result = affine_register.regist(overlay_image, init_shift, opt_method = optimizing_method, reg_method = registing_method)
+        affine_result = regist.regist(input_image_list[index][input_channel], \
+                                      overlay_image_list[overlay_index][overlay_channel], \
+                                      gpu_id = gpu_id, reg_method = registing_method, opt_method = optimizing_method)
         affine_matrix = affine_result['matrix']
 
         print(affine_result['results'].message)
@@ -143,7 +127,6 @@ for index in range(input_tiff.total_time):
 
         # save result
         affine_result_list.append(affine_result)
-        affine_register = None
     else:
         affine_matrix = affine_result_list[0]['matrix']
 

@@ -90,6 +90,25 @@ def z_scale (input_image, ratio = 1.0, gpu_id = None):
         output_image = cp.asnumpy(output_image)
     return output_image
 
+def regist (ref_image, input_image, gpu_id = None, reg_method = "Full", opt_method = "Powell"):
+    # calculate POCs for pre-registration
+    poc_register = Poc(ref_image, gpu_id = gpu_id)
+    poc_result = poc_register.regist(input_image)
+    poc_register = None
+    print("Initial shift:", poc_result["shift"])
+
+    # calculate an affine matrix for registration
+    if input_image.shape[0] == 1:
+        affine_register = Affine(ref_image[0], gpu_id = gpu_id)
+        init_shift = poc_result['shift'][1:]
+        affine_result = affine_register.regist(input_image[0], init_shift, opt_method = opt_method, reg_method = reg_method)
+    else:
+        affine_register = Affine(ref_image, gpu_id = gpu_id)
+        init_shift = poc_result['shift']
+        affine_result = affine_register.regist(input_image, init_shift, opt_method = opt_method, reg_method = reg_method)
+
+    return affine_result
+
 class Poc:
     def __init__ (self, ref_image, window_func = np.hanning, gpu_id = None):
         self.window_mat = window_mat(ref_image.shape, window_func)
