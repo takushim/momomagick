@@ -15,7 +15,7 @@ overlay_channel = 0
 gpu_id = None
 register_all = False
 registering_method = 'Full'
-registierng_method_list = register.registering_methods
+registering_method_list = register.registering_methods
 optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
 
@@ -107,7 +107,7 @@ for index in range(input_tiff.total_time):
         print("Optimizing Method:", optimizing_method)
         affine_result = register.register(input_image_list[index][input_channel], \
                                           overlay_image_list[overlay_index][overlay_channel], \
-                                          gpu_id = gpu_id, reg_method = registerng_method, \
+                                          gpu_id = gpu_id, reg_method = registering_method, \
                                           opt_method = optimizing_method)
         affine_matrix = affine_result['matrix']
 
