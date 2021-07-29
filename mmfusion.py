@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
-from re import sub
-import sys, argparse
+import sys, argparse, tifffile
 import numpy as np
 from pathlib import Path
-from mmtools import mmtiff, register
+from mmtools import mmtiff, register, lucy
 
 # default values
 input_filename = None
@@ -18,6 +17,9 @@ registering_method = 'Full'
 registering_method_list = register.registering_methods
 optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
+psf_folder = Path(__file__).parent.joinpath('psf')
+psf_filename = 'diSPIM.tif'
+iterations = 10
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Fusion two diSPIM images and deconvolve them.', \
@@ -41,9 +43,15 @@ parser.add_argument('-e', '--registering-method', type = str, default = register
                     choices = registering_method_list, \
                     help='Method used for image registration')
 
-parser.add_argument('-p', '--optimizing-method', type = str, default = optimizing_method, \
+parser.add_argument('-t', '--optimizing-method', type = str, default = optimizing_method, \
                     choices = optimizing_method_list, \
                     help='Method to optimize the affine matrices')
+
+parser.add_argument('-p', '--psf-image', default = psf_filename, \
+                    help='filename of psf image, searched in current folder -> program folder')
+
+parser.add_argument('-i', '--iterations', default = iterations, \
+                    help='number of iterations')
 
 parser.add_argument('input_file', default = input_filename, \
                     help='Input dual-view TIFF file')
@@ -57,18 +65,32 @@ sub_rotation = args.sub_rotation
 gpu_id = args.gpu_id
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
+psf_filename = args.psf_image
+iterations = args.iterations
+
 if args.output_file is None:
     output_filename = mmtiff.with_suffix(input_filename, output_suffix)
 else:
     output_filename = args.output_file
 
 # turn on GPU device
-if gpu_id is not None:
-    register.turn_on_gpu(gpu_id)
+register.turn_on_gpu(gpu_id)
 
 # read input TIFF
 input_tiff = mmtiff.MMTiff(input_filename)
 input_image_list = input_tiff.as_list(list_channel = True)
+
+# load psf image
+if Path(psf_filename).exists():
+    print("Read PSF image in the current folder:", psf_filename)
+    psf_image = tifffile.imread(psf_filename)
+else:
+    psf_path = Path(psf_folder).joinpath(psf_filename)
+    if psf_path.exists():
+        print("Read PSF image in the system folder:", str(psf_path))
+        psf_image = tifffile.imread(str(psf_path))
+    else:
+        raise Exception('PSF file {0} not found'.format(psf_filename))
 
 # finding the other channel
 channel_set = set(np.arange(input_tiff.total_channel)) - {main_channel}
@@ -82,13 +104,14 @@ z_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
 # rotate, register and deconvolve
 output_image_list = []
 affine_result_list = []
+deconvolver = lucy.LucyDual(psf_image, angle = sub_rotation, gpu_id = gpu_id)
 for index in range(input_tiff.total_time):
     # images
     main_image = input_image_list[index][main_channel]
     sub_image = input_image_list[index][sub_channel]
 
-    main_image = register.z_scale(main_image, ratio = z_ratio, gpu_id = gpu_id)
-    sub_image = register.z_scale(sub_image, ratio = z_ratio, gpu_id = gpu_id)
+    main_image = register.z_zoom(main_image, ratio = z_ratio, gpu_id = gpu_id)
+    sub_image = register.z_zoom(sub_image, ratio = z_ratio, gpu_id = gpu_id)
     if sub_rotation != 0:
         print("Rotating sub-channel by:", sub_rotation)
         sub_image = register.z_rotate(sub_image, angle = sub_rotation, gpu_id = gpu_id)
@@ -118,9 +141,23 @@ for index in range(input_tiff.total_time):
 
     # fuse two channels
     sub_image = register.affine_transform(sub_image, affine_matrix, gpu_id = gpu_id)
-    output_image_list.append((main_image + sub_image) // 2)
+    dual_image = (main_image.astype(float) + sub_image.astype(float)) / 2
 
-# output image
+    # deconvolution
+    dual_image = deconvolver.deconvolve(dual_image, iterations)
+
+    # store the image to the list
+    output_image_list.append(dual_image)
+
+# shape output into the TZCYX order
+output_image = np.array(output_image_list)[:, :, np.newaxis]
+if (input_tiff.dtype.kind == 'i' or input_tiff.dtype.kind == 'u') and \
+        np.max(output_image) <= np.iinfo(input_tiff.dtype).max:
+    output_image = mmtiff.float_to_int(output_image, input_tiff.dtype)
+else:
+    output_image = output_image.astype(np.float32)
+
+# output in the ImageJ format, dimensions should be in TZCYX order
 print("Output image:", output_filename)
 input_tiff.z_step_um = input_tiff.pixelsize_um
-input_tiff.save_image(output_filename, np.array(output_image_list)[:, :, np.newaxis])
+input_tiff.save_image(output_filename, output_image)

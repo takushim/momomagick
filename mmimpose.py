@@ -41,7 +41,7 @@ parser.add_argument('-e', '--registering-method', type = str, default = register
                     choices = registering_method_list, \
                     help='Method used for registration')
 
-parser.add_argument('-p', '--optimizing-method', type = str, default = optimizing_method, \
+parser.add_argument('-t', '--optimizing-method', type = str, default = optimizing_method, \
                     choices = optimizing_method_list, \
                     help='Method to optimize the affine matrices')
 
