@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 
-import platform, sys, numpy, pathlib, re, tifffile
+import sys, platform, re, tifffile
+import numpy as np
+from pathlib import Path
 
 def stem (filename):
-    name = pathlib.Path(filename).stem
+    name = Path(filename).stem
     name = re.sub('\.ome$', '', name, flags=re.IGNORECASE)
     return name
 
 def prefix (filename):
-    name = pathlib.Path(filename).stem
+    name = Path(filename).stem
     name = re.sub('\.ome$', '', name, flags=re.IGNORECASE)
     name = re.sub('MMStack_Pos[0-9]+$', '', name, flags=re.IGNORECASE)
     name = re.sub('_$', '', name, flags=re.IGNORECASE)
@@ -32,32 +34,32 @@ def font_path ():
 
     return font_filename
 
-def float_to_int (image_array, dtype = numpy.uint16):
-    return numpy.clip(image_array, numpy.iinfo(dtype).min, numpy.iinfo(dtype).max).astype(dtype)
+def float_to_int (image_array, dtype = np.uint16):
+    return np.clip(image_array, np.iinfo(dtype).min, np.iinfo(dtype).max).astype(dtype)
 
 def convert_to_uint8 (image_array):
     max_value = image_array.max()
     min_value = image_array.min()
-    return (image_array / (max_value - min_value) * 255.0).astype(numpy.uint8)
+    return (image_array / (max_value - min_value) * 255.0).astype(np.uint8)
 
 def paste_slices (src_shape, tgt_shape, center = False):
     if center:
-        shifts = (numpy.array(tgt_shape) - numpy.array(src_shape)) // 2
+        shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
     else:
-        shifts = numpy.array([0 for i in range(len(src_shape))])
+        shifts = np.array([0 for i in range(len(src_shape))])
 
     src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, src_shape)]
-    src_bounds = numpy.minimum(src_shape, tgt_shape - shifts)
+    src_bounds = np.minimum(src_shape, tgt_shape - shifts)
     slices_src = tuple([slice(x, y) for x, y in zip(src_starts, src_bounds)])
 
     tgt_starts = [0 if x < 0 else min(x, y) for x, y in zip(shifts, tgt_shape)]
-    tgt_bounds = numpy.minimum(src_shape + shifts, tgt_shape)
+    tgt_bounds = np.minimum(src_shape + shifts, tgt_shape)
     slices_tgt = tuple([slice(x, y) for x, y in zip(tgt_starts, tgt_bounds)])
 
     return [slices_src, slices_tgt]
 
 def resize (image_array, shape, center = False):
-    resized_array = numpy.zeros(shape, dtype = image_array.dtype)
+    resized_array = np.zeros(shape, dtype = image_array.dtype)
     slices_src, slices_tgt = paste_slices(image_array.shape, shape, center)
     resized_array[slices_tgt] = image_array[slices_src].copy()
     return resized_array
@@ -82,7 +84,7 @@ class MMTiff:
             image = tiff.asarray(series = 0)
             if 'T' in axes:
                 self.total_time = len(image)
-                self.image_list = [x[0] for x in numpy.split(image, len(image))] # remove the first axis [1, (frame,) height, width]
+                self.image_list = [x[0] for x in np.split(image, len(image))] # remove the first axis [1, (frame,) height, width]
             else:
                 self.total_time = 1
                 self.image_list = [image]
@@ -97,10 +99,10 @@ class MMTiff:
 
         if 'Z' not in axes:
             for index in range(len(self.image_list)):
-                self.image_list[index] = self.image_list[index][numpy.newaxis]
+                self.image_list[index] = self.image_list[index][np.newaxis]
         if 'C' not in axes:
             for index in range(len(self.image_list)):
-                self.image_list[index] = self.image_list[index][:, numpy.newaxis]
+                self.image_list[index] = self.image_list[index][:, np.newaxis]
 
         self.total_zstack = self.image_list[0].shape[0]
         self.total_channel = self.image_list[0].shape[1]
@@ -155,7 +157,7 @@ class MMTiff:
 
     def as_array (self, channel = None, drop = True, channel_first = False):
         if channel is None:
-            image_array = numpy.array(self.image_list)
+            image_array = np.array(self.image_list)
             if channel_first:
                 return image_array.swapaxes(1, 2)
             else:
@@ -163,10 +165,10 @@ class MMTiff:
         else:
             if drop is True:
                 print("Using channel (dropping channel):", channel)
-                return numpy.array([x[:, channel] for x in self.image_list])
+                return np.array([x[:, channel] for x in self.image_list])
             else:
                 print("Using channel (keeping channel):", channel)
-                image_array = numpy.array([x[:, channel:(channel + 1)] for x in self.image_list])
+                image_array = np.array([x[:, channel:(channel + 1)] for x in self.image_list])
                 if channel_first:
                     image_array.swapaxes(1, 2)
                 else:
@@ -175,7 +177,7 @@ class MMTiff:
     def save_image (self, filename, image_array):
         print('Saving image: ', image_array.shape, image_array.dtype)
         metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
-        tifffile.imsave(filename, numpy.array(image_array), imagej = True, \
+        tifffile.imsave(filename, np.array(image_array), imagej = True, \
                 resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
                 metadata = metadata)
 
@@ -185,6 +187,6 @@ class MMTiff:
         #            'PhysicalSizeY': self.pixelsize_um, 'PhysicalSizeYUnit': 'um', \
         #            'PhysicalSizeZ': self.z_step_um, 'PhysicalSizeZUnit': 'um'}
         metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
-        tifffile.imsave(filename, numpy.array(image_array), ome = True, \
+        tifffile.imsave(filename, np.array(image_array), ome = True, \
                         resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
                         metadata = metadata)

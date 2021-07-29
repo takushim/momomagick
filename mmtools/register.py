@@ -91,13 +91,13 @@ def z_scale (input_image, ratio = 1.0, gpu_id = None):
     return output_image
 
 def z_rotate (input_image, angle = 0.0, gpu_id = None):
-    rotate_tuple = (1, 2)
+    rotate_tuple = (0, 2)
     if gpu_id is None:
         image = ndimage.rotate(input_image, angle, axes = rotate_tuple, reshape = False)
     else:
         image = cp.asarray(input_image)
         image = cpimage.rotate(image, angle, axes = rotate_tuple, order = 1, reshape = False)
-        image = cupy.asnumpy(image)
+        image = cp.asnumpy(image)
 
     return image
  
@@ -161,7 +161,10 @@ class Affine:
 
     def register (self, input_image, init_shift, opt_method = "Powell", reg_method = "Full"):
         if len(input_image.shape) == 2:
-            if reg_method == 'Drift' or reg_method == 'None':
+            if reg_method == 'None':
+                init_params = [0.0, 0.0]
+                params_to_matrix = drift_to_matrix_2d
+            elif reg_method == 'Drift':
                 init_params = init_shift.flatten()
                 params_to_matrix = drift_to_matrix_2d
             elif reg_method == 'Rigid':
@@ -173,7 +176,10 @@ class Affine:
             else:
                 raise Exception("Unknown registration method:", reg_method)
         elif len(input_image.shape) == 3:
-            if reg_method == 'Drift' or reg_method == 'None':
+            if reg_method == 'None':
+                init_params = [0.0, 0.0, 0.0]
+                params_to_matrix = drift_to_matrix_3d
+            elif reg_method == 'Drift':
                 init_params = init_shift.flatten()
                 params_to_matrix = drift_to_matrix_3d
             elif reg_method == 'Rigid':
