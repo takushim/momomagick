@@ -3,7 +3,7 @@
 import sys, argparse, tifffile, time
 import numpy as np
 from pathlib import Path
-from mmtools import mmtiff, register, lucy
+from mmtools import mmtiff, register, lucy, gpuimage
 
 # defaults
 psf_folder = Path(__file__).parent.joinpath('psf')
@@ -84,7 +84,7 @@ else:
 if z_scale_psf and input_tiff.total_zstack > 1:
     ratio = input_tiff.pixelsize_um / input_tiff.z_step_um
     if np.isclose(ratio, 1.0) is False:
-        psf_image = register.z_zoom(psf_image, ratio, gpu_id = gpu_id)
+        psf_image = gpuimage.z_zoom(psf_image, ratio, gpu_id = gpu_id)
         print("Scaling psf image into:", ratio)
 
 # deconvolve
@@ -99,10 +99,10 @@ for index in range(input_tiff.total_time):
     for channel in range(input_tiff.total_channel):
         image = input_list[index][channel]
         if z_scale_ratio != 1:
-            image = register.z_zoom(image, z_scale_ratio, gpu_id = gpu_id)
+            image = gpuimage.z_zoom(image, z_scale_ratio, gpu_id = gpu_id)
         image = deconvolver.deconvolve(image, iterations)
         if restore_z_scale:
-            image = register.z_zoom(image, 1 / z_scale_ratio, gpu_id = gpu_id)
+            image = gpuimage.z_zoom(image, 1 / z_scale_ratio, gpu_id = gpu_id)
         image_list.append(image)
     output_image_list.append(image_list)
     print(index, end = ' ', flush = True)

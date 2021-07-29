@@ -3,7 +3,7 @@
 import sys, argparse, tifffile
 import numpy as np
 from pathlib import Path
-from mmtools import mmtiff, register, lucy
+from mmtools import mmtiff, register, lucy, gpuimage
 
 # default values
 input_filename = None
@@ -92,6 +92,11 @@ else:
     else:
         raise Exception('PSF file {0} not found'.format(psf_filename))
 
+# prepare a rotated psf image
+if sub_rotation != 0:
+    print("Preparing a psf image for the sub-channel rotating by:", sub_rotation)
+    psf_image_sub = gpuimage.z_rotate(psf_image, angle = sub_rotation, gpu_id = gpu_id)
+
 # finding the other channel
 channel_set = set(np.arange(input_tiff.total_channel)) - {main_channel}
 if sub_channel not in channel_set:
@@ -104,19 +109,19 @@ z_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
 # rotate, register and deconvolve
 output_image_list = []
 affine_result_list = []
-deconvolver = lucy.LucyDual(psf_image, angle = sub_rotation, gpu_id = gpu_id)
+deconvolver = lucy.Lucy([psf_image, psf_image_sub], gpu_id = gpu_id)
 for index in range(input_tiff.total_time):
     # images
     main_image = input_image_list[index][main_channel]
     sub_image = input_image_list[index][sub_channel]
 
-    main_image = register.z_zoom(main_image, ratio = z_ratio, gpu_id = gpu_id)
-    sub_image = register.z_zoom(sub_image, ratio = z_ratio, gpu_id = gpu_id)
+    main_image = gpuimage.z_zoom(main_image, ratio = z_ratio, gpu_id = gpu_id)
+    sub_image = gpuimage.z_zoom(sub_image, ratio = z_ratio, gpu_id = gpu_id)
     if sub_rotation != 0:
         print("Rotating sub-channel by:", sub_rotation)
-        sub_image = register.z_rotate(sub_image, angle = sub_rotation, gpu_id = gpu_id)
+        sub_image = gpuimage.z_rotate(sub_image, angle = sub_rotation, gpu_id = gpu_id)
 
-    sub_image = mmtiff.resize(sub_image, main_image.shape, center = True)
+    sub_image = gpuimage.resize(sub_image, main_image.shape, center = True)
 
     print("Registering Method:", registering_method)
     print("Optimizing Method:", optimizing_method)
@@ -140,7 +145,7 @@ for index in range(input_tiff.total_time):
     affine_result_list.append(affine_result)
 
     # fuse two channels
-    sub_image = register.affine_transform(sub_image, affine_matrix, gpu_id = gpu_id)
+    sub_image = gpuimage.affine_transform(sub_image, affine_matrix, gpu_id = gpu_id)
     dual_image = (main_image.astype(float) + sub_image.astype(float)) / 2
 
     # deconvolution

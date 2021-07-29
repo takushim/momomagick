@@ -2,7 +2,7 @@
 
 import sys, argparse, numpy, math
 from scipy.ndimage import rotate, zoom
-from mmtools import mmtiff
+from mmtools import mmtiff, gpuimage
 
 # defaults
 input_filename = None
@@ -114,7 +114,7 @@ for channel in range(input_tiff.total_channel):
 
         if gpu_id is None:
             zoomed_image = zoom(input_image, zoom = zoom_factors)
-            resized_image = mmtiff.resize(zoomed_image, resized_shape, center = True)
+            resized_image = gpuimage.resize(zoomed_image, resized_shape, center = True)
         else:
             device = cupy.cuda.Device(gpu_id)
             mempool = cupy.get_default_memory_pool()

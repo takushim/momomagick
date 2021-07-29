@@ -2,7 +2,7 @@
 
 import sys, argparse, json
 import numpy as np
-from mmtools import mmtiff, regist
+from mmtools import mmtiff, gpuimage
 
 # defaults
 input_filename = None
@@ -69,11 +69,11 @@ for summary in summary_list:
     for channel in range(input_tiff.total_channel):
         if input_tiff.total_zstack == 1:
             input_image = input_images[index][0, channel]
-            output_image = regist.affine_transform(input_image, matrix, gpu_id)
+            output_image = gpuimage.affine_transform(input_image, matrix, gpu_id = gpu_id)
             output_image = output_image[np.newaxis]
         else:
             input_image = input_images[index][:, channel]
-            output_image = regist.affine_transform(input_image, matrix, gpu_id)
+            output_image = gpuimage.affine_transform(input_image, matrix, gpu_id = gpu_id)
         channel_image_list.append(output_image)
     output_image_list.append(channel_image_list)
 print(".")

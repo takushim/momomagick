@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 from numpyencoder import NumpyEncoder
 from statsmodels.nonparametric.smoothers_lowess import lowess
-from mmtools import mmtiff, register
+from mmtools import mmtiff, register, gpuimage
 
 # defaults
 input_filename = None
@@ -138,7 +138,7 @@ for index in range(len(input_images)):
     final_matrix = affine_result['matrix']
 
     if output_aligned_image:
-        output_image = register.affine_transform(input_image, final_matrix, gpu_id)
+        output_image = gpuimage.affine_transform(input_image, final_matrix, gpu_id = gpu_id)
         if input_tiff.total_zstack == 1:
             output_image = output_image[np.newaxis, np.newaxis]
         else:

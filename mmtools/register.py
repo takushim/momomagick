@@ -5,7 +5,7 @@ import numpy as np
 from functools import reduce
 from transforms3d import affines, euler
 from scipy import ndimage, optimize
-from mmtools import mmtiff
+from . import gpuimage
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as cpimage
@@ -16,11 +16,7 @@ optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B",
 registering_methods = ["Full", "Rigid", "Drift", "None"]
 
 def turn_on_gpu (gpu_id):
-    device = cp.cuda.Device(gpu_id)
-    device.use()
-    print("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
-    print("Free memory:", device.mem_info)
-    return device
+    return gpuimage.turn_on_gpu(gpu_id)
 
 def window_mat (shape, window_func):
     if window_func is None:
@@ -60,14 +56,6 @@ def rbm_to_matrix_3d (params):
     matrix[0:3, 0:3] = euler.euler2mat(*params[3:6])
     return matrix
 
-def affine_transform (input_image, matrix, gpu_id = None):
-    if gpu_id is None:
-        output_image = ndimage.affine_transform(input_image, matrix)
-    else:
-        output_image = cpimage.affine_transform(cp.array(input_image), cp.array(matrix))
-        output_image = cp.asnumpy(output_image)
-    return output_image
-
 def decompose_matrix (matrix):
     # interpret the affine matrix
     trans, rot_mat, zoom, shear = affines.decompose(matrix)
@@ -81,25 +69,6 @@ def decompose_matrix (matrix):
 
     return {'transport': trans, 'rotation_matrix': rot_mat, 'rotation_angles': rot_angles, \
             'zoom': zoom, 'shear': shear}
-
-def z_zoom (input_image, ratio = 1.0, gpu_id = None):
-    if gpu_id is None:
-        output_image = ndimage.zoom(input_image, (ratio, 1.0, 1.0))
-    else:
-        output_image = cpimage.zoom(cp.array(input_image), (ratio, 1.0, 1.0))
-        output_image = cp.asnumpy(output_image)
-    return output_image
-
-def z_rotate (input_image, angle = 0.0, gpu_id = None):
-    rotate_tuple = (0, 2)
-    if gpu_id is None:
-        image = ndimage.rotate(input_image, angle, axes = rotate_tuple, reshape = False)
-    else:
-        image = cp.asarray(input_image)
-        image = cpimage.rotate(image, angle, axes = rotate_tuple, order = 1, reshape = False)
-        image = cp.asnumpy(image)
-
-    return image
  
 def register (ref_image, input_image, gpu_id = None, reg_method = "Full", opt_method = "Powell"):
     # calculate POCs for pre-registration
