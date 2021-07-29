@@ -82,7 +82,7 @@ def decompose_matrix (matrix):
     return {'transport': trans, 'rotation_matrix': rot_mat, 'rotation_angles': rot_angles, \
             'zoom': zoom, 'shear': shear}
 
-def z_scale (input_image, ratio = 1.0, gpu_id = None):
+def z_zoom (input_image, ratio = 1.0, gpu_id = None):
     if gpu_id is None:
         output_image = ndimage.zoom(input_image, (ratio, 1.0, 1.0))
     else:

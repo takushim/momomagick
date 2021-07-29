@@ -132,7 +132,7 @@ for index in range(input_tiff.total_time):
     if z_scaling and z_scale_input:
         image_list = []
         for channel in range(input_tiff.total_channel):
-            image = register.z_scale(input_image_list[index][channel], z_ratio, gpu_id = gpu_id)
+            image = register.z_zoom(input_image_list[index][channel], z_ratio, gpu_id = gpu_id)
             image_list.append(image)
     else:
         image_list = input_image_list[index]
@@ -145,7 +145,7 @@ for index in range(input_tiff.total_time):
             image = overlay_image_list[overlay_index][channel]
             # z_scaling
             if z_scaling and (z_scale_input is False):
-                image = register.z_scale(image, z_ratio, gpu_id = gpu_id)
+                image = register.z_zoom(image, z_ratio, gpu_id = gpu_id)
             image = register.affine_transform(image, affine_matrix, gpu_id = gpu_id)
         image_list.append(image)
 
