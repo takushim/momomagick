@@ -22,7 +22,7 @@ parser.add_argument('-o', '--output-file', default = output_filename, \
 parser.add_argument('-p', '--psf-image', default = psf_filename, \
                     help='filename of psf image, searched in current folder -> program folder')
 
-parser.add_argument('-i', '--iterations', default = iterations, \
+parser.add_argument('-i', '--iterations', type = int, default = iterations, \
                     help='number of iterations')
 
 parser.add_argument('-s', '--z-scale-psf', action = 'store_true', \
