@@ -42,6 +42,10 @@ def resize (image_array, shape, center = False):
     return resized_array
 
 def z_zoom (input_image, ratio = 1.0, gpu_id = None):
+    if len(input_image.shape) < 3 or input_image.shape[0] == 1:
+        print("Cannot zoom 2D images.")
+        return input_image
+
     if gpu_id is None:
         output_image = ndimage.zoom(input_image, (ratio, 1.0, 1.0))
     else:

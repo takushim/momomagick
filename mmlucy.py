@@ -26,7 +26,7 @@ parser.add_argument('-i', '--iterations', type = int, default = iterations, \
                     help='number of iterations')
 
 parser.add_argument('-s', '--z-scale-psf', action = 'store_true', \
-                    help='Scale the z axix of psf (not image)')
+                    help='Scale the z axis of psf (not image)')
 
 parser.add_argument('-r', '--restore-z-scale', action = 'store_true', \
                     help='Restore z scaling of images after deconvolution')

@@ -3,7 +3,7 @@
 import sys, argparse
 import numpy as np
 from pathlib import Path
-from mmtools import mmtiff, register
+from mmtools import gpuimage, mmtiff, register
 
 # default values
 input_filename = None
@@ -80,34 +80,47 @@ overlay_image_list = overlay_tiff.as_list(list_channel = True)
 
 # registration
 if input_tiff.total_zstack == 1 or overlay_tiff.total_zstack == 1:
-    print("No z-scaling for 2D images")
+    print("Set no z-scaling for 2D images")
     z_scaling = False
 elif np.isclose(input_tiff.z_step_um, overlay_tiff.z_step_um):
-    print("No z-scaling since z-step sizes are close")
+    print("Set no z-scaling since z-step sizes are close")
     z_scaling = False
 else:
     z_scaling = True
     if input_tiff.z_step_um > overlay_tiff.z_step_um:
         z_scale_input = True
         z_ratio = input_tiff.z_step_um / overlay_tiff.z_step_um
-        print("Z-scaling for input images:", z_ratio)
+        print("Set z-scaling for input images:", z_ratio)
     else:
         z_scale_input = False
         z_ratio = overlay_tiff.z_step_um / input_tiff.z_step_um
-        print("Z-scaling for overlay images:", z_ratio)
+        print("Set z-scaling for overlay images:", z_ratio)
 
 output_image_list = []
 affine_result_list = []
 for index in range(input_tiff.total_time):
     # handle broadcasting
     overlay_index = index % overlay_tiff.total_time
+    print("Input:", index, "Overlay:", overlay_index)
 
     if register_all or index == 0:
         print("Registering Method:", registering_method)
         print("Optimizing Method:", optimizing_method)
-        affine_result = register.register(input_image_list[index][input_channel], \
-                                          overlay_image_list[overlay_index][overlay_channel], \
-                                          gpu_id = gpu_id, reg_method = registering_method, \
+
+        input_image = input_image_list[index][input_channel]
+        overlay_image = overlay_image_list[overlay_index][overlay_channel]
+
+        if z_scaling:
+            if z_scale_input:
+                input_image = gpuimage.z_zoom(input_image, ratio = z_ratio, gpu_id = gpu_id)
+            else:
+                overlay_image = gpuimage.z_zoom(overlay_image, ratio = z_ratio, gpu_id = gpu_id)
+
+        if input_image.shape != overlay_image.shape:
+            overlay_image = gpuimage.resize(overlay_image, input_image.shape, center = True)
+
+        affine_result = register.register(input_image, overlay_image, gpu_id = gpu_id, \
+                                          reg_method = registering_method, \
                                           opt_method = optimizing_method)
         affine_matrix = affine_result['matrix']
 
@@ -129,28 +142,30 @@ for index in range(input_tiff.total_time):
         affine_matrix = affine_result_list[0]['matrix']
 
     # prepare output images
-    if z_scaling and z_scale_input:
-        image_list = []
-        for channel in range(input_tiff.total_channel):
-            image = register.z_zoom(input_image_list[index][channel], z_ratio, gpu_id = gpu_id)
-            image_list.append(image)
-    else:
-        image_list = input_image_list[index]
+    image_list = []
+    input_shape = input_image_list[index][input_channel].shape
+    for channel in range(input_tiff.total_channel):
+        image = input_image_list[index][channel]
+        if z_scaling and z_scale_input:
+            image = gpuimage.z_zoom(image, z_ratio)
+            input_shape = image.shape
+        image_list.append(image)
 
     for channel in range(overlay_tiff.total_channel):
+        image = overlay_image_list[overlay_index][channel]
+        image = gpuimage.resize(image, input_shape, center = True)
         if overlay_tiff.total_zstack == 1:
-            image = register.affine_transform(overlay_image_list[overlay_index][channel][0], affine_matrix, gpu_id = gpu_id)
+            image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
             image = image[np.newaxis]
         else:
-            image = overlay_image_list[overlay_index][channel]
-            # z_scaling
             if z_scaling and (z_scale_input is False):
-                image = register.z_zoom(image, z_ratio, gpu_id = gpu_id)
-            image = register.affine_transform(image, affine_matrix, gpu_id = gpu_id)
+                image = gpuimage.z_zoom(image, z_ratio, gpu_id = gpu_id)
+            image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
         image_list.append(image)
 
     output_image_list.append(image_list)
 
 # output image
 print("Output image:", output_filename)
-input_tiff.save_image(output_filename, np.array(output_image_list).swapaxes(1, 2))
+output_image = np.array(output_image_list)
+input_tiff.save_image(output_filename, output_image.swapaxes(1, 2))
