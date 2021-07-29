@@ -185,7 +185,7 @@ for index in range(input_tiff.total_time):
         image_list.append(image)
 
     # restoring scale
-    if z_scale_restore and z_scale_overlay == False:
+    if z_scaling and z_scale_restore and z_scale_overlay == False:
         for channel in range(len(image_list)):
             image_list[channel] = gpuimage.z_zoom(image_list[channel], ratio = 1 / z_ratio, gpu_id = gpu_id)
 
