@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, argparse
+import sys, argparse, time
 import numpy as np
 from pathlib import Path
 from mmtools import gpuimage, mmtiff, register
@@ -48,6 +48,9 @@ parser.add_argument('-t', '--optimizing-method', type = str, default = optimizin
 parser.add_argument('-s', '--z-scale-overlay', action = 'store_true', \
                     help='Scale the z-axis of overlay images (not the input images)')
 
+parser.add_argument('-r', '--z-scale-restore', action = 'store_true', \
+                    help='Restore the z-axis scaling of output')
+
 parser.add_argument('overlay_file', default = overlay_filename, \
                     help='TIFF file used for overlay (broadcasted if necessary)')
 
@@ -65,6 +68,7 @@ register_all = args.register_all
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 z_scale_overlay = args.z_scale_overlay
+z_scale_restore = args.z_scale_restore
 if args.output_file is None:
     output_filename = mmtiff.with_suffix(input_filename, output_suffix)
 else:
@@ -97,7 +101,7 @@ if np.isclose(input_tiff.z_step_um, overlay_tiff.z_step_um) == False:
             print("Set z-scaling for overlay images:", z_ratio)
 
 # registration and preparing output
-output_image_list = []
+print("Start registration:", time.ctime())
 affine_result_list = []
 for index in range(input_tiff.total_time):
     # handle broadcasting
@@ -105,6 +109,7 @@ for index in range(input_tiff.total_time):
 
     # registration
     if register_all or index == 0:
+        print("Frame:", index)
         print("Registering Method:", registering_method)
         print("Optimizing Method:", optimizing_method)
 
@@ -141,8 +146,23 @@ for index in range(input_tiff.total_time):
         affine_result_list.append(affine_result)
     else:
         affine_matrix = affine_result_list[0]['matrix']
+print(".")
+print("End registration:", time.ctime())
 
-    # prepare output images
+# affine transformation
+print("Start imposing:", time.ctime())
+print("Frame:", end = ' ')
+output_image_list = []
+for index in range(input_tiff.total_time):
+    # handle broadcasting
+    overlay_index = index % overlay_tiff.total_time
+
+    if register_all:
+        affine_matrix = affine_result_list[index]['matrix']
+    else:
+        affine_matrix = affine_result_list[0]['matrix']
+
+   # prepare output images
     image_list = []
     input_shape = input_image_list[index][input_channel].shape
     for channel in range(input_tiff.total_channel):
@@ -164,7 +184,16 @@ for index in range(input_tiff.total_time):
             image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
         image_list.append(image)
 
+    # restoring scale
+    if z_scale_restore and z_scale_overlay == False:
+        for channel in range(len(image_list)):
+            image_list[channel] = gpuimage.z_zoom(image_list[channel], ratio = 1 / z_ratio, gpu_id = gpu_id)
+
+    print(index, end = ' ', flush = True)
     output_image_list.append(image_list)
+
+print(".")
+print("End deconvolution:", time.ctime())
 
 # output image
 print("Output image:", output_filename)
