@@ -77,7 +77,7 @@ def register (ref_image, input_image, gpu_id = None, reg_method = "Full", opt_me
     poc_register = None
 
     # calculate an affine matrix for registration
-    if input_image.shape[0] == 1:
+    if len(input_image.shape) < 3 or input_image.shape[0] == 1:
         affine_register = Affine(ref_image[0], gpu_id = gpu_id)
         init_shift = poc_result['shift'][1:]
         affine_result = affine_register.register(input_image[0], init_shift, opt_method = opt_method, reg_method = reg_method)

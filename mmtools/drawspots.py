@@ -66,7 +66,7 @@ class DrawSpots:
         else:
             raise Exception('Invalid image file format')
         
-        if self.invert_image is True:
+        if self.invert_image == True:
             image_color = 255 - image_color
 
         return image_color
@@ -96,7 +96,7 @@ class DrawSpots:
         work_table = spot_table.copy()
 
         # set colors
-        if self.marker_rainbow is True:
+        if self.marker_rainbow == True:
             work_table['status'] = 'none'
             work_table['color'] = self.rainbow_colors[work_table.total_index % len(self.rainbow_colors)]
         else:
@@ -119,20 +119,20 @@ class DrawSpots:
             #print(work_table)
 
         # use _regression
-        if self.mark_regression is True:
+        if self.mark_regression == True:
             index_set = set(work_table[work_table.plane == 0].total_index)
-            if self.force_mark_emerge is True:
+            if self.force_mark_emerge == True:
                 work_table = work_table[(work_table.total_index.isin(index_set)) | \
-                                        ((work_table.life_index == 0) & (work_table.plane > 0))].reset_index(drop=True)                
+                                        ((work_table.life_index == 0) & (work_table.plane > 0))].reset_index(drop = True)                
                 work_table.loc[(work_table.life_index == 0) & (work_table.plane > 0), 'status'] = 'emerge'
                 work_table.loc[(work_table.life_index == 0) & (work_table.plane > 0), 'color'] = marker_color_new
             else:
-                work_table = work_table[work_table.total_index.isin(index_set)].reset_index(drop=True)                
+                work_table = work_table[work_table.total_index.isin(index_set)].reset_index(drop = True)
 
         # draw markers
         skipped_planes = []
         for index in range(len(image_color)):
-            spots = work_table[work_table.plane == index].reset_index(drop=True)
+            spots = work_table[work_table.plane == index].reset_index(drop = True)
 
             if len(spots) == 0:
                 skipped_planes.append(index)
@@ -140,7 +140,7 @@ class DrawSpots:
 
             spots['int_x'] = numpy.round(spots['x']).astype(numpy.int)
             spots['int_y'] = numpy.round(spots['y']).astype(numpy.int)
-            spots = spots.sort_values(by = ['int_x', 'int_y']).reset_index(drop=True)
+            spots = spots.sort_values(by = ['int_x', 'int_y']).reset_index(drop = True)
 
             # check possible error spots (duplicated)
             spots['duplicated'] = spots.duplicated(subset = ['int_x', 'int_y'], keep = False)
@@ -157,7 +157,7 @@ class DrawSpots:
                     draw.point((spot.int_x, spot.int_y), outline = spot.color)
 
                     # mark duplicated spot
-                    if spot.duplicated is True:
+                    if spot.duplicated == True:
                         draw.ellipse(((spot.int_x - 1, spot.int_y - 1),\
                                       (spot.int_x + 1, spot.int_y + 1)),\
                                      fill = None, width = self.marker_width, outline = self.marker_colors[3])
@@ -174,7 +174,7 @@ class DrawSpots:
                                  315, 135, width = self.marker_width, fill = marker_color_end)
 
                     # mark duplicated spot
-                    if spot.duplicated is True:
+                    if spot.duplicated == True:
                         draw.ellipse(((spot.int_x - self.marker_size - 1, spot.int_y - self.marker_size - 1),\
                                       (spot.int_x + self.marker_size + 1, spot.int_y + self.marker_size + 1)),\
                                      fill = None, width = self.marker_width, outline = self.marker_colors[3])

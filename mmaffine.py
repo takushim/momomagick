@@ -42,7 +42,7 @@ else:
 
 # activate GPU
 if gpu_id is not None:
-    regist.turn_on_gpu(gpu_id)
+    gpuimage.turn_on_gpu(gpu_id)
 
 # read input image
 input_tiff = mmtiff.MMTiff(input_filename)

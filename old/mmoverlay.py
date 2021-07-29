@@ -71,8 +71,6 @@ else:
 input_tiffs = []
 input_tiffs.append(mmtiff.MMTiff(input_filenames[0]))
 input_tiffs.append(mmtiff.MMTiff(input_filenames[1]))
-#if any([x.colored is True for x in input_tiffs]):
-#    raise Exception('Color images are not accepted.')
 
 input_images = []
 input_images.append(input_tiffs[0].as_array())

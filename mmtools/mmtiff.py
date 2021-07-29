@@ -123,7 +123,7 @@ class MMTiff:
             else:
                 return self.image_list
         else:
-            if drop is True:
+            if drop:
                 print("Using channel (dropping channel):", channel)
                 return [x[:, channel] for x in self.image_list]
             else:
@@ -141,7 +141,7 @@ class MMTiff:
             else:
                 return image_array
         else:
-            if drop is True:
+            if drop:
                 print("Using channel (dropping channel):", channel)
                 return np.array([x[:, channel] for x in self.image_list])
             else:

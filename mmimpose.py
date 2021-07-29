@@ -45,6 +45,9 @@ parser.add_argument('-t', '--optimizing-method', type = str, default = optimizin
                     choices = optimizing_method_list, \
                     help='Method to optimize the affine matrices')
 
+parser.add_argument('-s', '--z-scale-overlay', action = 'store_true', \
+                    help='Scale the z axis of overlaying image (not the input image)')
+
 parser.add_argument('overlay_file', default = overlay_filename, \
                     help='TIFF file used for overlay (broadcasted if necessary)')
 
@@ -61,6 +64,7 @@ gpu_id = args.gpu_id
 register_all = args.register_all
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
+z_scale_overlay = args.z_scale_overlay
 if args.output_file is None:
     output_filename = mmtiff.with_suffix(input_filename, output_suffix)
 else:
@@ -78,30 +82,28 @@ input_image_list = input_tiff.as_list(list_channel = True)
 overlay_tiff = mmtiff.MMTiff(overlay_filename)
 overlay_image_list = overlay_tiff.as_list(list_channel = True)
 
-# registration
-if input_tiff.total_zstack == 1 or overlay_tiff.total_zstack == 1:
-    print("Set no z-scaling for 2D images")
-    z_scaling = False
-elif np.isclose(input_tiff.z_step_um, overlay_tiff.z_step_um):
-    print("Set no z-scaling since z-step sizes are close")
-    z_scaling = False
+# z-zoom for registration
+z_scaling = False
+if z_scale_overlay:
+    if overlay_tiff.total_zstack != 1:
+       if np.isclose(overlay_tiff.z_step_um, input_tiff.z_step_um) == False:
+            z_ratio = overlay_tiff.z_step_um / input_tiff.z_step_um
+            z_scaling = True
+            print("Set z-scaling for overlay images:", z_ratio)
 else:
-    z_scaling = True
-    if input_tiff.z_step_um > overlay_tiff.z_step_um:
-        z_scale_input = True
-        z_ratio = input_tiff.z_step_um / overlay_tiff.z_step_um
-        print("Set z-scaling for input images:", z_ratio)
-    else:
-        z_scale_input = False
-        z_ratio = overlay_tiff.z_step_um / input_tiff.z_step_um
-        print("Set z-scaling for overlay images:", z_ratio)
+    if input_tiff.total_zstack != 1:
+        if np.isclose(overlay_tiff.z_step_um, input_tiff.z_step_um) == False:
+            z_ratio = input_tiff.z_step_um / overlay_tiff.z_step_um
+            z_scaling = True
+            print("Set z-scaling for input images:", z_ratio)
 
+# registration and overlay
 output_image_list = []
 affine_result_list = []
-for index in range(input_tiff.total_time):
+#for index in range(input_tiff.total_time):
+for index in range(1):
     # handle broadcasting
     overlay_index = index % overlay_tiff.total_time
-    print("Input:", index, "Overlay:", overlay_index)
 
     if register_all or index == 0:
         print("Registering Method:", registering_method)
@@ -111,10 +113,10 @@ for index in range(input_tiff.total_time):
         overlay_image = overlay_image_list[overlay_index][overlay_channel]
 
         if z_scaling:
-            if z_scale_input:
-                input_image = gpuimage.z_zoom(input_image, ratio = z_ratio, gpu_id = gpu_id)
+            if z_scale_overlay:
+                input_image = gpuimage.z_zoom(overlay_image, ratio = z_ratio, gpu_id = gpu_id)
             else:
-                overlay_image = gpuimage.z_zoom(overlay_image, ratio = z_ratio, gpu_id = gpu_id)
+                overlay_image = gpuimage.z_zoom(input_image, ratio = z_ratio, gpu_id = gpu_id)
 
         if input_image.shape != overlay_image.shape:
             overlay_image = gpuimage.resize(overlay_image, input_image.shape, center = True)
@@ -146,19 +148,19 @@ for index in range(input_tiff.total_time):
     input_shape = input_image_list[index][input_channel].shape
     for channel in range(input_tiff.total_channel):
         image = input_image_list[index][channel]
-        if z_scaling and z_scale_input:
+        if z_scaling == True and z_scale_overlay == False:
             image = gpuimage.z_zoom(image, z_ratio)
-            input_shape = image.shape
+        input_shape = image.shape
         image_list.append(image)
 
     for channel in range(overlay_tiff.total_channel):
         image = overlay_image_list[overlay_index][channel]
         image = gpuimage.resize(image, input_shape, center = True)
         if overlay_tiff.total_zstack == 1:
-            image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
+            image = gpuimage.affine_transform(image[0], affine_matrix, gpu_id = gpu_id)
             image = image[np.newaxis]
         else:
-            if z_scaling and (z_scale_input is False):
+            if z_scaling == True and z_scale_overlay == True:
                 image = gpuimage.z_zoom(image, z_ratio, gpu_id = gpu_id)
             image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
         image_list.append(image)

@@ -30,7 +30,7 @@ else:
     output_prefix = args.output_prefix
 
 # read TIFF file (assumes TZCYX order)
-if pathlib.Path(input_filename).exists() is False:
+if pathlib.Path(input_filename).exists() == False:
     input_filename = input_filename + ".ome.tif"
     print("Trying to complement the file name as:", input_filename)
 

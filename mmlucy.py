@@ -74,7 +74,7 @@ input_list = input_tiff.as_list(list_channel = True)
 z_scale_ratio = 1
 if input_tiff.total_zstack > 1:
     ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
-    if np.isclose(ratio, 1.0) is False:
+    if np.isclose(ratio, 1.0) == False:
         print("Setting z scaling of images:", ratio)
         z_scale_ratio = ratio
 else:
@@ -83,7 +83,7 @@ else:
 # z-zoom psf
 if z_scale_psf and input_tiff.total_zstack > 1:
     ratio = input_tiff.pixelsize_um / input_tiff.z_step_um
-    if np.isclose(ratio, 1.0) is False:
+    if np.isclose(ratio, 1.0) == False:
         psf_image = gpuimage.z_zoom(psf_image, ratio, gpu_id = gpu_id)
         print("Scaling psf image into:", ratio)
 
