@@ -166,15 +166,15 @@ class Affine:
             image_float = normalize(input_image)
             def error_func (params):
                 matrix = params_to_matrix(params)
-                trans_float = ndimage.affine_transform(image_float, matrix)
-                error = np.sum((self.ref_float - trans_float) * (self.ref_float - trans_float) * self.window_mat)
+                trans_float = ndimage.affine_transform(image_float, matrix) * self.window_mat
+                error = np.sum((self.ref_float - trans_float) * (self.ref_float - trans_float))
                 return error
         else:
             image_float = cp.array(normalize(input_image))
             def error_func (params):
                 matrix = cp.array(params_to_matrix(params))
-                trans_float = cpimage.affine_transform(image_float, matrix)
-                error = cp.asnumpy(cp.sum((self.ref_float - trans_float) * (self.ref_float - trans_float) * self.window_mat))
+                trans_float = cpimage.affine_transform(image_float, matrix) * self.window_mat
+                error = cp.asnumpy(cp.sum((self.ref_float - trans_float) * (self.ref_float - trans_float)))
                 return error
 
         if reg_method == "None":
