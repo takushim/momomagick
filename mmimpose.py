@@ -51,6 +51,9 @@ parser.add_argument('-s', '--z-scale-overlay', action = 'store_true', \
 parser.add_argument('-r', '--z-scale-restore', action = 'store_true', \
                     help='Restore the z-axis scaling of output')
 
+parser.add_argument('-i', '--register-input', action = 'store_true', \
+                    help='Register the input images using the inverted affine matrix')
+
 parser.add_argument('overlay_file', default = overlay_filename, \
                     help='TIFF file registrated and overlayed (broadcasted if necessary)')
 
@@ -69,6 +72,7 @@ registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 z_scale_overlay = args.z_scale_overlay
 z_scale_restore = args.z_scale_restore
+register_input = args.register_input
 if args.output_file is None:
     output_filename = mmtiff.with_suffix(input_filename, output_suffix)
 else:
@@ -164,6 +168,9 @@ for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
     else:
         affine_matrix = affine_result_list[0]['matrix']
 
+    if register_input:
+        affine_matrix = np.linalg.inv(affine_matrix)
+
    # prepare output images
     image_list = []
     input_shape = input_image_list[input_index][input_channel].shape
@@ -171,6 +178,8 @@ for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
         image = input_image_list[input_index][channel]
         if z_scaling and z_scale_overlay == False:
             image = gpuimage.z_zoom(image, z_ratio, gpu_id = gpu_id)
+        if register_input:
+            image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
         input_shape = image.shape
         image_list.append(image)
 
@@ -178,13 +187,15 @@ for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
         image = overlay_image_list[overlay_index][channel]
         if overlay_tiff.total_zstack == 1:
             image = gpuimage.resize(image, input_shape, center = True)
-            image = gpuimage.affine_transform(image[0], affine_matrix, gpu_id = gpu_id)
+            if register_input == False:
+                image = gpuimage.affine_transform(image[0], affine_matrix, gpu_id = gpu_id)
             image = image[np.newaxis]
         else:
             if z_scaling and z_scale_overlay:
                 image = gpuimage.z_zoom(image, z_ratio, gpu_id = gpu_id)
             image = gpuimage.resize(image, input_shape, center = True)
-            image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
+            if register_input == False:
+                image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
         image_list.append(image)
 
     # restoring scale
