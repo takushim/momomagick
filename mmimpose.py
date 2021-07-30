@@ -20,7 +20,7 @@ optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
 
 # parse arguments
-parser = argparse.ArgumentParser(description='Impose two series of time-lapse/still images', \
+parser = argparse.ArgumentParser(description='Impose two series of (time-lapse) images', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default=output_filename, \
                     help='output TIFF file ([basename0]{0} by default)'.format(output_suffix))
@@ -52,10 +52,10 @@ parser.add_argument('-r', '--z-scale-restore', action = 'store_true', \
                     help='Restore the z-axis scaling of output')
 
 parser.add_argument('overlay_file', default = overlay_filename, \
-                    help='TIFF file used for overlay (broadcasted if necessary)')
+                    help='TIFF file registrated and overlayed (broadcasted if necessary)')
 
 parser.add_argument('input_file', default = input_filename, \
-                    help='TIFF file (original image)')
+                    help='TIFF file (broadcasted if necessary)')
 args = parser.parse_args()
 
 # set arguments
@@ -98,14 +98,16 @@ if np.isclose(input_tiff.z_step_um, overlay_tiff.z_step_um) == False:
         if input_tiff.total_zstack > 1:
             z_scaling = True
             z_ratio = input_tiff.z_step_um / overlay_tiff.z_step_um
-            print("Set z-scaling for overlay images:", z_ratio)
+            print("Set z-scaling for input images:", z_ratio)
 
 # registration and preparing output
 print("Start registration:", time.ctime())
 affine_result_list = []
-for index in range(input_tiff.total_time):
+
+for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
     # handle broadcasting
     overlay_index = index % overlay_tiff.total_time
+    input_index = index % input_tiff.total_time
 
     # registration
     if register_all or index == 0:
@@ -113,7 +115,7 @@ for index in range(input_tiff.total_time):
         print("Registering Method:", registering_method)
         print("Optimizing Method:", optimizing_method)
 
-        input_image = input_image_list[index][input_channel]
+        input_image = input_image_list[input_index][input_channel]
         overlay_image = overlay_image_list[overlay_index][overlay_channel]
 
         if z_scaling:
@@ -129,6 +131,7 @@ for index in range(input_tiff.total_time):
                                           reg_method = registering_method, \
                                           opt_method = optimizing_method)
         affine_matrix = affine_result['matrix']
+        print(affine_result)
 
         print(affine_result['results'].message)
         print("Matrix:")
@@ -146,16 +149,17 @@ for index in range(input_tiff.total_time):
         affine_result_list.append(affine_result)
     else:
         affine_matrix = affine_result_list[0]['matrix']
-print(".")
 print("End registration:", time.ctime())
+print(".")
 
 # affine transformation
 print("Start imposing:", time.ctime())
 print("Frame:", end = ' ')
 output_image_list = []
-for index in range(input_tiff.total_time):
+for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
     # handle broadcasting
     overlay_index = index % overlay_tiff.total_time
+    input_index = index % input_tiff.total_time
 
     if register_all:
         affine_matrix = affine_result_list[index]['matrix']
@@ -164,23 +168,24 @@ for index in range(input_tiff.total_time):
 
    # prepare output images
     image_list = []
-    input_shape = input_image_list[index][input_channel].shape
+    input_shape = input_image_list[input_index][input_channel].shape
     for channel in range(input_tiff.total_channel):
-        image = input_image_list[index][channel]
+        image = input_image_list[input_index][channel]
         if z_scaling and z_scale_overlay == False:
-            image = gpuimage.z_zoom(image, z_ratio)
+            image = gpuimage.z_zoom(image, z_ratio, gpu_id = gpu_id)
         input_shape = image.shape
         image_list.append(image)
 
     for channel in range(overlay_tiff.total_channel):
         image = overlay_image_list[overlay_index][channel]
-        image = gpuimage.resize(image, input_shape, center = True)
         if overlay_tiff.total_zstack == 1:
+            image = gpuimage.resize(image, input_shape, center = True)
             image = gpuimage.affine_transform(image[0], affine_matrix, gpu_id = gpu_id)
             image = image[np.newaxis]
         else:
             if z_scaling and z_scale_overlay:
                 image = gpuimage.z_zoom(image, z_ratio, gpu_id = gpu_id)
+            image = gpuimage.resize(image, input_shape, center = True)
             image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
         image_list.append(image)
 
@@ -198,4 +203,5 @@ print("End deconvolution:", time.ctime())
 # output image
 print("Output image:", output_filename)
 output_image = np.array(output_image_list)
+print(output_image.shape)
 input_tiff.save_image(output_filename, output_image.swapaxes(1, 2))
