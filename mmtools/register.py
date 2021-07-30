@@ -12,7 +12,7 @@ try:
 except ImportError:
     pass
 
-optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP"]
+optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP", "None"]
 registering_methods = ["Full", "Rigid", "Drift", "None"]
 
 def turn_on_gpu (gpu_id):
@@ -184,11 +184,18 @@ class Affine:
             results.message = 'Registration not performed.'
             final_matrix = params_to_matrix(init_params)
         else:
-            if opt_method == "Auto":
+            if opt_method == "None":
+                results = optimize.OptimizeResult()
+                results.x = init_shift
+                results.success = True
+                results.message = 'Optimization not performed.'
+                final_matrix = params_to_matrix(init_params)
+            elif opt_method == "Auto":
                 results = optimize.minimize(error_func, init_params)
+                final_matrix = params_to_matrix(results.x)
             else:
                 results = optimize.minimize(error_func, init_params, method = opt_method)
-            final_matrix = params_to_matrix(results.x)
+                final_matrix = params_to_matrix(results.x)
 
         return {'matrix': final_matrix, 'init': init_shift, 'opt_method': opt_method, \
                 'reg_method': reg_method, 'results': results}

@@ -131,7 +131,6 @@ for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
                                           reg_method = registering_method, \
                                           opt_method = optimizing_method)
         affine_matrix = affine_result['matrix']
-        print(affine_result)
 
         print(affine_result['results'].message)
         print("Matrix:")
@@ -143,7 +142,6 @@ for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
         print("Rotation:", decomposed_matrix['rotation_angles'])
         print("Zoom:", decomposed_matrix['zoom'])
         print("Shear:", decomposed_matrix['shear'])
-        print(".")
 
         # save result
         affine_result_list.append(affine_result)
@@ -203,5 +201,4 @@ print("End deconvolution:", time.ctime())
 # output image
 print("Output image:", output_filename)
 output_image = np.array(output_image_list)
-print(output_image.shape)
 input_tiff.save_image(output_filename, output_image.swapaxes(1, 2))
