@@ -21,6 +21,9 @@ registering_method = 'Full'
 registering_method_list = register.registering_methods
 optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
+register_area = None
+preset_area_index = None
+preset_areas = [[300, 0, 300 + 256, 256], [1330, 0, 1330 + 256, 256]]
 
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -35,6 +38,15 @@ parser.add_argument('-r', '--ref-image', default = ref_filename, \
 
 parser.add_argument('-c', '--use-channel', type = int, default = use_channel, \
                     help='specify the channel to process')
+
+group = parser.add_mutually_exclusive_group()
+group.add_argument('-P', '--preset-area-index', type = int, default = preset_area_index, \
+                   help='Register using the preset area. ' + \
+                        ', '.join(["Set {0}: X {1} Y {2} W {3} H {4}".format(i, *preset_areas[i]) \
+                                  for i in range(len(preset_areas))]))
+group.add_argument('-R', '--register-area', type = int, nargs = 4, default = register_area, \
+                   metavar = ('X', 'Y', 'W', "H"),
+                   help='Register using the specified area.')
 
 parser.add_argument('-e', '--registering-method', type = str, default = registering_method, \
                     choices = registering_method_list, \
@@ -73,6 +85,11 @@ if args.aligned_image_file is None:
 else:
     aligned_image_filename = args.aligned_image_file
 
+if args.preset_area_index is not None:
+    register_area = preset_areas[args.preset_area_index]
+elif args.register_ares is not None:
+    register_area = args.register_area
+
 # turn on GPU device
 if gpu_id is not None:
     register.turn_on_gpu(gpu_id)
@@ -92,12 +109,20 @@ else:
         raise Exception('Reference image: color reference image not accepted.')
     ref_image = ref_tiff.as_list(channel = use_channel, drop = True)[0]
 
+# prepare slices to crop areas used for registration
+if register_area is None:
+    register_area = [0, 0, input_tiff.width, input_tiff.height]
+
+print("Using area:", register_area)
+reg_slice_x = slice(register_area[0], register_area[0] + register_area[2])
+reg_slice_y = slice(register_area[1], register_area[1] + register_area[3])
+
 # calculate POCs for pre-registration
 poc_result_list = []
-poc_register = register.Poc(ref_image, gpu_id = gpu_id)
 print("Pre-registrating using phase-only-correlation.")
+poc_register = register.Poc(ref_image[..., reg_slice_y, reg_slice_x], gpu_id = gpu_id)
 for index in range(len(input_images)):
-    poc_result = poc_register.register(input_images[index])
+    poc_result = poc_register.register(input_images[index][..., reg_slice_y, reg_slice_x])
     poc_result_list.append(poc_result)
 
 # free gpu memory
@@ -118,7 +143,7 @@ print("Shift in the last plane:", init_shift_list[-1]['shift'])
 # note: input = matrix * output + offset
 affine_result_list = []
 output_image_list = []
-affine_register = register.Affine(ref_image, gpu_id = gpu_id)
+affine_register = register.Affine(ref_image[..., reg_slice_y, reg_slice_x], gpu_id = gpu_id)
 for index in range(len(input_images)):
     print("Starting optimization:", index)
     print("Registering Method:", registering_method)
@@ -134,7 +159,8 @@ for index in range(len(input_images)):
         input_image = input_images[index]
     print("Initial shift:", init_shift)
 
-    affine_result = affine_register.register(input_image, init_shift, opt_method = optimizing_method, reg_method = registering_method)
+    affine_result = affine_register.register(input_image[..., reg_slice_y, reg_slice_x], init_shift, \
+                                             opt_method = optimizing_method, reg_method = registering_method)
     final_matrix = affine_result['matrix']
 
     if output_aligned_image:
