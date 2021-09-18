@@ -10,12 +10,12 @@ from mmtools import mmtiff, register, gpuimage
 # defaults
 input_filename = None
 output_txt_filename = None
-output_txt_suffix = '_affine.json'
+output_txt_suffix = '_[regmethod].json' # overwritten
 ref_filename = None
 use_channel = 0
 output_aligned_image = False
 aligned_image_filename = None
-aligned_image_suffix = '_reg.tif'
+aligned_image_suffix = '_[regmethod].tif' # overwritten
 gpu_id = None
 registering_method = 'Full'
 registering_method_list = register.registering_methods
@@ -60,7 +60,7 @@ parser.add_argument('-A', '--output-aligned-image', action = 'store_true', \
                     help='output aligned images')
 
 parser.add_argument('-a', '--aligned-image-file', default = aligned_image_filename, \
-                    help='filename to output images ([basename]{0} if not specified)'.format(aligned_image_suffix))
+                    help='filename to output images ([basename]_{0} if not specified)'.format(aligned_image_suffix))
 
 parser.add_argument('input_file', default = input_filename, \
                     help='a multipage TIFF file to align')
@@ -74,6 +74,9 @@ gpu_id = args.gpu_id
 output_aligned_image = args.output_aligned_image
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
+
+output_txt_suffix = "_{0}.json".format(registering_method.lower())
+aligned_image_suffix = "_{0}.tif".format(registering_method.lower())
 
 if args.output_txt_file is None:
     output_txt_filename = mmtiff.with_suffix(input_filename, output_txt_suffix)
@@ -113,9 +116,10 @@ else:
 if register_area is None:
     register_area = [0, 0, input_tiff.width, input_tiff.height]
 
-print("Using area:", register_area)
-reg_slice_x = slice(register_area[0], register_area[0] + register_area[2])
-reg_slice_y = slice(register_area[1], register_area[1] + register_area[3])
+reg_slice_x = slice(register_area[0], register_area[0] + register_area[2], 1)
+reg_slice_y = slice(register_area[1], register_area[1] + register_area[3], 1)
+print("Using X slice:", reg_slice_x)
+print("Using Y slice:", reg_slice_y)
 
 # calculate POCs for pre-registration
 poc_result_list = []
@@ -145,6 +149,7 @@ affine_result_list = []
 output_image_list = []
 affine_register = register.Affine(ref_image[..., reg_slice_y, reg_slice_x], gpu_id = gpu_id)
 for index in range(len(input_images)):
+#for index in range(1):
     print("Starting optimization:", index)
     print("Registering Method:", registering_method)
     print("Optimizing Method:", optimizing_method)
