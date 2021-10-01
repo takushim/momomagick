@@ -4,6 +4,8 @@ import sys, platform, re, tifffile
 import numpy as np
 from pathlib import Path
 
+preset_areas = [[300, 0, 300 + 256, 256], [1330, 0, 1330 + 256, 256]]
+
 def stem (filename):
     name = Path(filename).stem
     name = re.sub('\.ome$', '', name, flags=re.IGNORECASE)

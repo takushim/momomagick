@@ -23,7 +23,7 @@ optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
 register_area = None
 preset_area_index = None
-preset_areas = [[300, 0, 300 + 256, 256], [1330, 0, 1330 + 256, 256]]
+preset_areas = mmtiff.preset_areas
 
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -42,7 +42,7 @@ parser.add_argument('-c', '--use-channel', type = int, default = use_channel, \
 group = parser.add_mutually_exclusive_group()
 group.add_argument('-P', '--preset-area-index', type = int, default = preset_area_index, \
                    help='Register using the preset area. ' + \
-                        ', '.join(["Set {0}: X {1} Y {2} W {3} H {4}".format(i, *preset_areas[i]) \
+                        ' '.join(["Area {0}: X[{1}:{3}], Y[{2}:{4}].".format(i, *preset_areas[i]) \
                                   for i in range(len(preset_areas))]))
 group.add_argument('-R', '--register-area', type = int, nargs = 4, default = register_area, \
                    metavar = ('X', 'Y', 'W', "H"),
@@ -60,7 +60,7 @@ parser.add_argument('-A', '--output-aligned-image', action = 'store_true', \
                     help='output aligned images')
 
 parser.add_argument('-a', '--aligned-image-file', default = aligned_image_filename, \
-                    help='filename to output images ([basename]_{0} if not specified)'.format(aligned_image_suffix))
+                    help='filename to output images ([basename]{0} if not specified)'.format(aligned_image_suffix))
 
 parser.add_argument('input_file', default = input_filename, \
                     help='a multipage TIFF file to align')
