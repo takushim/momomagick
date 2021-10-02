@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+source $HOME/.venv/gpu/bin/activate
+
+topdir=`pwd`
+for dir in **/*; do
+    if [ -d "$dir" ]; then
+        cd $dir
+        image=`find . -iname '*MMStack_Pos0.ome.tif' | head -n 1`
+        if [ -f $image ]; then
+            mmdivide.py $image
+        fi
+        cd $topdir
+    fi
+done
+
+
+#for dir in *; do
+#    if [ -d "$dir" ]; then
+#        cd $dir
+#        image=`find . -iname '*MMStack_Pos0.ome.tif' | head -n 1`
+#        echo "Dividing: $dir"
+#        mmdivide.py $image
+#        cd ..
+#    else
+#        echo "Skipping: $dir"
+#    fi
+#done
