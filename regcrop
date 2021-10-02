@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
-
 source $HOME/.venv/gpu/bin/activate
 
+for file in $@
+do
+    if [[ "$file" =~ '.ome.tif' ]]; then
+        output="$(echo ${file} | sed 's/\.ome\.tif$/_drift.tif/')"
+    elif [[ "$file" =~ '.tif' ]]; then
+        output="$(echo ${file} | sed 's/\.tif$/_drift.tif/')"
+    else
+        echo "Not an image file: ${file}"
+        continue
+    fi
+    mmregister.py -P 0 -g 0 -e Drift -A "$file"
+    mmcrop.py -P 1 "$output"
+done
