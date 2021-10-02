@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 source $HOME/.venv/gpu/bin/activate
 
-for file in $@
+if [ $# == 0 ]; then
+    files=("$(find . -iname '*.ome.tif' | head -n 1)")
+else
+    files=("$@")
+fi
+
+for file in "${file[@]}"
 do
     if [[ "$file" =~ '.ome.tif' ]]; then
         output="$(echo ${file} | sed 's/\.ome\.tif$/_drift.tif/')"
@@ -12,5 +18,5 @@ do
         continue
     fi
     mmregister.py -P 0 -g 0 -e Drift -A "$file"
-    mmcrop.py -P 1 "$output"
+    mmcrop.py "$output"
 done
