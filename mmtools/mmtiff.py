@@ -4,7 +4,7 @@ import sys, platform, re, tifffile
 import numpy as np
 from pathlib import Path
 
-preset_areas = [[350, 0, 256, 256], [1380, 0, 256, 256]]
+preset_areas = [[370, 0, 256, 256], [1400, 0, 256, 256]]
 
 def stem (filename):
     name = Path(filename).stem
