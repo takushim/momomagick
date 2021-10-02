@@ -4,7 +4,7 @@ import sys, platform, re, tifffile
 import numpy as np
 from pathlib import Path
 
-preset_areas = [[300, 0, 300 + 256, 256], [1330, 0, 1330 + 256, 256]]
+preset_areas = [[300, 0, 256, 256], [1330, 0, 256, 256]]
 
 def stem (filename):
     name = Path(filename).stem
@@ -43,6 +43,11 @@ def convert_to_uint8 (image_array):
     max_value = image_array.max()
     min_value = image_array.min()
     return (image_array / (max_value - min_value) * 255.0).astype(np.uint8)
+
+def area_to_slice (area):
+    slice_x = slice(area[0], area[0] + area[2], 1)
+    slice_y = slice(area[1], area[1] + area[3], 1)
+    return slice_x, slice_y
 
 class MMTiff:
     def __init__ (self, filename):

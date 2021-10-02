@@ -42,7 +42,7 @@ parser.add_argument('-c', '--use-channel', type = int, default = use_channel, \
 group = parser.add_mutually_exclusive_group()
 group.add_argument('-P', '--preset-area-index', type = int, default = preset_area_index, \
                    help='Register using the preset area. ' + \
-                        ' '.join(["Area {0}: X[{1}:{3}], Y[{2}:{4}].".format(i, *preset_areas[i]) \
+                        ' '.join(["Area {0}: X {1} Y {2} W {3} H {4}.".format(i, *preset_areas[i]) \
                                   for i in range(len(preset_areas))]))
 group.add_argument('-R', '--register-area', type = int, nargs = 4, default = register_area, \
                    metavar = ('X', 'Y', 'W', "H"),
@@ -88,10 +88,10 @@ if args.aligned_image_file is None:
 else:
     aligned_image_filename = args.aligned_image_file
 
-if args.preset_area_index is not None:
-    register_area = preset_areas[args.preset_area_index]
-elif args.register_ares is not None:
+if args.register_area is not None:
     register_area = args.register_area
+elif args.preset_area_index is not None:
+    register_area = preset_areas[args.preset_area_index]
 
 # turn on GPU device
 if gpu_id is not None:
@@ -116,8 +116,7 @@ else:
 if register_area is None:
     register_area = [0, 0, input_tiff.width, input_tiff.height]
 
-reg_slice_x = slice(register_area[0], register_area[0] + register_area[2], 1)
-reg_slice_y = slice(register_area[1], register_area[1] + register_area[3], 1)
+reg_slice_x, reg_slice_y = mmtiff.area_to_slice(register_area)
 print("Using X slice:", reg_slice_x)
 print("Using Y slice:", reg_slice_y)
 
