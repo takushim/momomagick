@@ -10,12 +10,12 @@ from mmtools import mmtiff, register, gpuimage
 # defaults
 input_filename = None
 output_txt_filename = None
-output_txt_suffix = '_[regmethod].json' # overwritten
+output_txt_suffix = '_{0}.json' # overwritten
 ref_filename = None
 use_channel = 0
 output_aligned_image = False
 aligned_image_filename = None
-aligned_image_suffix = '_[regmethod].tif' # overwritten
+aligned_image_suffix = '_{0}.tif' # overwritten
 gpu_id = None
 registering_method = 'Full'
 registering_method_list = register.registering_methods
@@ -28,7 +28,7 @@ preset_areas = mmtiff.preset_areas
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-txt-file', default = output_txt_filename, \
-                    help='output JSON file name ([basename]{0} if not specified)'.format(output_txt_suffix))
+                    help='output JSON file name ([basename]{0} if not specified)'.format(output_txt_suffix.format('[regmethod]')))
 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
@@ -60,7 +60,7 @@ parser.add_argument('-A', '--output-aligned-image', action = 'store_true', \
                     help='output aligned images')
 
 parser.add_argument('-a', '--aligned-image-file', default = aligned_image_filename, \
-                    help='filename to output images ([basename]{0} if not specified)'.format(aligned_image_suffix))
+                    help='filename to output images ([basename]{0} if not specified)'.format(aligned_image_suffix.format('[regmethod]')))
 
 parser.add_argument('input_file', default = input_filename, \
                     help='a multipage TIFF file to align')
@@ -75,8 +75,8 @@ output_aligned_image = args.output_aligned_image
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 
-output_txt_suffix = "_{0}.json".format(registering_method.lower())
-aligned_image_suffix = "_{0}.tif".format(registering_method.lower())
+output_txt_suffix = output_txt_suffix.format(registering_method.lower())
+aligned_image_suffix = aligned_image_suffix.format(registering_method.lower())
 
 if args.output_txt_file is None:
     output_txt_filename = mmtiff.with_suffix(input_filename, output_txt_suffix)
