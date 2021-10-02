@@ -7,7 +7,7 @@ else
     files=("$@")
 fi
 
-for file in "${file[@]}"
+for file in "${files[@]}"
 do
     if [[ "$file" =~ '.ome.tif' ]]; then
         output="$(echo ${file} | sed 's/\.ome\.tif$/_drift.tif/')"
