@@ -21,7 +21,7 @@ registering_method = 'Full'
 registering_method_list = register.registering_methods
 optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
-register_area = None
+use_area = None
 preset_area_index = None
 preset_areas = mmtiff.preset_areas
 
@@ -44,7 +44,7 @@ group.add_argument('-P', '--preset-area-index', type = int, default = preset_are
                    help='Register using the preset area. ' + \
                         ' '.join(["Area {0}: X {1} Y {2} W {3} H {4}.".format(i, *preset_areas[i]) \
                                   for i in range(len(preset_areas))]))
-group.add_argument('-R', '--register-area', type = int, nargs = 4, default = register_area, \
+group.add_argument('-R', '--use-area', type = int, nargs = 4, default = use_area, \
                    metavar = ('X', 'Y', 'W', "H"),
                    help='Register using the specified area.')
 
@@ -88,10 +88,10 @@ if args.aligned_image_file is None:
 else:
     aligned_image_filename = args.aligned_image_file
 
-if args.register_area is not None:
-    register_area = args.register_area
+if args.use_area is not None:
+    use_area = args.use_area
 elif args.preset_area_index is not None:
-    register_area = preset_areas[args.preset_area_index]
+    use_area = preset_areas[args.preset_area_index]
 
 # turn on GPU device
 if gpu_id is not None:
@@ -113,10 +113,10 @@ else:
     ref_image = ref_tiff.as_list(channel = use_channel, drop = True)[0]
 
 # prepare slices to crop areas used for registration
-if register_area is None:
-    register_area = [0, 0, input_tiff.width, input_tiff.height]
+if use_area is None:
+    use_area = [0, 0, input_tiff.width, input_tiff.height]
 
-reg_slice_x, reg_slice_y = mmtiff.area_to_slice(register_area)
+reg_slice_x, reg_slice_y = mmtiff.area_to_slice(use_area)
 print("Using X slice:", reg_slice_x)
 print("Using Y slice:", reg_slice_y)
 
