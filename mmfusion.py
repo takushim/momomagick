@@ -96,6 +96,8 @@ else:
 if sub_rotation != 0:
     print("Preparing a psf image for the sub-channel rotating by:", sub_rotation)
     psf_image_sub = gpuimage.z_rotate(psf_image, angle = sub_rotation, gpu_id = gpu_id)
+else:
+    psf_image_sub = psf_image
 
 # finding the other channel
 channel_set = set(np.arange(input_tiff.total_channel)) - {main_channel}
@@ -110,6 +112,7 @@ z_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
 output_image_list = []
 affine_result_list = []
 deconvolver = lucy.Lucy([psf_image, psf_image_sub], gpu_id = gpu_id)
+print("Main channel: {0}, Sub channel: {1}.".format(main_channel, sub_channel))
 for index in range(input_tiff.total_time):
     # images
     main_image = input_image_list[index][main_channel]
