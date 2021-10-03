@@ -2,7 +2,7 @@
 source $HOME/.venv/gpu/bin/activate
 
 if [ $# == 0 ]; then
-    files=("$(find . -iname '*.ome.tif' | head -n 1)")
+    files=("$(find . -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
 else
     files=("$@")
 fi
