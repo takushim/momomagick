@@ -8,7 +8,7 @@ from mmtools import mmtiff
 input_filename = None
 output_filename = None
 output_suffix = "_crop_{0}.tif"
-use_channel = 0
+use_channel = None
 use_area = None
 preset_area_index = None
 preset_areas = mmtiff.preset_areas
