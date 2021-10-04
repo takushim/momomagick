@@ -1,46 +1,37 @@
 #!/bin/sh
+source $HOME/.venv/gpu/bin/activate
 
-file=`find . -iname '*.ome.tif' | head -n 1`
+if [ $# == 0 ]; then
+    files=("$(find . -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
+else
+    files=("$@")
+fi
 
-# divide
-source $HOME/.venv/ttr/bin/activate
-mmdecsplit.py -g 415 0 $file
+for file in "${files[@]}"
+do
+    if [[ "$file" =~ '.ome.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.ome\.tif$//')"
+    elif [[ "$file" =~ '.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.tif$//')"
+    else
+        echo "Not an image file: ${file}"
+        continue
+    fi
+	output_crop="${stem}_crop_0.tif"
+	output_fusion_0="${stem}_fusion_0.tif"
+	output_fusion_1="${stem}_fusion_1.tif"
+    mmcrop.py -P 0 "$file"
 
-# set library path
-FUSION_HOME="$HOME/bin/diSPIMFusion/cudaLib/"
-#LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$FUSION_HOME/bin/linux"
-RUN="$FUSION_HOME/bin/linux/spimFusion"
+	# Main = A, Sub = B
+	echo "Output ${output_fusion_0} for Path A"
+	mmfusion.py -g 0 -m 0 -s 1 -r -90 -e Full -o "$output_fusion_0" "$output_crop"
 
-# set parameters
-psf_a_filename="$FUSION_HOME/data/PSFA.tif"
-psf_b_filename="$FUSION_HOME/data/PSFB.tif"
-spim_a_folder="./SPIMA/"
-spim_b_folder="./SPIMB/"
-spim_a_prefix="SPIMA_"
-spim_b_prefix="SPIMB_"
-FTOL=0.0001
-it_limit=30000
-bits_per_sample=32
-reg_mode=2
-iteration=10
-p_size_xy=0.1625
-p_size_z=0.5
-
-# A1
-output_folder="Output_A1"
-mkdir -p $output_folder
-
-y_axis_rotation=1
-LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$FUSION_HOME/bin/linux" \
-$RUN $output_folder $spim_a_folder $spim_b_folder $spim_a_prefix $spim_b_prefix 0 0 1 0 \
-	$p_size_xy $p_size_xy $p_size_z $p_size_xy $p_size_xy $p_size_z \
-	$reg_mode $y_axis_rotation 0 "Balabalabala" $FTOL $it_limit 1 1 \
-	$psf_a_filename $psf_b_filename $iteration 0 0 1 0 0 $bits_per_sample 0 0
+	# Main = B, Sub = A
+	echo "Output ${output_fusion_1} for Path B"
+	mmfusion.py -g 0 -m 0 -s 1 -r 90 -e Full -o "$output_fusion_1" "$output_crop"
 
 
-
-#$RUN -i1 $fileSPIMA -i2 $fileSPIMB -fp1 $filePSFA -fp2 $filePSFB \
-#	-o "$folder/$fileDecon" \
-#	-it $iteration -cOFF -imgrot $rotation -dev 0 -verbON -oreg1 \
-#	"$folder/$fileRegA" -oreg2 "$folder/$fileRegB" -otmx "$folder/$fileoTmx"
+	# This worked for the sub channel acquired using Path B
+	#mmfusion.py -g 0 -m 1 -s 0 -r -90 -e Full -o "$output_fusion_1" "$output_crop"
+done
 
