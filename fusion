@@ -1,6 +1,8 @@
 #!/bin/sh
 source $HOME/.venv/gpu/bin/activate
 
+iter=10
+
 if [ $# == 0 ]; then
     files=("$(find . -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
 else
@@ -24,11 +26,11 @@ do
 
 	# Main = A, Sub = B
 	echo "Output ${output_fusion_0} for Path A"
-	mmfusion.py -g 0 -m 0 -s 1 -r -90 -e Full -o "$output_fusion_0" "$output_crop"
+	mmfusion.py -g 0 -m 0 -s 1 -i "$iter" -r -90 -e Full -o "$output_fusion_0" "$output_crop"
 
 	# Main = B, Sub = A
 	echo "Output ${output_fusion_1} for Path B"
-	mmfusion.py -g 0 -m 0 -s 1 -r 90 -e Full -o "$output_fusion_1" "$output_crop"
+	mmfusion.py -g 0 -m 0 -s 1 -i "$iter" -r 90 -e Full -o "$output_fusion_1" "$output_crop"
 
 
 	# This worked for the sub channel acquired using Path B
