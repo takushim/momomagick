@@ -12,6 +12,7 @@ output_suffix = '_fusion.tif'
 main_channel = 0
 sub_channel = 1
 sub_rotation = 0
+keep_channels = False
 gpu_id = None
 registering_method = 'Full'
 registering_method_list = register.registering_methods
@@ -36,6 +37,9 @@ parser.add_argument('-s', '--sub-channel', type = int, default = sub_channel, \
 parser.add_argument('-r', '--sub-rotation', type = int, 
                     help='Angle to rotation the sub-channel around the Y axis')
 
+parser.add_argument('-k', '--keep-channels', action = 'store_true',
+                    help='Process main and sub channels separately (useful for registration check).')
+
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
 
@@ -50,7 +54,7 @@ parser.add_argument('-t', '--optimizing-method', type = str, default = optimizin
 parser.add_argument('-p', '--psf-image', default = psf_filename, \
                     help='filename of psf image, searched in current folder -> program folder')
 
-parser.add_argument('-i', '--iterations', default = iterations, \
+parser.add_argument('-i', '--iterations', type = int, default = iterations, \
                     help='number of iterations')
 
 parser.add_argument('input_file', default = input_filename, \
@@ -62,6 +66,7 @@ input_filename = args.input_file
 main_channel = args.main_channel
 sub_channel = args.sub_channel
 sub_rotation = args.sub_rotation
+keep_channels = args.keep_channels
 gpu_id = args.gpu_id
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
@@ -111,7 +116,6 @@ z_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
 # rotate, register and deconvolve
 output_image_list = []
 affine_result_list = []
-deconvolver = lucy.Lucy([psf_image, psf_image_sub], gpu_id = gpu_id)
 print("Main channel: {0}, Sub channel: {1}.".format(main_channel, sub_channel))
 for index in range(input_tiff.total_time):
     # images
@@ -147,18 +151,28 @@ for index in range(input_tiff.total_time):
     # save result
     affine_result_list.append(affine_result)
 
-    # fuse two channels
+    # register the sub channel to the main channel
     sub_image = gpuimage.affine_transform(sub_image, affine_matrix, gpu_id = gpu_id)
-    dual_image = (main_image.astype(float) + sub_image.astype(float)) / 2
-
-    # deconvolution
-    dual_image = deconvolver.deconvolve(dual_image, iterations)
+    if keep_channels:
+        # deconvolve the main channel
+        deconvolver = lucy.Lucy(psf_image, gpu_id = gpu_id)
+        main_image = deconvolver.deconvolve(main_image, iterations)
+        # deconvole the sub channel
+        deconvolver = lucy.Lucy(psf_image_sub, gpu_id = gpu_id)
+        sub_image = deconvolver.deconvolve(sub_image, iterations)
+        output_image = [main_image, sub_image]
+    else:
+        # fuse two channels and deconvolve it
+        deconvolver = lucy.Lucy([psf_image, psf_image_sub], gpu_id = gpu_id)
+        dual_image = (main_image.astype(float) + sub_image.astype(float)) / 2
+        dual_image = deconvolver.deconvolve(dual_image, iterations)
+        output_image = [dual_image]
 
     # store the image to the list
-    output_image_list.append(dual_image)
+    output_image_list.append(output_image)
 
 # shape output into the TZCYX order
-output_image = np.array(output_image_list)[:, :, np.newaxis]
+output_image = np.array(output_image_list).swapaxes(1, 2)
 if (input_tiff.dtype.kind == 'i' or input_tiff.dtype.kind == 'u') and \
         np.max(output_image) <= np.iinfo(input_tiff.dtype).max:
     output_image = mmtiff.float_to_int(output_image, input_tiff.dtype)
