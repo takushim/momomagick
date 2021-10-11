@@ -9,6 +9,7 @@ input_filename = None
 output_filename = None
 output_suffix = "_crop_{0}.tif"
 use_channel = None
+split_image = False
 use_area = None
 preset_area_index = None
 preset_areas = mmtiff.preset_areas
@@ -31,6 +32,8 @@ group.add_argument('-P', '--preset-area-index', type = int, default = preset_are
 group.add_argument('-R', '--use-area', type = int, nargs = 4, default = use_area, \
                    metavar = ('X', 'Y', 'W', "H"),
                    help='Crop using the specified area.')
+group.add_argument('-S', '--split_image', action = 'store_true', \
+                    help='Split the image into left and right halves')
 
 parser.add_argument('-Z', '--zstack-range', type = int, nargs = 2, default = zstack_range, \
                     metavar = ('START', 'END'),
@@ -49,8 +52,11 @@ input_filename = args.input_file
 use_channel = args.use_channel
 zstack_range = args.zstack_range
 time_range = args.time_range
+split_image = args.split_image
 
-if args.use_area is not None:
+if args.split_image is None:
+    crop_areas = None
+elif args.use_area is not None:
     crop_areas = [args.use_area]
 elif args.preset_area_index is not None:
     crop_areas = [preset_areas[args.preset_area_index]]
@@ -72,6 +78,12 @@ else:
 # read TIFF file (assumes TZ(C)YX order)
 input_tiff = mmtiff.MMTiff(input_filename)
 input_image = input_tiff.as_array()
+
+if split_image:
+    crop_areas = []
+    half_width = int(input_tiff.width // 2)
+    crop_areas.append([0, 0, half_width, input_tiff.height])
+    crop_areas.append([half_width + 1, 0, half_width, input_tiff.height])
 
 if zstack_range is None:
     zstack_slice = slice(0, input_tiff.total_zstack, 1)
