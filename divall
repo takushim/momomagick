@@ -8,7 +8,7 @@ for dir in **/*; do
         cd $dir
         image=`find . -iname '*MMStack_Pos0.ome.tif' | head -n 1`
         if [ -f $image ]; then
-            mmdivide.py $image
+            mmcrop.py -S $image
         fi
         cd $topdir
     fi
