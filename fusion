@@ -4,36 +4,37 @@ source $HOME/.venv/gpu/bin/activate
 iters=0
 reg_method="full"
 keep_channels=
+path_a=0
+path_b=0
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x VIEW_X] [-m REG_METHOD] [-i ITER] [-k] file [file ...]"
+    echo "$(basename "$0") [-x VIEW_X] [-m REG_METHOD] [-i ITER] [-k] [-a|b] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "x:m:i:k" OPT;
+while getopts "x:m:i:kab" OPT;
 do
     case "$OPT" in
     x) view_x="$OPTARG" ;;
     m) reg_method="${OPTARG,,}" ;;
     k) keep_channels="-k" ;;
     i) iters="$OPTARG" ;;
+    a) path_a=1 ;;
+    b) path_b=1 ;;
      :) show_usage ;;
     \?) show_usage ;;
     esac
 done
 shift $((OPTIND - 1))
 
-echo "$keep_channels"
-
-# find an image file if not specified
-if [ $# == 0 ]; then
-    files=("$(find . -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
-else
-    files=("$@")
+if [[ $path_a == 0 && $path_b == 0 ]]; then
+    path_a=1
+    path_b=1
 fi
 
+# find an image file if not specified
 if [ $# == 0 ]; then
     files=("$(find . -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
 else
@@ -51,8 +52,8 @@ do
         continue
     fi
 	output_crop="${stem}_crop_0.tif"
-	output_fusion_0="${stem}_fusion_0.tif"
-	output_fusion_1="${stem}_fusion_1.tif"
+	output_fusion_a="${stem}_fusion_a.tif"
+	output_fusion_b="${stem}_fusion_b.tif"
 
     if [[ "x${view_x}" == "x" ]]; then
         mmcrop.py -P 0 -o "$output_crop" "$file"
@@ -61,13 +62,18 @@ do
     fi
 
 	# Main = A, Sub = B
-	echo "Output ${output_fusion_0} for Path A"
-	mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r -90 $keep_channels -e "${reg_method^}" -o "$output_fusion_0" "$output_crop"
+    if [[ $path_a == 1 ]]; then
+    	echo "Output ${output_fusion_a} for Path A"
+	    mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r -90 $keep_channels -e "${reg_method^}" -o "$output_fusion_a" "$output_crop"
+    	echo "."
+    fi
 
 	# Main = B, Sub = A
-	echo "Output ${output_fusion_1} for Path B"
-	mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r 90 $keep_channels -e "${reg_method^}" -o "$output_fusion_1" "$output_crop"
-
+    if [[ $path_b == 1 ]]; then
+    	echo "Output ${output_fusion_b} for Path B"
+	    mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r 90 $keep_channels -e "${reg_method^}" -o "$output_fusion_b" "$output_crop"
+    	echo "."
+    fi
 
 	# This worked for the sub channel acquired using Path B
 	#mmfusion.py -g 0 -m 1 -s 0 -r -90 -e Full -o "$output_fusion_1" "$output_crop"
