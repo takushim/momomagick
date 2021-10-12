@@ -20,7 +20,7 @@ optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
 psf_folder = Path(__file__).parent.joinpath('psf')
 psf_filename = 'diSPIM.tif'
-iterations = 10
+iterations = 0
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Fusion two diSPIM images and deconvolve them.', \
@@ -112,6 +112,7 @@ if sub_channel not in channel_set:
 
 # scaling along the z-axis to achieve isometric voxels
 z_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
+print("Z scaling ratio:", z_ratio)
 
 # rotate, register and deconvolve
 output_image_list = []
@@ -153,20 +154,32 @@ for index in range(input_tiff.total_time):
 
     # register the sub channel to the main channel
     sub_image = gpuimage.affine_transform(sub_image, affine_matrix, gpu_id = gpu_id)
-    if keep_channels:
-        # deconvolve the main channel
-        deconvolver = lucy.Lucy(psf_image, gpu_id = gpu_id)
-        main_image = deconvolver.deconvolve(main_image, iterations)
-        # deconvole the sub channel
-        deconvolver = lucy.Lucy(psf_image_sub, gpu_id = gpu_id)
-        sub_image = deconvolver.deconvolve(sub_image, iterations)
-        output_image = [main_image, sub_image]
+
+    # deconvolution
+    if iterations > 0:
+        if keep_channels:
+            print("Deconvoluting channels seapeartely. Iterations:", iterations)
+            # deconvolve the main channel
+            deconvolver = lucy.Lucy(psf_image, gpu_id = gpu_id)
+            main_image = deconvolver.deconvolve(main_image, iterations)
+            # deconvole the sub channel
+            deconvolver = lucy.Lucy(psf_image_sub, gpu_id = gpu_id)
+            sub_image = deconvolver.deconvolve(sub_image, iterations)
+            output_image = [main_image, sub_image]
+        else:
+            print("Deconvoluting the fused image. Iterations:", iterations)
+            # fuse two channels and deconvolve it
+            deconvolver = lucy.Lucy([psf_image, psf_image_sub], gpu_id = gpu_id)
+            dual_image = (main_image.astype(float) + sub_image.astype(float)) / 2
+            dual_image = deconvolver.deconvolve(dual_image, iterations)
+            output_image = [dual_image]
     else:
-        # fuse two channels and deconvolve it
-        deconvolver = lucy.Lucy([psf_image, psf_image_sub], gpu_id = gpu_id)
-        dual_image = (main_image.astype(float) + sub_image.astype(float)) / 2
-        dual_image = deconvolver.deconvolve(dual_image, iterations)
-        output_image = [dual_image]
+        if keep_channels:
+            print("Deconvolution skipped. Keeping channels.")
+            output_image = [main_image, sub_image]
+        else:
+            print("Deconvolution skipped. Fusing channels.")
+            output_image = [(main_image.astype(float) + sub_image.astype(float)) / 2]
 
     # store the image to the list
     output_image_list.append(output_image)
