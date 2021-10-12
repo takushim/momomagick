@@ -53,7 +53,7 @@ do
     fi
     
     if [[ "x$second_view_x" == "x" ]]; then
-        mmcrop.py -P 1 -o "$output_crop_0" "$output_reg"
+        mmcrop.py -P 1 -o "$output_crop_1" "$output_reg"
     else
         mmcrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" "$output_reg"
     fi
