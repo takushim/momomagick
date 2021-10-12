@@ -10,7 +10,7 @@ function show_usage () {
 }
 
 # parse options
-while getopts "f:s:" OPT;
+while getopts "f:s:m:" OPT;
 do
     case "$OPT" in
     f) first_view_x="$OPTARG" ;;
