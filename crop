@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+source $HOME/.venv/gpu/bin/activate
+
+# show usage and exit
+function show_usage () {
+    echo "$(basename "$0") [-f FIRST_VIEW_X] [-s SECOND_VIEW_X] file [file ...]"
+    exit 1
+}
+
+# parse options
+while getopts "f:s:" OPT;
+do
+    case "$OPT" in
+    f) first_view_x="$OPTARG" ;;
+    s) second_view_x="$OPTARG" ;;
+    :) show_usage ;;
+    \?) show_usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# find an image file if not specified
+if [ $# == 0 ]; then
+    files=("$(find . -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
+else
+    files=("$@")
+fi
+
+# process!
+for file in "${files[@]}"
+do
+    if [[ "$file" =~ '.ome.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.ome\.tif$//')"
+    elif [[ "$file" =~ '.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.tif$//')"
+    else
+        echo "Not an image file: ${file}"
+        continue
+    fi
+	output_crop_0="${stem}_crop_0.tif"
+	output_crop_1="${stem}_crop_1.tif"
+
+    if [[ "x$first_view_x" == "x" ]]; then
+        mmcrop.py -P 0 -o "$output_crop_0" "$file"
+    else
+        mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" "$file"
+    fi
+    
+    if [[ "x$second_view_x" == "x" ]]; then
+        mmcrop.py -P 1 -o "$output_crop_1" "$file"
+    else
+        mmcrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" "$file"
+    fi
+done
