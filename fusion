@@ -1,28 +1,31 @@
 #!/bin/sh
 source $HOME/.venv/gpu/bin/activate
 
-iter=10
+iters=0
 reg_method="full"
-keep_channels=""
+keep_channels=
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x VIEW_X] [-m REG_METHOD] [-k] file [file ...]"
+    echo "$(basename "$0") [-x VIEW_X] [-m REG_METHOD] [-i ITER] [-k] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "x:m:k" OPT;
+while getopts "x:m:i:k" OPT;
 do
     case "$OPT" in
     x) view_x="$OPTARG" ;;
     m) reg_method="${OPTARG,,}" ;;
     k) keep_channels="-k" ;;
-    :) show_usage ;;
+    i) iters="$OPTARG" ;;
+     :) show_usage ;;
     \?) show_usage ;;
     esac
 done
 shift $((OPTIND - 1))
+
+echo "$keep_channels"
 
 # find an image file if not specified
 if [ $# == 0 ]; then
@@ -59,13 +62,11 @@ do
 
 	# Main = A, Sub = B
 	echo "Output ${output_fusion_0} for Path A"
-	mmfusion.py -g 0 -m 0 -s 1 -i "$iter" -r -90 -e "${reg_method^}" "$keep_channels" \
-                -o "$output_fusion_0" "$output_crop"
+	mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r -90 $keep_channels -e "${reg_method^}" -o "$output_fusion_0" "$output_crop"
 
 	# Main = B, Sub = A
 	echo "Output ${output_fusion_1} for Path B"
-	mmfusion.py -g 0 -m 0 -s 1 -i "$iter" -r 90 -e "${reg_method^}" "$keep_channels" \
-                -o "$output_fusion_1" "$output_crop"
+	mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r 90 $keep_channels -e "${reg_method^}" -o "$output_fusion_1" "$output_crop"
 
 
 	# This worked for the sub channel acquired using Path B
