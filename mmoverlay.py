@@ -9,7 +9,7 @@ from mmtools import gpuimage, mmtiff, register
 input_filename = None
 overlay_filename = None
 output_filename = None
-output_suffix = '_impose.tif'
+output_suffix = '_overlay.tif'
 input_channel = 0
 overlay_channel = 0
 gpu_id = None
@@ -20,7 +20,7 @@ optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
 
 # parse arguments
-parser = argparse.ArgumentParser(description='Impose two series of (time-lapse) images', \
+parser = argparse.ArgumentParser(description='Overlay one image to the other image after registration', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default=output_filename, \
                     help='output TIFF file ([basename0]{0} by default)'.format(output_suffix))
@@ -104,7 +104,7 @@ if np.isclose(input_tiff.z_step_um, overlay_tiff.z_step_um) == False:
             z_ratio = input_tiff.z_step_um / overlay_tiff.z_step_um
             print("Set z-scaling for input images:", z_ratio)
 
-# registration and preparing output
+# registration and preparing affine matrices
 print("Start registration:", time.ctime())
 affine_result_list = []
 
@@ -124,8 +124,10 @@ for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
 
         if z_scaling:
             if z_scale_overlay:
+                print("Z-scaling the overlay image.")
                 overlay_image = gpuimage.z_zoom(overlay_image, ratio = z_ratio, gpu_id = gpu_id)
             else:
+                print("Z-scaling the input image.")
                 input_image = gpuimage.z_zoom(input_image, ratio = z_ratio, gpu_id = gpu_id)
 
         if input_image.shape != overlay_image.shape:
@@ -154,8 +156,8 @@ for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
 print("End registration:", time.ctime())
 print(".")
 
-# affine transformation
-print("Start imposing:", time.ctime())
+# affine transformation and overlay
+print("Start overlay:", time.ctime())
 print("Frame:", end = ' ')
 output_image_list = []
 for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
@@ -207,7 +209,7 @@ for index in range(max(input_tiff.total_time, overlay_tiff.total_time)):
     output_image_list.append(image_list)
 
 print(".")
-print("End deconvolution:", time.ctime())
+print("End overlay:", time.ctime())
 
 # output image
 print("Output image:", output_filename)
