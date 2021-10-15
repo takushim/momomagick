@@ -66,9 +66,9 @@ def z_rotate (input_image, angle = 0.0, gpu_id = None):
 
 def affine_transform (input_image, matrix, gpu_id = None):
     if gpu_id is None:
-        output_image = ndimage.affine_transform(input_image, matrix)
+        output_image = ndimage.affine_transform(input_image, matrix, mode = 'grid-constant')
     else:
-        output_image = cpimage.affine_transform(cp.array(input_image), cp.array(matrix))
+        output_image = cpimage.affine_transform(cp.array(input_image), cp.array(matrix), mode = 'grid-constant')
         output_image = cp.asnumpy(output_image)
     return output_image
 
