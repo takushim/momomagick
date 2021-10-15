@@ -54,11 +54,18 @@ do
 	output_crop="${stem}_crop_0.tif"
 	output_fusion_a="${stem}_fusion_a.tif"
 	output_fusion_b="${stem}_fusion_b.tif"
+    output_log="${stem}_fusion.log"
+
+    echo "Fusion:" $(date) > $output_log
+    echo "Method: ${reg_method,,}" >> $output_log
+    echo "Keep channel: ${keep_channel}" >> $output_log
 
     if [[ "x${view_x}" == "x" ]]; then
         mmcrop.py -P 0 -o "$output_crop" "$file"
+        echo "View: preset 0" >> $output_log
     else
         mmcrop.py -R "$view_x" 0 256 256 -o "$output_crop" "$file"
+        echo "View: ${view_x}" >> $output_log
     fi
 
 	# Main = A, Sub = B
@@ -66,6 +73,7 @@ do
     	echo "Output ${output_fusion_a} for Path A"
 	    mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r -90 $keep_channels -e "${reg_method^}" -o "$output_fusion_a" "$output_crop"
     	echo "."
+        echo "Output A with iteration: ${iters}" >> $output_log
     fi
 
 	# Main = B, Sub = A
@@ -73,6 +81,7 @@ do
     	echo "Output ${output_fusion_b} for Path B"
 	    mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r 90 $keep_channels -e "${reg_method^}" -o "$output_fusion_b" "$output_crop"
     	echo "."
+        echo "Output B with iteration: ${iters}" >> $output_log
     fi
 
 	# This worked for the sub channel acquired using Path B
