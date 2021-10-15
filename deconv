@@ -44,5 +44,5 @@ do
     echo "Deconvolution:" $(date) > $output_log
     echo "Iteration: ${iter}" >> $output_log
 
-    mmlucy.py -g 0 -i "$iter" -o "$output_deconv" "$file"
+    mmdeconv.py -g 0 -i "$iter" -o "$output_deconv" "$file"
 done
