@@ -43,6 +43,7 @@ do
 	output_reg="${stem}_${reg_method,,}.tif"
 	output_crop_0="${stem}_${reg_method,,}_crop_0.tif"
 	output_crop_1="${stem}_${reg_method,,}_crop_1.tif"
+	output_deconv="${stem}_${reg_method,,}_crop_1_deconv.tif"
     output_log="${stem}_regcrop.log"
 
     echo "Registration & cropping:" $(date) > $output_log
@@ -65,4 +66,8 @@ do
         mmcrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" "$output_reg"
         echo "Second view: ${second_view_x}" >> $output_log
     fi
+
+    echo "Deconvolution iterating: ${iter}" >> $output_log
+    mmdeconv.py -g 0 -i "$iter" -o "$output_deconv" "$output_crop_1"
+
 done
