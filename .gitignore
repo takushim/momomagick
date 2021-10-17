@@ -1,3 +1,4 @@
+mmsandbox.py
 *.pyd
 *.c
 build/
