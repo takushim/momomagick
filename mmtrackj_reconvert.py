@@ -35,8 +35,7 @@ else:
 
 # read TrackJ CSV file
 print("Read TrackJ CSV from %s." % (input_filename))
-trackj_handler = trackj.TrackJ(input_filename)
-spot_table = trackj_handler.spot_table
+spot_table = trackj.read_spots(input_filename)
 
 # scale coodinates
 print("Scaling factor:", scaling)
@@ -46,7 +45,7 @@ spot_table['y'] = spot_table['y'] * scaling
 # output data
 print("Output lifetime to %s." % (output_filename))
 output_file = open(output_filename, 'w', newline='')
-trackj_handler.output_header(output_file)
+trackj.output_header(output_file, input_filename)
 spot_table.to_csv(output_file, sep='\t', index=False)
 output_file.close()
 

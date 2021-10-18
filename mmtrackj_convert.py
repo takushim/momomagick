@@ -53,4 +53,4 @@ spot_table['y'] = spot_table['y'] * scaling
 
 # output
 print("Output csv file to %s." % (output_filename))
-trackj.TrackJ.save_spots(output_filename, spot_table)
+trackj.save_spots(output_filename, spot_table)
