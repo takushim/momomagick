@@ -2,20 +2,24 @@
 source $HOME/.venv/gpu/bin/activate
 
 reg_method="drift"
+deconv=0
+iter=10
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-f FIRST_VIEW_X] [-s SECOND_VIEW_X] [-m REG_METHOD] file [file ...]"
+    echo "$(basename "$0") [-f FIRST_VIEW_X] [-s SECOND_VIEW_X] [-m REG_METHOD] [-d] [-i ITER] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "f:s:m:" OPT;
+while getopts "f:s:m:d" OPT;
 do
     case "$OPT" in
     f) first_view_x="$OPTARG" ;;
     s) second_view_x="$OPTARG" ;;
     m) reg_method="${OPTARG,,}" ;;
+    d) deconv=1 ;;
+    i) iter="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -67,7 +71,9 @@ do
         echo "Second view: ${second_view_x}" >> $output_log
     fi
 
-    echo "Deconvolution iterating: ${iter}" >> $output_log
-    mmdeconv.py -g 0 -i "$iter" -o "$output_deconv" "$output_crop_1"
+    if [[ $deconv == 1 ]]; then
+        echo "Deconvolution iterating: ${iter}" >> $output_log
+        mmdeconv.py -g 0 -i "$iter" -o "$output_deconv" "$output_crop_1"
+    fi
 
 done
