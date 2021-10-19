@@ -1,162 +1,125 @@
 #!/usr/bin/env python
 
-import sys, numpy, pandas, time
+import sys
+import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
 
-class Lifetime:
-    def __init__ (self, spot_table, time_scale = 1.0):
-        self.lifetime_columns = ['life_count', 'life_time', 'spot_count']
-        self.time_scale = time_scale
-        self.spot_table = spot_table
+life_columns = ['frame', 'time', 'spotcount']
+binding_columns = ['plane', 'lifeframe', 'lifetime']
 
-    @staticmethod
-    def add_life_count (spot_table):
-        work_table = spot_table.copy()
+def life_table (count_list, time_scale = 1.0):
+    frame_list = [(i + 1) for i in range(len(count_list))]
+    time_list = [(i + 1) * time_scale for i in range(len(count_list))]
+    table = pd.DataFrame({life_columns[0]: frame_list,
+                          life_columns[1]: time_list,
+                          life_columns[2]: count_list},
+                          columns = life_columns)
+    return table
 
-        work_table['life_count'] = (work_table.groupby('total_index').cumcount())
-        lifetime_table = work_table['total_index'].value_counts().to_frame('life_total')
-        work_table = pandas.merge(work_table, lifetime_table, \
-                                  left_on='total_index', right_index=True, how='left')
+def binding_table (plane_list, count_list, time_scale = 1.0):
+    count_list = [(i + 1) for i in count_list]
+    time_list = [i * time_scale for i in count_list]
+    table = pd.DataFrame({binding_columns[0]: plane_list,
+                          binding_columns[1]: count_list,
+                          binding_columns[2]: time_list},
+                          columns = binding_columns)
+    return table
 
-        return work_table
+def life_count (spot_table):
+    return spot_table.groupby('total_index').cumcount().to_list()
 
-    @staticmethod
-    def fit_one_phase_decay (times, counts):
-        def one_phase_decay (x, a, b, c):
-            return (a - c) * numpy.exp(- b * x) + c
+def fit_one_phase_decay (time_list, count_list, start = 0):
+    if start > 0:
+        print("Start fitting from:", start)
+        time_list = time_list[start:]
+        count_list = count_list[start:]
 
-        #popt, pcov = curve_fit(one_phase_decay, times, counts, bounds = ((0, 0, -numpy.inf), numpy.inf))
-        #popt, pcov = curve_fit(one_phase_decay, times, counts, bounds = ((-numpy.inf, 0, -numpy.inf), numpy.inf))
-        popt, pcov = curve_fit(one_phase_decay, times, counts)
-
-        return (lambda x: popt[0] * numpy.exp (- popt[1] * x) + popt[2]), popt, pcov
-
-    def regression (self):
-        # regression
-        work_table = self.spot_table.copy()
-        start_plane = numpy.min(work_table.plane)
-        if start_plane > 1:
-            print("Setting plane {0} as the beginning".format(start_plane))
-            work_table.plane = work_table.plane - start_plane + 1
-
-        # spots to be counted
-        index_set = set(work_table[work_table.plane == 1].total_index.tolist())
-        print("Regression set:", index_set)
-
-        # regression
-        output_indexes = []
-        output_counts = []
-        for index in range(0, work_table.plane.max() + 1):
-            spot_count = len(work_table[(work_table.total_index.isin(index_set)) & (work_table.plane == (index + 1))])
-            output_indexes += [index]
-            output_counts += [spot_count]
-
-        # output data
-        output_times = [i * self.time_scale for i in output_indexes]
-        output_table = pandas.DataFrame({ \
-                            self.lifetime_columns[0] : output_indexes, \
-                            self.lifetime_columns[1] : output_times, \
-                            self.lifetime_columns[2] : output_counts}, \
-                            columns = self.lifetime_columns)
-
-        return output_table
+    def one_phase_decay (x, a, b, c):
+        return (a - c) * np.exp(- b * x) + c
     
-    def lifetime (self):
-        # add lifetime columns
-        work_table = self.add_life_count(self.spot_table)
-        start_plane = numpy.min(work_table.plane)
+    popt, pcov = curve_fit(one_phase_decay, time_list, count_list)
+    result = {'func': lambda x: popt[0] * np.exp (- popt[1] * x) + popt[2],
+              'popt': popt,
+              'pcov': pcov,
+              'halflife': np.log(2) / popt[1],
+              'koff': popt[1]
+    }
+    return result
 
-        if start_plane > 1:
-            print("Setting plane {0} as the beginning".format(start_plane))
-            work_table.plane = work_table.plane - start_plane + 1
+def regression (spot_table, time_scale = 1.0):
+    # regression
+    work_table = spot_table.copy()
+    start_plane = np.min(work_table.plane)
+    if start_plane > 0:
+        print("Setting plane {0} as the beginning".format(start_plane))
+        work_table.plane = work_table.plane - start_plane
 
-        print("Dropping the spots beggining from plane == {0}".format(start_plane))
-        print(work_table[work_table.plane == 1])
-        work_table = work_table[work_table.plane > 1].reset_index(drop=True)
+    # spots to be counted
+    index_set = set(work_table[work_table.plane == 0].total_index.tolist())
+    print("Regression set:", index_set)
 
-        # prepare data
-        lifecount_max = work_table.life_total.max()
-        work_table = work_table.drop_duplicates(subset='total_index', keep='last').reset_index(drop=True)
-        output_indexes = [i for i in range(1, lifecount_max + 1)]
-        output_times = [i * self.time_scale for i in output_indexes]
-        output_counts = [len(work_table[work_table.life_count == i]) for i in output_indexes]
+    # regression
+    output_counts = []
+    for index in range(work_table.plane.max() + 1):
+        spot_count = len(work_table[(work_table.total_index.isin(index_set)) & (work_table.plane == index)])
+        output_counts.append(spot_count)
 
-        # output data
-        output_table = pandas.DataFrame({ \
-                            self.lifetime_columns[0] : output_indexes, \
-                            self.lifetime_columns[1] : output_times, \
-                            self.lifetime_columns[2] : output_counts}, \
-                            columns = self.lifetime_columns)
+    return life_table(output_counts, time_scale = time_scale)
 
-        return output_table
+def lifetime (spot_table, time_scale = 1.0):
+    # add lifetime
+    work_table = spot_table.copy()
+    work_table['life_count'] = life_count(work_table)
+
+    # drop plane starting from the time-lapse image
+    start_plane = np.min(work_table.plane)
+    index_set = set(work_table[work_table.plane == start_plane].total_index.tolist())
+    print("Dropping spots that start from plane {0}:".format(start_plane), index_set)
+    work_table = work_table[work_table.total_index.isin(index_set) == False]
+
+    # prepare data (life_count starts from 0)
+    work_table = work_table.drop_duplicates(subset = 'total_index', keep = 'last').reset_index(drop = True)
+    life_max = work_table.life_count.max() + 1
+    output_counts = [len(work_table[work_table.life_count == i]) for i in range(life_max)]
+
+    return life_table(output_counts, time_scale = time_scale)
+
+def cumulative (spot_table, time_scale = 1.0):
+    # add lifetime columns
+    work_table = spot_table.copy()
+    work_table['life_count'] = life_count(work_table)
+
+    # drop plane starting from the time-lapse image
+    start_plane = np.min(work_table.plane)
+    index_set = set(work_table[work_table.plane == start_plane].total_index.tolist())
+    print("Dropping spots that start from plane {0}:".format(start_plane), index_set)
+    work_table = work_table[work_table.total_index.isin(index_set) == False]
+
+    # prepare data (life_count starts from 0)
+    life_max = work_table.life_count.max() + 1
+    work_table = work_table.drop_duplicates(subset = 'total_index', keep = 'last').reset_index(drop = True)
+    output_counts = [len(work_table[work_table.life_count >= i]) for i in range(life_max)]
+
+    return life_table(output_counts, time_scale = time_scale)
+
+def new_bindings (spot_table, time_scale = 1.0):
+    # add lifetime columns
+    work_table = spot_table.copy()
+    work_table['life_count'] = life_count(work_table)
+
+    # prepare data (life_count starts from 0)
+    agg_table = {'plane': np.min, 'life_count': np.max}
+    work_table = work_table.groupby('total_index').agg(agg_table)
     
-    def cumulative (self):
-        # add lifetime columns
-        work_table = self.add_life_count(self.spot_table)
+    plane_list = work_table['plane'].to_list()
+    maxcount_list = work_table['life_count'].to_list()
 
-        # prepare data
-        lifecount_max = work_table.life_total.max()
-        work_table = work_table.drop_duplicates(subset='total_index', keep='last').reset_index(drop=True)
-        output_indexes = [i for i in range(1, lifecount_max + 1)]
-        output_times = [i * self.time_scale for i in output_indexes]
-        output_counts = [len(work_table[work_table.life_count >= i]) for i in output_indexes]
+    return binding_table(plane_list, maxcount_list, time_scale)
 
-        # output data
-        output_table = pandas.DataFrame({ \
-                            self.lifetime_columns[0] : output_indexes, \
-                            self.lifetime_columns[1] : output_times, \
-                            self.lifetime_columns[2] : output_counts}, \
-                            columns = self.lifetime_columns)
-
-        return output_table
-
-    def newbinding (self):
-        # add lifetime columns
-        work_table = self.add_life_count(self.spot_table)
-        
-        # prepare data
-        work_table = work_table.drop_duplicates(subset='total_index', keep='first').reset_index(drop=True)
-        work_table['life_time'] = work_table['life_total'] * self.time_scale
-
-        return work_table[['plane', 'life_total', 'life_time']]
-
-    ### These functions are recorded as a bad but important hack (now being used)
-    @staticmethod
-    def filter_spots_maskimage (spot_table, mask_image):
-        first_spot_table = spot_table.drop_duplicates(subset='total_index', keep='first').reset_index(drop=True)
-        first_spot_table['mask'] = mask_image[first_spot_table.y.values.astype(numpy.int), first_spot_table.x.values.astype(numpy.int)]
-        index_set = set(first_spot_table[first_spot_table['mask'] > 0].total_index.to_list())
-        return spot_table[spot_table.total_index.isin(index_set)]
-
-    ### These functions are recorded as a bad but important hack
-    def filter_spots_lifetime (self, spot_table, lifetime_min = 0, lifetime_max = numpy.inf):
-        spot_table = spot_table.sort_values(by = ['total_index', 'plane']).reset_index(drop=True)
-        spot_table = spot_table[(lifetime_min <= spot_table.life_total) & \
-                                (spot_table.life_total <= lifetime_max)].reset_index(drop=True)
-
-        return spot_table
-
-    def omit_lastplane_spots (self, spot_table, lastplane_index):
-        total_indexes = spot_table[spot_table.plane == lastplane_index].total_index.tolist()
-        total_indexes = list(set(total_indexes))
-
-        return spot_table[~spot_table.total_index.isin(total_indexes)]
-
-    def keep_first_spots (self, spot_table):
-        spot_table = spot_table.drop_duplicates(subset='total_index', keep='first').reset_index(drop=True)
-        return spot_table
-
-    def keep_last_spots (self, spot_table):
-        spot_table = spot_table.drop_duplicates(subset='total_index', keep='last').reset_index(drop=True)
-        return spot_table
-
-    def average_spots (self, spot_table):
-        agg_dict = {x : numpy.max for x in spot_table.columns}
-        agg_dict['x'] = numpy.mean
-        agg_dict['y'] = numpy.mean
-        agg_dict['intensity'] = numpy.mean
-        agg_dict['distance'] = numpy.sum
-        spot_table = spot_table.groupby('total_index').agg(agg_dict).reset_index(drop=True)
-        return spot_table
-
-
+# This is for spotmarker
+def filter_spots_maskimage (spot_table, mask_image):
+    first_spot_table = spot_table.drop_duplicates(subset='total_index', keep='first').reset_index(drop=True)
+    first_spot_table['mask'] = mask_image[first_spot_table.y.values.astype(np.int), first_spot_table.x.values.astype(np.int)]
+    index_set = set(first_spot_table[first_spot_table['mask'] > 0].total_index.to_list())
+    return spot_table[spot_table.total_index.isin(index_set)]

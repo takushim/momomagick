@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import sys, pathlib, re, argparse, numpy, pandas
+import sys, pathlib, re, argparse
+import pandas as pd
 from mmtools import trackj
 
 # default values
@@ -29,7 +30,7 @@ max_start_plane = args.max_start_plane
 scaling = args.scaling
 if args.output_file is None:
     stem = pathlib.Path(input_filename).stem
-    stem = re.sub('\.ome$', '', stem, flags=re.IGNORECASE)
+    stem = re.sub('\.ome$', '', stem, flags = re.IGNORECASE)
     output_filename = stem + filename_suffix
     if input_filename == output_filename:
         raise Exception('input_filename == output_filename.')
@@ -38,7 +39,7 @@ else:
 
 # read TSV file
 print("Read spots from %s." % (input_filename))
-spot_table = pandas.read_csv(input_filename, comment = '#', sep = '\t')
+spot_table = pd.read_csv(input_filename, comment = '#', sep = '\t')
 
 # limit the span of tracking
 print("Maxmum starting plane:", max_start_plane)
