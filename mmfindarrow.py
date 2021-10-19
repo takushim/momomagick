@@ -94,7 +94,7 @@ if align_filename is not None:
     spot_table = spotshift.SpotShift.align_spots(spot_table, align_table, use_smoothing, force_calc_smoothing)
 
 # add lifetime
-spot_table = lifetime.Lifetime.add_life_count(spot_table)
+spot_table['life_count'] = lifetime.life_count(spot_table)
 
 # keep first binding only
 spot_table = spot_table.sort_values(['total_index', 'plane']).drop_duplicates(subset='total_index', keep='first').reset_index(drop=True)
