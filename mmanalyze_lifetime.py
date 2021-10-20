@@ -142,8 +142,9 @@ for index in range(len(result_dict['count_list'])):
     axes.bar(times, counts, bottom = offset, width = width, label = labels[index])
     offset += np.array(counts)
 
-axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
+axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
           fitting_text(fitting), size = 'large', ha = 'right', va = 'top')
+axes.legend()
 
 figure.savefig(output_filename, dpi = 300)
 print(".")
@@ -184,8 +185,9 @@ for index in range(len(result_dict['count_list'])):
     axes.bar(times, counts, bottom = offset, width = width, label = labels[index])
     offset += np.array(counts)
 
-axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
+axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
           fitting_text(fitting), size = 'large', ha = 'right', va = 'top')
+axes.legend()
 
 figure.savefig(output_filename, dpi = 300)
 print(".")
@@ -226,8 +228,9 @@ for index in range(len(result_dict['count_list'])):
     axes.bar(times, counts, bottom = offset, width = width, label = labels[index])
     offset += np.array(counts)
 
-axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
+axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
           fitting_text(fitting), size = 'large', ha = 'right', va = 'top')
+axes.legend()
 
 figure.savefig(output_filename, dpi = 300)
 print(".")
