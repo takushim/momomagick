@@ -4,7 +4,7 @@ import sys, re, argparse
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from mmtools import mmtiff, trackj
+from mmtools import trackj
 
 # default values
 input_filenames = None
