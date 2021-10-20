@@ -43,7 +43,8 @@ def fit_one_phase_decay (time_list, count_list, start = 0):
               'popt': popt,
               'pcov': pcov,
               'halflife': np.log(2) / popt[1],
-              'koff': popt[1]
+              'koff': popt[1],
+              'start': start
     }
     return result
 
