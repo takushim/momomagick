@@ -19,6 +19,8 @@ stem_regression = '_regr'
 stem_lifetime = '_life'
 stem_newbinding = '_bind'
 stem_cumulative = '_cuml'
+optimizing_method = lifetime.default_method
+optimizing_method_list = lifetime.optimizing_methods
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Calculate lifetime and regression curves', \
@@ -36,6 +38,10 @@ parser.add_argument('-x', '--time-scale', type = float, default = time_scale, \
 parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start, \
                     help='starting point of fitting')
 
+parser.add_argument('-t', '--optimizing-method', type = str, default = optimizing_method, \
+                    choices = optimizing_method_list, \
+                    help='Method to optimize the one-phase-decay model')
+
 parser.add_argument('input_files', nargs = '+', default = input_filenames, \
                     help='input TSV file or TrackJ CSV files')
 args = parser.parse_args()
@@ -44,6 +50,7 @@ args = parser.parse_args()
 time_scale = args.time_scale
 input_filenames = args.input_files
 fitting_start = args.fitting_start
+optimizing_method = args.optimizing_method
 
 # set the stem of output filenames
 output_stem = args.output_stem
@@ -117,8 +124,10 @@ result_dict = merge_results(input_filenames, results)
 spot_table = dict_to_spot_table(result_dict)
 spot_sum = spot_table.sum(axis = 1)
 times = np.array(result_dict['time'])
-fitting = lifetime.fit_one_phase_decay(times, spot_sum)
+fitting = lifetime.fit_one_phase_decay(times, spot_sum, method = optimizing_method)
 fitting_func = fitting['func']
+print("Params:", fitting['params'])
+print("Status:", fitting['message'])
 
 # regression tsv
 output_filename = output_path(stem_regression, suffix_tsv)
@@ -160,8 +169,10 @@ result_dict = merge_results(input_filenames, results)
 spot_table = dict_to_spot_table(result_dict)
 spot_sum = spot_table.sum(axis = 1)
 times = np.array(result_dict['time'])
-fitting = lifetime.fit_one_phase_decay(times, spot_sum, start = fitting_start)
+fitting = lifetime.fit_one_phase_decay(times, spot_sum, start = fitting_start, method = optimizing_method)
 fitting_func = fitting['func']
+print("Params:", fitting['params'])
+print("Status:", fitting['message'])
 
 # lifetime tsv
 output_filename = output_path(stem_lifetime, suffix_tsv)
@@ -203,8 +214,10 @@ result_dict = merge_results(input_filenames, results)
 spot_table = dict_to_spot_table(result_dict)
 spot_sum = spot_table.sum(axis = 1)
 times = np.array(result_dict['time'])
-fitting = lifetime.fit_one_phase_decay(times, spot_sum)
+fitting = lifetime.fit_one_phase_decay(times, spot_sum, method = optimizing_method)
 fitting_func = fitting['func']
+print("Params:", fitting['params'])
+print("Status:", fitting['message'])
 
 # lifetime tsv
 output_filename = output_path(stem_cumulative, suffix_tsv)

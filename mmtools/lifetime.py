@@ -3,10 +3,13 @@
 import sys
 import numpy as np
 import pandas as pd
-from scipy.optimize import curve_fit
+from scipy import optimize
 
 life_columns = ['frame', 'time', 'spotcount']
 binding_columns = ['plane', 'lifeframe', 'lifetime']
+
+optimizing_methods = ["Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP"]
+default_method = "Nelder-Mead"
 
 def life_table (count_list, time_scale = 1.0):
     frame_list = [(i + 1) for i in range(len(count_list))]
@@ -29,22 +32,33 @@ def binding_table (plane_list, count_list, time_scale = 1.0):
 def life_count (spot_table):
     return spot_table.groupby('total_index').cumcount().to_list()
 
-def fit_one_phase_decay (time_list, count_list, start = 0):
+def fit_one_phase_decay (time_list, count_list, start = 0, method = default_method):
     if start > 0:
         print("Start fitting from:", start)
         time_list = time_list[start:]
         count_list = count_list[start:]
 
-    def one_phase_decay (x, a, b, c):
-        return (a - c) * np.exp(- b * x) + c
+    times = np.array(time_list)
+    counts = np.array(count_list)
+
+    def one_phase_decay (params):
+        a, b, c = params
+        return np.sum(((a * np.exp(- b * times) + c) - counts) * ((a * np.exp(- b * times) + c) - counts))
     
-    popt, pcov = curve_fit(one_phase_decay, time_list, count_list)
-    result = {'func': lambda x: popt[0] * np.exp (- popt[1] * x) + popt[2],
-              'popt': popt,
-              'pcov': pcov,
-              'halflife': np.log(2) / popt[1],
-              'koff': popt[1],
-              'start': start
+    max_index = np.argmax(count_list)
+    init_decay = float(count_list[max_index])
+    init_params = [init_decay, 0.0, 0.0]
+    #init_params = [1.0, 1.0, 0.0]
+
+    opt = optimize.minimize(one_phase_decay, init_params, method = method)
+    params = opt['x']
+    result = {'func': lambda x: params[0] * np.exp (- params[1] * x) + params[2],
+              'params': params,
+              'halflife': np.log(2) / params[1],
+              'koff': params[1],
+              'status': opt['status'],
+              'start': start,
+              'message': opt['message'],
     }
     return result
 
