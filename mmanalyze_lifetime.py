@@ -141,7 +141,8 @@ print("Output regression graph to {0}.".format(output_filename))
 figure = pyplot.figure(figsize = (12, 8), dpi = 300)
 axes = figure.add_subplot(111)
 axes.set_title("Regression from t = 0", size = 'xx-large')
-axes.plot(times, fitting_func(times), color = 'black', linestyle = ':')
+curve_x = np.arange(times[0], np.max(times), times[0] / 10)
+axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
 
 width = times[0] / 2
 labels = result_dict['name_list']
@@ -186,7 +187,8 @@ print("Output lifetime graph to {0}.".format(output_filename))
 figure = pyplot.figure(figsize = (12, 8), dpi = 300)
 axes = figure.add_subplot(111)
 axes.set_title("Lifetime ({0} spots)".format(spot_sum.sum()), size = 'xx-large')
-axes.plot(times, fitting_func(times), color = 'black', linestyle = ':')
+curve_x = np.arange(times[0], np.max(times), times[0] / 10)
+axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
 
 width = times[0] / 2
 labels = result_dict['name_list']
@@ -231,7 +233,8 @@ print("Output cumulative lifetime graph to {0}.".format(output_filename))
 figure = pyplot.figure(figsize = (12, 8), dpi = 300)
 axes = figure.add_subplot(111)
 axes.set_title("Cumulative lifetime ({0} spots)".format(spot_sum[0], size = 'xx-large'))
-axes.plot(times, fitting_func(times), color = 'black', linestyle = ':')
+curve_x = np.arange(times[0], np.max(times), times[0] / 10)
+axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
 
 width = times[0] / 2
 labels = result_dict['name_list']
