@@ -5,6 +5,8 @@ import numpy as np
 from pathlib import Path
 
 preset_areas = [[370, 0, 256, 256], [1400, 0, 256, 256]]
+pixelsize_um = 0.1625
+z_step_um = 0.5
 
 def stem (filename):
     name = Path(filename).stem
@@ -49,12 +51,17 @@ def area_to_slice (area):
     slice_y = slice(area[1], area[1] + area[3], 1)
     return slice_x, slice_y
 
+def save_image (filename, image_array, xy_res = 1.0 / pixelsize_um, z_step_um = z_step_um, imagej = True):
+    print('Saving image: ', image_array.shape, image_array.dtype)
+    metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
+    tifffile.imsave(filename, np.array(image_array), imagej = imagej, \
+                    resolution = (xy_res, xy_res), metadata = metadata)
 class MMTiff:
     def __init__ (self, filename):
         # set default values
         self.micromanager_summary = None
-        self.pixelsize_um = 0.1625
-        self.z_step_um = 0.5
+        self.pixelsize_um = pixelsize_um
+        self.z_step_um = z_step_um
 
         # read image
         self.filename = filename

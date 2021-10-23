@@ -70,20 +70,21 @@ def decompose_matrix (matrix):
     return {'transport': trans, 'rotation_matrix': rot_mat, 'rotation_angles': rot_angles, \
             'zoom': zoom, 'shear': shear}
  
-def register (ref_image, input_image, gpu_id = None, reg_method = "Full", opt_method = "Powell"):
-    # calculate POCs for pre-registration
-    poc_register = Poc(ref_image, gpu_id = gpu_id)
-    poc_result = poc_register.register(input_image)
-    poc_register = None
+def register (ref_image, input_image, init_shift = None, gpu_id = None, reg_method = "Full", opt_method = "Powell"):
+    if init_shift is None:
+        # calculate POCs for pre-registration
+        poc_register = Poc(ref_image, gpu_id = gpu_id)
+        poc_result = poc_register.register(input_image)
+        poc_register = None
+        init_shift = poc_result['shift']
 
     # calculate an affine matrix for registration
     if len(input_image.shape) < 3 or input_image.shape[0] == 1:
+        init_shift = init_shift[1:]
         affine_register = Affine(ref_image[0], gpu_id = gpu_id)
-        init_shift = poc_result['shift'][1:]
         affine_result = affine_register.register(input_image[0], init_shift, opt_method = opt_method, reg_method = reg_method)
     else:
         affine_register = Affine(ref_image, gpu_id = gpu_id)
-        init_shift = poc_result['shift']
         affine_result = affine_register.register(input_image, init_shift, opt_method = opt_method, reg_method = reg_method)
 
     return affine_result
@@ -131,7 +132,10 @@ class Affine:
     def register (self, input_image, init_shift, opt_method = "Powell", reg_method = "Full"):
         if len(input_image.shape) == 2:
             if reg_method == 'None':
-                init_params = [0.0, 0.0]
+                if init_shift is None:
+                    init_params = [0.0, 0.0]
+                else:
+                    init_params = init_shift.flatten()
                 params_to_matrix = drift_to_matrix_2d
             elif reg_method == 'Drift':
                 init_params = init_shift.flatten()
@@ -146,7 +150,10 @@ class Affine:
                 raise Exception("Unknown registration method:", reg_method)
         elif len(input_image.shape) == 3:
             if reg_method == 'None':
-                init_params = [0.0, 0.0, 0.0]
+                if init_shift is None:
+                    init_params = [0.0, 0.0, 0.0]
+                else:
+                    init_params = init_shift.flatten()
                 params_to_matrix = drift_to_matrix_3d
             elif reg_method == 'Drift':
                 init_params = init_shift.flatten()
