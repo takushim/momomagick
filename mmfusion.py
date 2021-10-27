@@ -97,13 +97,6 @@ else:
     else:
         raise Exception('PSF file {0} not found'.format(psf_filename))
 
-# prepare a rotated psf image
-if sub_rotation != 0:
-    print("Preparing a psf image for the sub-channel rotating by:", sub_rotation)
-    psf_image_sub = gpuimage.z_rotate(psf_image, angle = sub_rotation, gpu_id = gpu_id)
-else:
-    psf_image_sub = psf_image
-
 # finding the other channel
 channel_set = set(np.arange(input_tiff.total_channel)) - {main_channel}
 if sub_channel not in channel_set:
@@ -127,13 +120,15 @@ for index in range(input_tiff.total_time):
     sub_image = gpuimage.z_zoom(sub_image, ratio = z_ratio, gpu_id = gpu_id)
     if sub_rotation != 0:
         print("Rotating sub-channel by:", sub_rotation)
-        sub_image = gpuimage.z_rotate(sub_image, angle = sub_rotation, gpu_id = gpu_id)
+        sub_image_reg = gpuimage.z_rotate(sub_image, angle = sub_rotation, gpu_id = gpu_id)
+    else:
+        sub_image_reg = sub_image
 
-    sub_image = gpuimage.resize(sub_image, main_image.shape, center = True)
+    sub_image_reg = gpuimage.resize(sub_image_reg, main_image.shape, center = True)
 
     print("Registering Method:", registering_method)
     print("Optimizing Method:", optimizing_method)
-    affine_result = register.register(main_image, sub_image, gpu_id = gpu_id, \
+    affine_result = register.register(main_image, sub_image_reg, gpu_id = gpu_id, \
              opt_method = optimizing_method, reg_method = registering_method)
     affine_matrix = affine_result['matrix']
 
@@ -152,35 +147,32 @@ for index in range(input_tiff.total_time):
     # save result
     affine_result_list.append(affine_result)
 
-    # register the sub channel to the main channel
-    sub_image = gpuimage.affine_transform(sub_image, affine_matrix, gpu_id = gpu_id)
-
     # deconvolution
     if iterations > 0:
-        if keep_channels:
-            print("Deconvoluting channels seapeartely. Iterations:", iterations)
-            # deconvolve the main channel
-            deconvolver = lucy.Lucy(psf_image, gpu_id = gpu_id)
-            main_image = deconvolver.deconvolve(main_image, iterations)
-            # deconvole the sub channel
-            deconvolver = lucy.Lucy(psf_image_sub, gpu_id = gpu_id)
-            sub_image = deconvolver.deconvolve(sub_image, iterations)
-            output_image = [main_image, sub_image]
+        print("Deconvoluting channels seapeartely. Iterations:", iterations)
+        deconvolver = lucy.Lucy(psf_image, gpu_id = gpu_id)
+        main_image_dec = deconvolver.deconvolve(main_image, iterations)
+        sub_image_dec = deconvolver.deconvolve(sub_image, iterations)
+        # registration and fusion
+        if sub_rotation != 0:
+            print("Rotating sub-channel by:", sub_rotation)
+            sub_image_dec = gpuimage.z_rotate(sub_image_dec, angle = sub_rotation, gpu_id = gpu_id)
         else:
-            print("Deconvoluting the fused image. Iterations:", iterations)
-            # fuse two channels and deconvolve it
-            deconvolver = lucy.Lucy([psf_image, psf_image_sub], gpu_id = gpu_id)
-            dual_image = (main_image.astype(float) + sub_image.astype(float)) / 2
-            dual_image = deconvolver.deconvolve(dual_image, iterations)
-            output_image = [dual_image]
+            sub_image_dec = sub_image_dec
+        sub_image_dec = gpuimage.resize(sub_image_dec, main_image.shape, center = True)
+        sub_image_dec = gpuimage.affine_transform(sub_image_dec, affine_matrix, gpu_id = gpu_id)
     else:
-        if keep_channels:
-            print("Deconvolution skipped. Keeping channels.")
-            output_image = [main_image, sub_image]
-        else:
-            print("Deconvolution skipped. Fusing channels.")
-            output_image = [(main_image.astype(float) + sub_image.astype(float)) / 2]
+        print("Skipping deconvolution.")
+        main_image_dec = main_image
+        sub_image_dec = gpuimage.affine_transform(sub_image_reg, affine_matrix, gpu_id = gpu_id)
 
+    if keep_channels:
+        print("Keeping channels for the output image.")
+        output_image = [main_image_dec, sub_image_dec]
+    else:
+        print("Merging channels for the output image.")
+        output_image = [(main_image_dec.astype(float) + sub_image_dec.astype(float)) / 2]
+        
     # store the image to the list
     output_image_list.append(output_image)
 
