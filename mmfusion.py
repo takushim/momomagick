@@ -3,7 +3,7 @@
 import sys, argparse, tifffile
 import numpy as np
 from pathlib import Path
-from mmtools import mmtiff, register, lucy, gpuimage
+from mmtools import mmtiff, register, deconvolve, gpuimage
 
 # default values
 input_filename = None
@@ -150,9 +150,8 @@ for index in range(input_tiff.total_time):
     # deconvolution
     if iterations > 0:
         print("Deconvoluting channels seapeartely. Iterations:", iterations)
-        deconvolver = lucy.Lucy(psf_image, gpu_id = gpu_id)
-        main_image_dec = deconvolver.deconvolve(main_image, iterations)
-        sub_image_dec = deconvolver.deconvolve(sub_image, iterations)
+        main_image_dec = deconvolve.deconvolve(main_image, psf_image, iterations = iterations, gpu_id = gpu_id)
+        sub_image_dec = deconvolve.deconvolve(sub_image, psf_image, iterations = iterations, gpu_id = gpu_id)
         # registration and fusion
         if sub_rotation != 0:
             print("Rotating sub-channel by:", sub_rotation)
@@ -176,15 +175,8 @@ for index in range(input_tiff.total_time):
     # store the image to the list
     output_image_list.append(output_image)
 
-# shape output into the TZCYX order
-output_image = np.array(output_image_list).swapaxes(1, 2)
-if (input_tiff.dtype.kind == 'i' or input_tiff.dtype.kind == 'u') and \
-        np.max(output_image) <= np.iinfo(input_tiff.dtype).max:
-    output_image = mmtiff.float_to_int(output_image, input_tiff.dtype)
-else:
-    output_image = output_image.astype(np.float32)
-
 # output in the ImageJ format, dimensions should be in TZCYX order
 print("Output image:", output_filename)
-input_tiff.z_step_um = input_tiff.pixelsize_um
-input_tiff.save_image(output_filename, output_image)
+output_image = np.array(output_image_list).swapaxes(1, 2).astype(np.float32)
+mmtiff.save_image(output_filename, output_image, \
+    xy_res = 1 / input_tiff.pixelsize_um, z_step_um = input_tiff.pixelsize_um)

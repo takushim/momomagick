@@ -3,7 +3,7 @@
 import sys, argparse, tifffile, time
 import numpy as np
 from pathlib import Path
-from mmtools import mmtiff, register, lucy, gpuimage
+from mmtools import mmtiff, deconvolve, gpuimage
 
 # defaults
 psf_folder = Path(__file__).parent.joinpath('psf')
@@ -52,7 +52,7 @@ else:
     output_filename = args.output_file
 
 # turn on GPU device
-lucy.turn_on_gpu(gpu_id)
+deconvolve.turn_on_gpu(gpu_id)
 
 # load psf image
 if Path(psf_filename).exists():
@@ -87,9 +87,6 @@ if z_scale_psf and input_tiff.total_zstack > 1:
         psf_image = gpuimage.z_zoom(psf_image, ratio, gpu_id = gpu_id)
         print("Scaling psf image into:", ratio)
 
-# deconvolve
-deconvolver = lucy.Lucy(psf_image, gpu_id)
-
 # save results in the CTZYX order
 output_image_list = []
 print("Start deconvolution:", time.ctime())
@@ -100,7 +97,7 @@ for index in range(input_tiff.total_time):
         image = input_list[index][channel]
         if z_scale_ratio != 1:
             image = gpuimage.z_zoom(image, z_scale_ratio, gpu_id = gpu_id)
-        image = deconvolver.deconvolve(image, iterations)
+        image = deconvolve.deconvolve(image, psf_image, iterations = iterations, gpu_id = gpu_id)
         if restore_z_scale:
             image = gpuimage.z_zoom(image, 1 / z_scale_ratio, gpu_id = gpu_id)
         image_list.append(image)
