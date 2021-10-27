@@ -6,7 +6,7 @@ topdir=`pwd`
 for dir in **/*; do
     if [ -d "$dir" ]; then
         cd $dir
-        image=`find . -iname '*MMStack_Pos0.ome.tif' | head -n 1`
+        image=`find . -maxdepth 1 -iname '*MMStack_Pos0.ome.tif' | head -n 1`
         if [ -f $image ]; then
             mmcrop.py -S $image
         fi

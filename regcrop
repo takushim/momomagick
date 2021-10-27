@@ -28,7 +28,7 @@ shift $((OPTIND - 1))
 
 # find an image file if not specified
 if [ $# == 0 ]; then
-    files=("$(find . -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
+    files=("$(find . -maxdepth 1 -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
 else
     files=("$@")
 fi
