@@ -71,26 +71,24 @@ input_tiffs = [mmtiff.MMTiff(file) for file in input_filenames]
 # set values using the image properties
 if t_frames is None:
     t_frames = [0, 0]
-    print("Automatically selecting t-frames:", t_frames)
 if channels is None:
     channels = [0, 0]
-    print("Automatically selecting channels:", channels)
 if z_indexes is None:
     z_indexes = [int(tiff.total_zstack // 2) for tiff in input_tiffs]
-    print("Automatically selecting z-indexes:", z_indexes)
 
 # load images
 input_images = []
 output_shape = (input_tiffs[-1].height, input_tiffs[-1].width)
 for index in range(len(input_tiffs)):
+    print("Image {0}: t = {1}, c = {2}, z = {3}".format(index, t_frames[index], channels[index], z_indexes[index]))
     image = input_tiffs[index].as_list(list_channel = True)
     image = image[t_frames[index]][channels[index]][z_indexes[index]]
     if image.shape != output_shape:
         image = gpuimage.resize(image, shape = output_shape)
     input_images.append(image.astype(np.float32))
 
-font_color = 255
-font = ImageFont.truetype(mmtiff.font_path(), output_shape[0] // 8)
+font = ImageFont.truetype(mmtiff.font_path(), output_shape[0] // 16)
+font_color = np.max(input_images[-1])
 
 print("X range", shift_range_x)
 print("Y range", shift_range_y)
@@ -101,6 +99,10 @@ for (shift_y, shift_x) in itertools.product(shift_ys, shift_xs):
     # prepare output image space
     image_list = []
 
+    # overlay
+    shifted_image = gpuimage.shift(input_images[0], (shift_y, shift_x), gpu_id = gpu_id)
+    image_list.append(shifted_image)
+
     # background
     image = Image.fromarray(input_images[-1].copy())
     draw = ImageDraw.Draw(image)
@@ -108,16 +110,12 @@ for (shift_y, shift_x) in itertools.product(shift_ys, shift_xs):
     orig_image = np.array(image)
     image_list.append(orig_image)
 
-    # overlay
-    shifted_image = gpuimage.shift(input_images[0], (shift_y, shift_x), gpu_id = gpu_id)
-    image_list.append(shifted_image)
-
     # append
     output_image_list.append(image_list)
 
 # output ImageJ, dimensions should be in TZCYXS order
 print("Output image:", output_filename)
-output_image = np.array(output_image_list)[:, :, np.newaxis]
+output_image = np.array(output_image_list)[np.newaxis]
 mmtiff.save_image(output_filename, output_image, \
                   xy_res = 1 / input_tiffs[-1].pixelsize_um, \
                   z_step_um = input_tiffs[-1].z_step_um)
