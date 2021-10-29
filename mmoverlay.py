@@ -48,7 +48,7 @@ parser.add_argument('-t', '--optimizing-method', type = str, default = optimizin
                     help='Method to optimize the affine matrices')
 
 parser.add_argument('-s', '--overlay-offset', nargs = 3, type = float, default = overlay_offset, \
-                    metavar = ('x', 'Y', 'Z'), \
+                    metavar = ('X', 'Y', 'Z'), \
                     help='Offset of the overlay image before registration (useful with <-e None>)')
 
 parser.add_argument('-c', '--use-channels', nargs = 2, type = int, default = use_channels, \
