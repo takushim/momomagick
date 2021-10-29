@@ -72,3 +72,10 @@ def affine_transform (input_image, matrix, gpu_id = None):
         output_image = cp.asnumpy(output_image)
     return output_image
 
+def shift (input_image, shifts, gpu_id = None):
+    if gpu_id is None:
+        output_image = ndimage.interpolation.shift(input_image, shifts)
+    else:
+        output_image = cpimage.interpolation.shift(cp.array(input_image), shifts)
+        output_image = cp.asnumpy(output_image)
+    return output_image
