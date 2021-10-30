@@ -7,39 +7,30 @@ from mmtools import mmtiff
 # default values
 input_filename = None
 output_filename = None
-output_suffix = "_crop_{0}.tif"
-use_channel = None
-split_image = False
-use_area = None
-preset_area_index = None
-preset_areas = mmtiff.preset_areas
-zstack_range = None
-time_range = None
+output_suffix = "_crop.tif"
+channel = None
+register_area = None
+z_range = None
+t_range = None
 
 # parse arguments
-parser = argparse.ArgumentParser(description='Crop a diSPIM image for viewing via network. Crop using all preset areas by default.', \
+parser = argparse.ArgumentParser(description='Crop a multi-page TIFF image.', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default = output_filename, \
-                    help='output image filename. [basename]{0} by default'.format(output_suffix.format('##')))
-parser.add_argument('-c', '--use-channel', type = int, default = use_channel, \
-                    help='specify the channel to process')
+                    help='output image filename. [basename]{0} by default'.format(output_suffix))
 
-group = parser.add_mutually_exclusive_group()
-group.add_argument('-P', '--preset-area-index', type = int, default = preset_area_index, \
-                   help='Crop using the preset area. ' + \
-                        ' '.join(["Area {0}: X {1} Y {2} W {3} H {4}.".format(i, *preset_areas[i]) \
-                                  for i in range(len(preset_areas))]))
-group.add_argument('-R', '--use-area', type = int, nargs = 4, default = use_area, \
-                   metavar = ('X', 'Y', 'W', "H"),
-                   help='Crop using the specified area.')
-group.add_argument('-S', '--split_image', action = 'store_true', \
-                    help='Split the image into left and right halves')
+parser.add_argument('-c', '--channel', type = int, default = channel, \
+                    help='specify the channel to process (minus index to remove).')
 
-parser.add_argument('-Z', '--zstack-range', type = int, nargs = 2, default = zstack_range, \
+parser.add_argument('-R', '--register-area', type = int, nargs = 4, default = register_area, \
+                    metavar = ('X', 'Y', 'W', "H"),
+                    help='Crop using the specified area.')
+
+parser.add_argument('-z', '--z-range', type = int, nargs = 2, default = z_range, \
                     metavar = ('START', 'END'),
                     help='Specify the range of z planes to output')
 
-parser.add_argument('-T', '--time-range', type = int, nargs = 2, default = time_range, \
+parser.add_argument('-t', '--t-range', type = int, nargs = 2, default = t_range, \
                     metavar = ('START', 'END'),
                     help='Specify the range of time frames to output')
 
@@ -49,63 +40,45 @@ args = parser.parse_args()
 
 # set arguments
 input_filename = args.input_file
-use_channel = args.use_channel
-zstack_range = args.zstack_range
-time_range = args.time_range
-split_image = args.split_image
+channel = args.channel
+z_range = args.z_range
+t_range = args.t_range
+register_area = args.register_area
 
-if args.split_image is None:
-    crop_areas = None
-elif args.use_area is not None:
-    crop_areas = [args.use_area]
-elif args.preset_area_index is not None:
-    crop_areas = [preset_areas[args.preset_area_index]]
-else:
-    crop_areas = preset_areas
-
-output_filenames = []
 if args.output_file is None:
-    for index in range(len(crop_areas)):
-        output_filenames.append(mmtiff.with_suffix(input_filename, output_suffix.format(index)))
+    output_filename.append(mmtiff.with_suffix(input_filename, output_suffix))
 else:
-    if len(crop_areas) > 1:
-        print("More than one areas are cropped. Filenames are automatically generated.")
-        for index in range(len(crop_areas)):
-            output_filenames.append(mmtiff.with_suffix(input_filename, output_suffix.format(index)))
-    else:
-        output_filenames.append(args.output_file)
+    output_filename = args.output_file
 
 # read TIFF file (assumes TZ(C)YX order)
 input_tiff = mmtiff.MMTiff(input_filename)
 input_image = input_tiff.as_array()
 
-if split_image:
-    crop_areas = []
-    half_width = int(input_tiff.width // 2)
-    crop_areas.append([0, 0, half_width, input_tiff.height])
-    crop_areas.append([half_width + 1, 0, half_width, input_tiff.height])
-
-if zstack_range is None:
-    zstack_slice = slice(0, input_tiff.total_zstack, 1)
+if z_range is None:
+    z_slice = slice(0, input_tiff.total_zstack, 1)
 else:
-    zstack_slice = slice(zstack_range[0], zstack_range[1] + 1, 1)
+    z_slice = slice(z_range[0], z_range[1] + 1, 1)
 
-if time_range is None:
-    time_slice = slice(0, input_tiff.total_time, 1)
+if t_range is None:
+    t_slice = slice(0, input_tiff.total_time, 1)
 else:
-    time_slice = slice(time_range[0], time_range[1] + 1, 1)
+    t_slice = slice(t_range[0], t_range[1] + 1, 1)
 
-if use_channel is None:
-    channel_slice = slice(0, input_tiff.total_channel, 1)
+if channel is None:
+    c_slice = slice(0, input_tiff.total_channel, 1)
+elif channel > 0:
+    c_slice = slice(channel, channel + 1, 1)
 else:
-    channel_slice = slice(use_channel, use_channel + 1, 1)
+    c_slice = np.arange(0, input_tiff.total_channel, 1)
+    c_slice = c_slice[c_slice != channel]
+
+if register_area is None:
+    register_area = [0, 0, input_tiff.width, input_tiff.height]
 
 # output TIFF
-for index in range(len(crop_areas)):
-    print("Cropping using area:", crop_areas[index])
-    x_slice, y_slice = mmtiff.area_to_slice(crop_areas[index])
-    print("Output image:", output_filenames[index])
-    output_image = input_image[time_slice, zstack_slice, channel_slice, y_slice, x_slice]
-
-    input_tiff.save_image(output_filenames[index], output_image)
-    print(".")
+print("Cropping using area:", register_area)
+x_slice, y_slice = mmtiff.area_to_slice(register_area)
+print("Output image:", output_filename)
+output_image = input_image[t_slice, z_slice, c_slice, y_slice, x_slice]
+input_tiff.save_image(output_filename, output_image)
+print(".")
