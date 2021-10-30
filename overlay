@@ -69,7 +69,7 @@ output_temp="${stem}_temp.tif"
 output_sweep="${stem}_sweep.tif"
 output_over="${stem}_${reg_method,,}_over.tif"
 output_final="${stem}_${reg_method,,}_over_final.tif"
-output_log="${stem}log.tif"
+output_log="${stem}_log.txt"
 
 echo "Overlay:" $(date) > $output_log
 echo "Dropping unused channels from the EGFP file" >> $output_log
