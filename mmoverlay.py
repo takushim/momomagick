@@ -12,7 +12,7 @@ overlay_offset = None
 output_filename = None
 output_suffix = '_over_{0}.tif' # overwritten by the registration method
 output_json_filename = None
-output_json_suffix = '_over_{0}.json' # overwritten by the registration method
+output_json_suffix = '.json' # overwritten by the registration method
 truncate_frames = False
 gpu_id = None
 register_all = False
@@ -28,7 +28,7 @@ parser.add_argument('-o', '--output-file', default=output_filename, \
                     help='output TIFF file ([basename]{0} by default)'.format(output_suffix.format('[regmethod]')))
 
 parser.add_argument('-j', '--output-json-file', default = output_json_filename, \
-                    help='output JSON file name ([basename]{0} by default)'.format(output_json_suffix.format('[regmethod]')))
+                    help='output JSON file name ([output_basename]{0} by default)'.format(output_json_suffix))
 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
@@ -78,7 +78,7 @@ else:
     output_filename = args.output_file
 
 if args.output_json_file is None:
-    output_json_filename = mmtiff.with_suffix(input_filenames[-1], output_json_suffix.format(registering_method.lower()))
+    output_json_filename = mmtiff.with_suffix(output_filename, output_json_suffix)
 else:
     output_json_filename = args.output_json_file
 
