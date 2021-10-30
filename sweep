@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+source $HOME/.venv/gpu/bin/activate
+
+z_index=""
+file_sweep=""
+
+# show usage and exit
+function show_usage () {
+    echo "$(basename "$0") [-z Z_INDEX] [-s FILE_SWEEP] FILE_BACK"
+    exit 1
+}
+
+# parse options
+while getopts "z:s:" OPT;
+do
+    case "$OPT" in
+    z) z_index="$OPTARG" ;;
+    s) file_sweep="$OPTARG" ;;
+    :) show_usage ;;
+    \?) show_usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# find the overlay (sweeping) image if not specified
+if [[ "$file_sweep" == "" ]]; then
+    file_sweep="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_0.tif' | head -n 1)"
+fi
+
+# find the background image if not specified
+if [[ "$#" == 0 ]]; then
+    file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_1.tif' | head -n 1)"
+elif [[ "$#" == 1 ]]; then
+    file_back="$@"
+else
+    echo "More than one background files are specified."
+    exit 1
+fi
+
+# process!
+if [[ "$file_back" =~ '.ome.tif' ]]; then
+    stem="$(echo ${file_back} | sed 's/\.ome\.tif$//')"
+elif [[ "$file_back" =~ '.tif' ]]; then
+    stem="$(echo ${file_back} | sed 's/\.tif$//')"
+else
+    echo "Not an image file: ${file_back}"
+    continue
+fi
+
+output_sweep="${stem}_sweep.tif"
+
+if [[ "$z_index" == "" ]]; then
+    mmsweep.py -g 0 -o "$output_sweep" -c 0 0 "$file_sweep" "$file_back"
+else
+    mmsweep.py -g 0 -o "$output_sweep" -c 0 0 -z "$z_index" "$z_index" "$file_sweep" "$file_back"
+fi

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+source $HOME/.venv/gpu/bin/activate
+
+iter=10
+
+# show usage and exit
+function show_usage () {
+    echo "$(basename "$0") [-i ITERATION] file [file ...]"
+    exit 1
+}
+
+# parse options
+while getopts "i:" OPT;
+do
+    case "$OPT" in
+    i) iter="$OPTARG" ;;
+    :) show_usage ;;
+    \?) show_usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# find an image file if not specified
+if [ $# == 0 ]; then
+    files=("$(find . -maxdepth 1 -iname '*_crop_1.tif' | head -n 1)")
+else
+    files=("$@")
+fi
+
+# process!
+for file in "${files[@]}"
+do
+    if [[ "$file" =~ '.ome.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.ome\.tif$//')"
+    elif [[ "$file" =~ '.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.tif$//')"
+    else
+        echo "Not an image file: ${file}"
+        continue
+    fi
+	output_deconv="${stem}_deconv.tif"
+    output_log="${stem}_deconv.log"
+
+    echo "Deconvolution:" $(date) > $output_log
+    echo "Iteration: ${iter}" >> $output_log
+
+    mmdeconv.py -g 0 -i "$iter" -o "$output_deconv" "$file"
+done

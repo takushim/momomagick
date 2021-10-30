@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+source $HOME/.venv/gpu/bin/activate
+
+reg_method="drift"
+deconv=0
+iter=10
+first_view_x=370
+second_view_x=1400
+
+# show usage and exit
+function show_usage () {
+    echo "$(basename "$0") [-f FIRST_VIEW_X] [-s SECOND_VIEW_X] [-m REG_METHOD] [-d] [-i ITER] file [file ...]"
+    exit 1
+}
+
+# parse options
+while getopts "f:s:m:d" OPT;
+do
+    case "$OPT" in
+    f) first_view_x="$OPTARG" ;;
+    s) second_view_x="$OPTARG" ;;
+    m) reg_method="${OPTARG,,}" ;;
+    d) deconv=1 ;;
+    i) iter="$OPTARG" ;;
+    :) show_usage ;;
+    \?) show_usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# find an image file if not specified
+if [ $# == 0 ]; then
+    files=("$(find . -maxdepth 1 -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
+else
+    files=("$@")
+fi
+
+# process!
+for file in "${files[@]}"
+do
+    if [[ "$file" =~ '.ome.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.ome\.tif$//')"
+    elif [[ "$file" =~ '.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.tif$//')"
+    else
+        echo "Not an image file: ${file}"
+        continue
+    fi
+	output_reg="${stem}_${reg_method,,}.tif"
+	output_crop_0="${stem}_${reg_method,,}_crop_0.tif"
+	output_crop_1="${stem}_${reg_method,,}_crop_1.tif"
+	output_deconv="${stem}_${reg_method,,}_crop_1_deconv.tif"
+    output_log="${stem}_regcrop.log"
+
+    echo "Registration & cropping:" $(date) > $output_log
+    echo "Method: ${reg_method,,}" >> $output_log
+
+    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "${reg_method^}" -A -a "$output_reg" "$file"
+    mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" "$output_reg"
+    echo "First view: ${first_view_x}" >> $output_log
+    
+    mmcrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" "$output_reg"
+    echo "Second view: ${second_view_x}" >> $output_log
+
+    if [[ $deconv == 1 ]]; then
+        echo "Deconvolution iterating: ${iter}" >> $output_log
+        mmdeconv.py -g 0 -i "$iter" -o "$output_deconv" "$output_crop_1"
+    fi
+
+done
