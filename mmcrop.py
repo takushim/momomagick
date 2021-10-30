@@ -70,7 +70,7 @@ elif channel > 0:
     c_slice = slice(channel, channel + 1, 1)
 else:
     c_slice = np.arange(0, input_tiff.total_channel, 1)
-    c_slice = c_slice[c_slice != channel]
+    c_slice = c_slice[c_slice != abs(channel)]
 
 if register_area is None:
     register_area = [0, 0, input_tiff.width, input_tiff.height]
