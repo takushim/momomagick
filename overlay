@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+source $HOME/.venv/gpu/bin/activate
+
+shift_x=0
+shift_y=0
+shift_z=0
+file_over=""
+file_sweep=""
+reg_method="rigid"
+
+# show usage and exit
+function show_usage () {
+    echo "$(basename "$0") [-x SHIFT_X] [-y SHIFT_Y] [-z SHIFT_Z] [-m REG_METHOD] [-f FILE_OVER] [-s FILE_SWEEP] FILE_BACK"
+    exit 1
+}
+
+# parse options
+while getopts "x:y:z:m:f:s:" OPT;
+do
+    case "$OPT" in
+    x) shift_x="$OPTARG" ;;
+    y) shift_y="$OPTARG" ;;
+    z) shift_z="$OPTARG" ;;
+    m) reg_method="${OPTARG,,}" ;;
+    f) file_over="$OPTARG" ;;
+    s) file_sweep="$OPTARG" ;;
+    :) show_usage ;;
+    \?) show_usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# find the overlay image if not specified
+if [[ "$file_over" == "" ]]; then
+    file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_crop_0.tif' | head -n 1)"
+fi
+
+# find the overlay (sweeping) image if not specified
+if [[ "$file_sweep" == "" ]]; then
+    file_sweep="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_0.tif' | head -n 1)"
+fi
+
+# find the background image if not specified
+if [[ "$#" == 0 ]]; then
+    file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_1.tif' | head -n 1)"
+elif [[ "$#" == 1 ]]; then
+    file_back="$@"
+else
+    echo "More than one background files are specified."
+    exit 1
+fi
+
+# process!
+if [[ "$file_back" =~ '.ome.tif' ]]; then
+    stem="$(echo ${file_back} | sed 's/\.ome\.tif$//')"
+elif [[ "$file_back" =~ '.tif' ]]; then
+    stem="$(echo ${file_back} | sed 's/\.tif$//')"
+else
+    echo "Not an image file: ${file_back}"
+    continue
+fi
+
+output_sweep="${stem}_sweep.tif"
+output_overlay="${stem}_${reg_method,,}_overlay.tif"
+output_log="${stem}log.tif"
+
+echo "Overlay:" $(date) > $output_log
+echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
+
+mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -s "$shift_x" "$shift_y" "$shift_z" -e None "$file_sweep" "$file_back"
+
+echo "Overlaying EGFP on crop_0, method: ${reg_method,,}" >> $output_log
+mmoverlay.py -g 0 -o "$output_overlay" -c 0 0 -e "${reg_method^}" "$file_over" "$output_sweep"
