@@ -4,7 +4,7 @@ source $HOME/.venv/gpu/bin/activate
 reg_method="drift"
 deconv=0
 iter=10
-first_view_x=400
+first_view_x=370
 second_view_x=1400
 
 # show usage and exit
