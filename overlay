@@ -7,15 +7,16 @@ shift_z=0
 file_over=""
 file_sweep=""
 reg_method="rigid"
+option_trunc=""
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x SHIFT_X] [-y SHIFT_Y] [-z SHIFT_Z] [-m REG_METHOD] [-f FILE_OVER] [-s FILE_SWEEP] FILE_BACK"
+    echo "$(basename "$0") [-x SHIFT_X] [-y SHIFT_Y] [-z SHIFT_Z] [-m REG_METHOD] [-f FILE_OVER] [-s FILE_SWEEP] [-t] FILE_BACK"
     exit 1
 }
 
 # parse options
-while getopts "x:y:z:m:f:s:" OPT;
+while getopts "x:y:z:m:f:s:t" OPT;
 do
     case "$OPT" in
     x) shift_x="$OPTARG" ;;
@@ -24,6 +25,7 @@ do
     m) reg_method="${OPTARG,,}" ;;
     f) file_over="$OPTARG" ;;
     s) file_sweep="$OPTARG" ;;
+    t) option_trunc="-n" ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -63,14 +65,21 @@ else
     continue
 fi
 
+output_temp="${stem}_temp.tif"
 output_sweep="${stem}_sweep.tif"
-output_overlay="${stem}_${reg_method,,}_overlay.tif"
+output_over="${stem}_${reg_method,,}_over.tif"
+output_final="${stem}_${reg_method,,}_over_final.tif"
 output_log="${stem}log.tif"
 
 echo "Overlay:" $(date) > $output_log
-echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
+echo "Dropping unused channels from the EGFP file" >> $output_log
+mmcrop.py -o "$output_temp" -c 0 "$file_over"
 
+echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
 mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -s "$shift_x" "$shift_y" "$shift_z" -e None "$file_sweep" "$file_back"
 
 echo "Overlaying EGFP on crop_0, method: ${reg_method,,}" >> $output_log
-mmoverlay.py -g 0 -o "$output_overlay" -c 0 0 -e "${reg_method^}" "$file_over" "$output_sweep"
+mmoverlay.py -g 0 -o "$output_over" -c 0 0 -e "${reg_method^}" $option_trunc "$output_temp" "$output_sweep"
+
+echo "Dropping the channel used for registration" >> $output_log
+mmcrop.py -o "$output_final" -c -1 "$output_over"
