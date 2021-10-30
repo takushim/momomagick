@@ -33,6 +33,9 @@ shift $((OPTIND - 1))
 # find the overlay image if not specified
 if [[ "$file_over" == "" ]]; then
     file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_crop_0.tif' | head -n 1)"
+    if [[ "$file_over" == "" ]]; then
+        file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_fusion_?.tif' | head -n 1)"
+    fi
 fi
 
 # find the overlay (sweeping) image if not specified
