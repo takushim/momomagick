@@ -66,8 +66,8 @@ else:
 
 if channel is None:
     c_slice = slice(0, input_tiff.total_channel, 1)
-elif channel > 0:
-    c_slice = slice(channel, channel + 1, 1)
+elif channel >= 0:
+    c_slice = [channel]
 else:
     c_slice = np.arange(0, input_tiff.total_channel, 1)
     c_slice = c_slice[c_slice != abs(channel)]
