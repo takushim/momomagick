@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
-reg_method="drift"
+reg_method="Drift"
 deconv=0
 iter=10
 first_view_x=370

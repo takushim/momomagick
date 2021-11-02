@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 for d in P0Ch_Stage*
 do

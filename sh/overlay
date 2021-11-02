@@ -7,7 +7,7 @@ shift_y=0
 shift_z=0
 file_over=""
 file_sweep=""
-reg_method="rigid"
+reg_method="Rigid"
 option_trunc=""
 
 # show usage and exit

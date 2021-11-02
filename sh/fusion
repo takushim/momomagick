@@ -1,8 +1,9 @@
 #!/bin/sh
+set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
 iters=0
-reg_method="full"
+reg_method="Full"
 keep_channels=
 path_a=0
 path_b=0
