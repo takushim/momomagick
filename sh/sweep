@@ -4,17 +4,19 @@ source $HOME/.venv/gpu/bin/activate
 
 z_index=""
 file_sweep=""
+auto_sweep=0
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-z Z_INDEX] [-s FILE_SWEEP] FILE_BACK"
+    echo "$(basename "$0") [-a] [-z Z_INDEX] [-s FILE_SWEEP] FILE_BACK"
     exit 1
 }
 
 # parse options
-while getopts "z:s:" OPT;
+while getopts "az:s:" OPT;
 do
     case "$OPT" in
+    a) auto_sweep=1 ;;
     z) z_index="$OPTARG" ;;
     s) file_sweep="$OPTARG" ;;
     :) show_usage ;;
@@ -56,4 +58,8 @@ else
     z_option="-z ${z_index} ${z_index}"
 fi
 
-mmsweep.py -g 0 -o "$output_sweep" -X -40 40 0.5 -y 0 -c 0 0 $z_option "$file_sweep" "$file_back"
+if [[ $auto_sweep == 1 ]]; then
+    mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -n -e XY "$file_sweep" "$file_back"
+else
+    mmsweep.py -g 0 -o "$output_sweep" -X -40 40 0.5 -Y -10 10 0.5 -c 0 0 $z_option "$file_sweep" "$file_back"
+fi

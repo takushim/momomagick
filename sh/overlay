@@ -101,11 +101,11 @@ mmcrop.py -o "$output_temp" -c 0 "$file_over"
 
 echo "----------"
 echo "Overlaying EGFP on crop_0, method: ${reg_method,,}" >> $output_log
-mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -e "${reg_method^}" $option_trunc "$output_temp" "$file_sweep"
+mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -e "${reg_method}" $option_trunc "$output_temp" "$file_sweep"
 
 echo "----------"
 echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
-mmoverlay.py -g 0 -o "$output_over" -s "$shift_x" "$shift_y" "$shift_z" -e None "$output_sweep" "$file_back"
+mmoverlay.py -g 0 -o "$output_over" -s "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc "$output_sweep" "$file_back"
 
 echo "----------"
 echo "Dropping the channel used for registration" >> $output_log

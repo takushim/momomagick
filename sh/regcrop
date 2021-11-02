@@ -55,7 +55,7 @@ do
     echo "Registration & cropping:" $(date) > $output_log
     echo "Method: ${reg_method,,}" >> $output_log
 
-    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "${reg_method^}" -A -a "$output_reg" "$file"
+    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "${reg_method}" -A -a "$output_reg" "$file"
     mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" "$output_reg"
     echo "First view: ${first_view_x}" >> $output_log
     

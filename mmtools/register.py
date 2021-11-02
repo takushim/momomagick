@@ -13,7 +13,7 @@ except ImportError:
     pass
 
 optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP", "None"]
-registering_methods = ["Full", "Rigid", "Drift", "None"]
+registering_methods = ["Full", "Rigid", "Drift", "XY", "None"]
 
 def turn_on_gpu (gpu_id):
     return gpuimage.turn_on_gpu(gpu_id)
@@ -37,6 +37,14 @@ def params_to_matrix_2d (params):
 
 def params_to_matrix_3d (params):
     return np.array([params[0:4], params[4:8], params[8:12], [0.0, 0.0, 0.0, 1.0]])
+
+def xydrift_to_matrix_2d (params):
+    # same as drift_to_matrix_2d
+    return np.array([[1.0, 0.0, params[0]], [0.0, 1.0, params[1]], [0.0, 0.0, 1.0]])
+
+def xydrift_to_matrix_3d (params):
+    return np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, params[0]], \
+                     [0.0, 0.0, 1.0, params[1]], [0.0, 0.0, 0.0, 1.0]])
 
 def drift_to_matrix_2d (params):
     return np.array([[1.0, 0.0, params[0]], [0.0, 1.0, params[1]], [0.0, 0.0, 1.0]])
@@ -137,6 +145,9 @@ class Affine:
                 else:
                     init_params = init_shift.flatten()
                 params_to_matrix = drift_to_matrix_2d
+            elif reg_method == 'XY':
+                init_params = init_shift.flatten()
+                params_to_matrix = xydrift_to_matrix_2d
             elif reg_method == 'Drift':
                 init_params = init_shift.flatten()
                 params_to_matrix = drift_to_matrix_2d
@@ -155,6 +166,9 @@ class Affine:
                 else:
                     init_params = init_shift.flatten()
                 params_to_matrix = drift_to_matrix_3d
+            elif reg_method == 'XY':
+                init_params = init_shift.flatten()[1:3]
+                params_to_matrix = xydrift_to_matrix_3d
             elif reg_method == 'Drift':
                 init_params = init_shift.flatten()
                 params_to_matrix = drift_to_matrix_3d
