@@ -70,7 +70,6 @@ elif [[ "$file_back" =~ '.tif' ]]; then
     stem_back="$(echo ${file_back} | sed 's/\.tif$//')"
 else
     echo "Not an image file: ${file_back}"
-    continue
 fi
 
 if [[ "$file_over" =~ '.ome.tif' ]]; then
@@ -79,7 +78,6 @@ elif [[ "$file_over" =~ '.tif' ]]; then
     stem_over="$(echo ${file_over} | sed 's/\.tif$//')"
 else
     echo "Not an image file: ${file_over}"
-    continue
 fi
 
 if [[ "$file_sweep" =~ '.ome.tif' ]]; then
@@ -88,9 +86,7 @@ elif [[ "$file_over" =~ '.tif' ]]; then
     stem_sweep="$(echo ${file_sweep} | sed 's/\.tif$//')"
 else
     echo "Not an image file: ${file_sweep}"
-    continue
 fi
-
 
 # process!
 output_temp="${stem_over}_temp.tif"
