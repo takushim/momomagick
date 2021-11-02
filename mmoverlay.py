@@ -91,12 +91,18 @@ input_tiffs = [mmtiff.MMTiff(file) for file in input_filenames]
 input_images = [tiff.as_list(list_channel = True) for tiff in input_tiffs]
 
 # z-scale images
+xy_pixel_um = input_tiffs[-1].pixelsize_um
+z_step_um = input_tiffs[-1].z_step_um
 if np.isclose(*[tiff.z_step_um for tiff in input_tiffs]) == False:
     if input_tiffs[0].z_step_um > input_tiffs[1].z_step_um:
         z_ratio = input_tiffs[0].z_step_um / input_tiffs[1].z_step_um
+        z_step_um = input_tiffs[1].z_step_um
+        overlay_offset[0] = overlay_offset[0] * z_ratio
+        print("Rescaling the overlay offset:", overlay_offset)
         file = 0
     else:
         z_ratio = input_tiffs[1].z_step_um / input_tiffs[0].z_step_um
+        z_step_um = input_tiffs[0].z_step_um
         file = 1
     print("Z-scaling image #{0} at ratio = {1}".format(file, z_ratio))
     for index in range(input_tiffs[file].total_time):
@@ -210,6 +216,6 @@ with open(output_json_filename, 'w') as f:
 # output image
 print("Output image:", output_filename)
 output_image = np.array(output_image_list).swapaxes(1, 2)
-mmtiff.save_image(output_filename, output_image, \
-                  xy_res = 1 / input_tiffs[-1].pixelsize_um, \
-                  z_step_um = input_tiffs[-1].z_step_um)
+mmtiff.save_image(output_filename, output_image, imagej = True, \
+                  xy_pixel_um = xy_pixel_um, \
+                  z_step_um = z_step_um)

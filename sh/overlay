@@ -39,9 +39,9 @@ if [[ "$file_over" == "" ]]; then
     if [[ "$file_over" == "" ]]; then
         file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_fusion_?.tif' | head -n 1)"
     fi
-elif [[ "$file_over.." == "fusion" ]]; then
+elif [[ "${file_over,,}" == "fusion" ]]; then
     file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_fusion_?.tif' | head -n 1)"
-elif [[ "$file_over.." == "crop" ]]; then
+elif [[ "${file_over,,}" == "crop" ]]; then
     file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_crop_0.tif' | head -n 1)"
 else
     echo "Invalid file name."
@@ -63,7 +63,7 @@ else
     exit 1
 fi
 
-# process!
+# getting stems
 if [[ "$file_back" =~ '.ome.tif' ]]; then
     stem_back="$(echo ${file_back} | sed 's/\.ome\.tif$//')"
 elif [[ "$file_back" =~ '.tif' ]]; then
@@ -82,9 +82,19 @@ else
     continue
 fi
 
+if [[ "$file_sweep" =~ '.ome.tif' ]]; then
+    stem_sweep="$(echo ${file_sweep} | sed 's/\.ome\.tif$//')"
+elif [[ "$file_over" =~ '.tif' ]]; then
+    stem_sweep="$(echo ${file_sweep} | sed 's/\.tif$//')"
+else
+    echo "Not an image file: ${file_sweep}"
+    continue
+fi
 
+
+# process!
 output_temp="${stem_over}_temp.tif"
-output_sweep="${stem_back}_sweep.tif"
+output_sweep="${stem_sweep}_${reg_method,,}_sweep.tif"
 output_over="${stem_back}_${reg_method,,}_over.tif"
 output_final="${stem_back}_${reg_method,,}_over_final.tif"
 output_log="${stem_back}_log.txt"
@@ -94,15 +104,13 @@ echo "Dropping unused channels from the EGFP file" >> $output_log
 mmcrop.py -o "$output_temp" -c 0 "$file_over"
 
 echo "----------"
-echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
-mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -s "$shift_x" "$shift_y" "$shift_z" -e None "$file_sweep" "$file_back"
+echo "Overlaying EGFP on crop_0, method: ${reg_method,,}" >> $output_log
+mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -e "${reg_method^}" $option_trunc "$output_temp" "$file_sweep"
 
 echo "----------"
-echo "Overlaying EGFP on crop_0, method: ${reg_method,,}" >> $output_log
-mmoverlay.py -g 0 -o "$output_over" -c 0 0 -e "${reg_method^}" $option_trunc "$output_temp" "$output_sweep"
+echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
+mmoverlay.py -g 0 -o "$output_over" -s "$shift_x" "$shift_y" "$shift_z" -e None "$output_sweep" "$file_back"
 
 echo "----------"
 echo "Dropping the channel used for registration" >> $output_log
 mmcrop.py -o "$output_final" -c -1 "$output_over"
-
-echo $file_over
