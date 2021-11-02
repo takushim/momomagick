@@ -4,7 +4,7 @@ source $HOME/.venv/gpu/bin/activate
 
 iters=0
 reg_method="Full"
-keep_channels=
+keep_channels=""
 path_a=0
 path_b=0
 
@@ -59,7 +59,7 @@ do
 
     echo "Fusion:" $(date) > $output_log
     echo "Method: ${reg_method,,}" >> $output_log
-    echo "Keep channel: ${keep_channel}" >> $output_log
+    echo "Keep channels: ${keep_channels}" >> $output_log
 
     if [[ "x${view_x}" == "x" ]]; then
         mmcrop.py -P 0 -o "$output_crop" "$file"

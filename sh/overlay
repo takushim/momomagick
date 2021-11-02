@@ -5,28 +5,32 @@ source $HOME/.venv/gpu/bin/activate
 shift_x=0
 shift_y=0
 shift_z=0
+auto_sweep=0
 file_over=""
 file_sweep=""
 reg_method="Rigid"
 option_trunc=""
+crop_final=0
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x SHIFT_X] [-y SHIFT_Y] [-z SHIFT_Z] [-m REG_METHOD] [-f crop|fusion|(filename)] [-s FILE_SWEEP] [-t] FILE_BACK"
+    echo "$(basename "$0") [-x X] [-y Y] [-z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] FILE_BACK"
     exit 1
 }
 
 # parse options
-while getopts "x:y:z:m:f:s:t" OPT;
+while getopts "x:y:z:m:f:s:nac" OPT;
 do
     case "$OPT" in
     x) shift_x="$OPTARG" ;;
     y) shift_y="$OPTARG" ;;
     z) shift_z="$OPTARG" ;;
-    m) reg_method="${OPTARG,,}" ;;
+    a) auto_sweep=1 ;;
+    m) reg_method="$OPTARG" ;;
     f) file_over="$OPTARG" ;;
     s) file_sweep="$OPTARG" ;;
-    t) option_trunc="-n" ;;
+    n) option_trunc="-n" ;;
+    c) crop_final=1 ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -93,6 +97,7 @@ output_temp="${stem_over}_temp.tif"
 output_sweep="${stem_sweep}_${reg_method,,}_sweep.tif"
 output_over="${stem_back}_${reg_method,,}_over.tif"
 output_final="${stem_back}_${reg_method,,}_over_final.tif"
+output_mini="${stem_back}_${reg_method,,}_over_mini.tif"
 output_log="${stem_back}_log.txt"
 
 echo "Overlay:" $(date) > $output_log
@@ -104,9 +109,21 @@ echo "Overlaying EGFP on crop_0, method: ${reg_method,,}" >> $output_log
 mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -e "${reg_method}" $option_trunc "$output_temp" "$file_sweep"
 
 echo "----------"
-echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
-mmoverlay.py -g 0 -o "$output_over" -s "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc "$output_sweep" "$file_back"
+if [[ $auto_sweep == 1 ]]; then
+    echo "Overlaying crop_1 on crop_0 using automatic XY registration" >> $output_log
+    mmoverlay.py -g 0 -o "$output_over" -e XY $option_trunc -c 1 0 "$output_sweep" "$file_back"
+else
+    echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
+    mmoverlay.py -g 0 -o "$output_over" -s "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc "$output_sweep" "$file_back"
+fi
 
 echo "----------"
 echo "Dropping the channel used for registration" >> $output_log
 mmcrop.py -o "$output_final" -c -1 "$output_over"
+
+if [[ $crop_final == 1 ]]; then
+    echo "----------"
+    echo "Output a mini-size version" >> $output_log
+    mmcrop.py -o "$output_mini" -R 64 64 128 128 "$output_final"
+fi
+

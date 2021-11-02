@@ -50,7 +50,8 @@ def area_to_slice (area):
     slice_y = slice(area[1], area[1] + area[3], 1)
     return slice_x, slice_y
 
-def save_image (filename, image_array, xy_pixel_um = pixelsize_um, z_step_um = z_step_um, xy_res = None, imagej = True):
+def save_image (filename, image_array, xy_pixel_um = pixelsize_um, z_step_um = z_step_um, xy_res = None,
+                imagej = True, axes = 'TZCYX'):
     if xy_res is None:
         xy_res = 1 / xy_pixel_um
     metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
@@ -60,6 +61,7 @@ def save_image (filename, image_array, xy_pixel_um = pixelsize_um, z_step_um = z
                         resolution = (xy_res, xy_res), metadata = metadata)
     else:
         print('Saving image in the ome format: ', image_array.shape, image_array.dtype)
+        metadata['axes'] = axes
         tifffile.imsave(filename, np.array(image_array), ome = True, \
                         resolution = (xy_res, xy_res), metadata = metadata)
 
