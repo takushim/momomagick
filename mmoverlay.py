@@ -49,7 +49,7 @@ parser.add_argument('-t', '--optimizing-method', type = str, default = optimizin
 
 parser.add_argument('-s', '--overlay-offset', nargs = 3, type = float, default = overlay_offset, \
                     metavar = ('X', 'Y', 'Z'), \
-                    help='Offset of the overlay image before registration (useful with <-e None>)')
+                    help='Offset of the overlay image before registration (useful with "-e None")')
 
 parser.add_argument('-c', '--use-channels', nargs = 2, type = int, default = use_channels, \
                     help='specify two channels used for registration')
@@ -66,7 +66,7 @@ registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 truncate_frames = args.truncate_frames
 if args.overlay_offset is not None:
-    overlay_offset = np.array(args.overlay_offset[::-1])
+    overlay_offset = -np.array(args.overlay_offset[::-1])
 
 use_channels = args.use_channels
 if use_channels is None:
@@ -108,6 +108,7 @@ if np.isclose(*[tiff.z_step_um for tiff in input_tiffs]) == False:
 print("Start registration:", time.ctime())
 print("Registering Method:", registering_method)
 print("Optimizing Method:", optimizing_method)
+print("Channels:", use_channels)
 
 affine_result_list = []
 if truncate_frames:

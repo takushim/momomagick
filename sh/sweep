@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
 z_index=""
@@ -50,7 +51,9 @@ fi
 output_sweep="${stem}_sweep.tif"
 
 if [[ "$z_index" == "" ]]; then
-    mmsweep.py -g 0 -o "$output_sweep" -c 0 0 "$file_sweep" "$file_back"
+    z_option=""
 else
-    mmsweep.py -g 0 -o "$output_sweep" -c 0 0 -z "$z_index" "$z_index" "$file_sweep" "$file_back"
+    z_option="-z ${z_index} ${z_index}"
 fi
+
+mmsweep.py -g 0 -o "$output_sweep" -X -40 40 0.5 -y 0 -c 0 0 $z_option "$file_sweep" "$file_back"

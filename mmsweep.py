@@ -35,11 +35,19 @@ parser.add_argument('-z', '--z-indexes', type = int, nargs = 2, default = z_inde
 parser.add_argument('-c', '--channels', type = int, nargs = 2, default = channels, \
                     help='channels used for overlay (the first channels by default)')
 
-parser.add_argument('-X', '--shift-range-x', nargs = 3, type = float, default = shift_range_x, \
+group = parser.add_argument_group()
+group.add_argument('-x', '--shift-x', type = float, default = None, \
+                    help='specify x shift (accepting floats)')
+
+group.add_argument('-X', '--shift-range-x', nargs = 3, type = float, default = shift_range_x, \
                    metavar=('BEGIN', 'END', 'STEP'), \
                    help='range of x shift (accepting floats)')
 
-parser.add_argument('-Y', '--shift-range-y', nargs = 3, type = float, default = shift_range_y, \
+group = parser.add_argument_group()
+group.add_argument('-y', '--shift-y', type = float, default = None, \
+                    help='specify y shift (accepting floats)')
+
+group.add_argument('-Y', '--shift-range-y', nargs = 3, type = float, default = shift_range_y, \
                    metavar=('BEGIN', 'END', 'STEP'), \
                    help='range of y shift (accepting floats)')
 
@@ -53,8 +61,16 @@ input_filenames = args.input_files
 t_frames = args.t_frames
 channels = args.channels
 z_indexes = args.z_indexes
-shift_range_x = args.shift_range_x
-shift_range_y = args.shift_range_y
+
+if args.shift_x is None:
+    shift_range_x = args.shift_range_x
+else:
+    shift_range_x = [args.shift_x, args.shift_x + 1, 1]
+
+if args.shift_y is None:
+    shift_range_y = args.shift_range_y
+else:
+    shift_range_y = [args.shift_y, args.shift_y + 1, 1]
 
 if args.output_file is None:
     output_filename = mmtiff.with_suffix(input_filenames[-1], filename_suffix)
