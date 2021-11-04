@@ -51,7 +51,7 @@ class SpotShift:
         if use_smoothing:
             if (not {'smooth_x', 'smooth_y'} <= set(align_table.columns)) or force_calc_smoothing:
                 print("Calculating smoothing. Smoothing data in the input file are ignored.")
-                align_table = spotshift.add_smoothing(align_table)
+                align_table = SpotShift.add_smoothing(align_table)
 
         # alignment
         work_table = pandas.merge(spot_table, align_table, left_on='plane', right_on='align_plane', how='left')
