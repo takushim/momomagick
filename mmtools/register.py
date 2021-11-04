@@ -126,7 +126,64 @@ class Poc:
         max_pos = ndimage.maximum_position(poc_image)
         max_val = poc_image[max_pos]
         shift = (max_pos - self.center)
-        return {'shift': shift, 'corr': max_val}
+
+        full_size = np.array(input_image.shape).astype(float)
+        half_size = full_size / 2
+        corr = max_val / (np.prod(half_size) / np.prod(full_size))
+
+        return {'shift': shift, 'corr': corr}
+
+    def register_subpixel (self, input_image, fit_size = 9, opt_method = "Powell"):
+        poc_image = self.poc_image(input_image)
+        max_pos = ndimage.maximum_position(poc_image)
+        max_val = poc_image[max_pos]
+        full_size = np.array(input_image.shape).astype(float)
+        half_size = full_size / 2
+
+        fit_shape = np.array([fit_size for s in input_image.shape])
+        poc_fit = gpuimage.crop(poc_image, max_pos - fit_shape // 2, fit_shape)
+        input_range = [np.arange(-(fit_size // 2), (fit_size + 1) // 2, 1) for s in input_image.shape]
+        inputs = np.meshgrid(*input_range, indexing = 'ij')
+
+        if self.gpu_id is None:
+            def error_func (params):
+                alpha = params[0]
+                deltas = params[1:]
+                matrix = alpha * np.prod(half_size) / np.prod(full_size) * np.ones(fit_shape)
+                for i in range(len(input_image.shape)):
+                    matrix = matrix * np.sinc((inputs[i] - deltas[i]) * half_size[i] / full_size[i]) \
+                                    / np.sinc((inputs[i] - deltas[i]) / full_size[i])
+                return np.sum((poc_fit - matrix) * (poc_fit - matrix))
+        else:
+            inputs = cp.array(inputs)
+            poc_fit = cp.array(poc_fit)
+            full_size = cp.array(full_size)
+            half_size = cp.array(half_size)
+            def error_func (params):
+                alpha = params[0]
+                deltas = params[1:]
+                matrix = alpha * cp.prod(half_size) / cp.prod(full_size) * cp.ones(fit_shape)
+                for i in range(len(input_image.shape)):
+                    matrix = matrix * cp.sinc((inputs[i] - deltas[i]) * half_size[i] / full_size[i]) \
+                                    / cp.sinc((inputs[i] - deltas[i]) / full_size[i])
+                return cp.asnumpy(cp.sum((poc_fit - matrix) * (poc_fit - matrix)))
+
+        init_params = [0.5] + [0.0] * len(input_image.shape)
+        if opt_method == "None":
+            results = optimize.OptimizeResult()
+            results.x = init_params
+            results.success = True
+            results.message = 'Optimization not performed.'
+        elif opt_method == "Auto":
+            results = optimize.minimize(error_func, init_params)
+        else:
+            results = optimize.minimize(error_func, init_params, method = opt_method)
+
+        init_corr = max_val / (np.prod(half_size) / np.prod(full_size))
+        return {'shift': (max_pos - self.center + results.x[1:]), 'corr': results.x[0], \
+                'init_shift': (max_pos - self.center), 'init_corr': init_corr, \
+                'opt_method': opt_method, 'init_params': init_params, \
+                'results': results}
 
 class Affine:
     def __init__ (self, ref_image, window_func = np.hanning, gpu_id = None):

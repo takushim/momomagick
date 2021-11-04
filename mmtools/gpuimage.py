@@ -19,11 +19,14 @@ def turn_on_gpu (gpu_id):
     print("Free memory:", device.mem_info)
     return device
 
-def paste_slices (src_shape, tgt_shape, center = False):
-    if center:
-        shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
+def paste_slices (src_shape, tgt_shape, shifts = None, center = False):
+    if shifts is None:
+        if center:
+            shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
+        else:
+            shifts = np.array([0 for i in range(len(src_shape))])
     else:
-        shifts = np.array([0 for i in range(len(src_shape))])
+        shifts = np.array(shifts)
 
     src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, src_shape)]
     src_bounds = np.minimum(src_shape, tgt_shape - shifts)
@@ -38,6 +41,12 @@ def paste_slices (src_shape, tgt_shape, center = False):
 def resize (image_array, shape, center = False):
     resized_array = np.zeros(shape, dtype = image_array.dtype)
     slices_src, slices_tgt = paste_slices(image_array.shape, shape, center)
+    resized_array[slices_tgt] = image_array[slices_src].copy()
+    return resized_array
+
+def crop (image_array, origin, shape):
+    resized_array = np.zeros(shape, dtype = image_array.dtype)
+    slices_src, slices_tgt = paste_slices(image_array.shape, shape, shifts = -origin)
     resized_array[slices_tgt] = image_array[slices_src].copy()
     return resized_array
 
