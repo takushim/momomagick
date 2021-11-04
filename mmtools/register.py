@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, argparse
+import sys
 import numpy as np
 from functools import reduce
 from transforms3d import affines, euler
@@ -13,12 +13,21 @@ except ImportError:
     pass
 
 optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP", "None"]
-registering_methods = ["Full", "Rigid", "Drift", "XY", "None"]
+registering_methods = ["Full", "Rigid", "Drift", "XY", "POC", "None"]
 
 def turn_on_gpu (gpu_id):
     return gpuimage.turn_on_gpu(gpu_id)
 
-def window_mat (shape, window_func):
+def find_method (name, method_list):
+    try:
+        lower_list = [method.lower() for method in method_list]
+        name = method_list[lower_list.index(name.lower())]
+    except ValueError:
+        name = None
+
+    return name
+
+def window_mat (shape, window_func = None):
     if window_func is None:
         matrix = np.ones(shape)
     else:
@@ -82,7 +91,10 @@ def register (ref_image, input_image, init_shift = None, gpu_id = None, reg_meth
     if init_shift is None:
         # calculate POCs for pre-registration
         poc_register = Poc(ref_image, gpu_id = gpu_id)
-        poc_result = poc_register.register(input_image)
+        if reg_method == "POC":
+            poc_result = poc_register.register_subpixel(input_image, opt_method = opt_method)
+        else:
+            poc_result = poc_register.register(input_image)
         poc_register = None
         init_shift = poc_result['shift']
 
@@ -134,6 +146,8 @@ class Poc:
         return {'shift': shift, 'corr': corr}
 
     def register_subpixel (self, input_image, fit_size = 9, opt_method = "Powell"):
+        opt_method = find_method(opt_method, optimizing_methods)
+
         poc_image = self.poc_image(input_image)
         max_pos = ndimage.maximum_position(poc_image)
         max_val = poc_image[max_pos]
@@ -195,8 +209,11 @@ class Affine:
             self.ref_float = cp.array(self.ref_float)
 
     def register (self, input_image, init_shift, opt_method = "Powell", reg_method = "Full"):
+        reg_method = find_method(reg_method, registering_methods)
+        opt_method = find_method(opt_method, optimizing_methods)
+
         if len(input_image.shape) == 2:
-            if reg_method == 'None':
+            if reg_method == 'None' or reg_method == 'POC':
                 if init_shift is None:
                     init_params = [0.0, 0.0]
                 else:
@@ -217,7 +234,7 @@ class Affine:
             else:
                 raise Exception("Unknown registration method:", reg_method)
         elif len(input_image.shape) == 3:
-            if reg_method == 'None':
+            if reg_method == 'None' or reg_method == 'POC':
                 if init_shift is None:
                     init_params = [0.0, 0.0, 0.0]
                 else:
@@ -255,7 +272,7 @@ class Affine:
                 error = cp.asnumpy(cp.sum((self.ref_float - trans_float) * (self.ref_float - trans_float)))
                 return error
 
-        if reg_method == "None":
+        if reg_method == "None" or reg_method == 'POC':
             results = optimize.OptimizeResult()
             results.x = init_params
             results.success = True
