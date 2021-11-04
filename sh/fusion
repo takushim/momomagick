@@ -7,15 +7,16 @@ reg_method="Full"
 keep_channels=""
 path_a=0
 path_b=0
+rev_channels=0
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x VIEW_X] [-m REG_METHOD] [-i ITER] [-k] [-a|b] file [file ...]"
+    echo "$(basename "$0") [-x VIEW_X] [-m REG_METHOD] [-i ITER] [-k] [-a|b] [-r] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "x:m:i:kab" OPT;
+while getopts "x:m:i:kabr" OPT;
 do
     case "$OPT" in
     x) view_x="$OPTARG" ;;
@@ -24,6 +25,7 @@ do
     i) iters="$OPTARG" ;;
     a) path_a=1 ;;
     b) path_b=1 ;;
+    r) rev_channels=1 ;;
      :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -69,10 +71,17 @@ do
         echo "View: ${view_x}" >> $output_log
     fi
 
+    if [[ $rev_channels == 0 ]]; then
+        ch_option="-m 0 -s 1"
+    else
+        ch_option="-m 1 -s 0"
+    fi
+    echo "Channel order: ${ch_option}" >> $output_log
+
 	# Main = A, Sub = B
     if [[ $path_a == 1 ]]; then
     	echo "Output ${output_fusion_a} for Path A"
-	    mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r -90 $keep_channels -e "${reg_method^}" -o "$output_fusion_a" "$output_crop"
+	    mmfusion.py -g 0 $ch_option -i "$iters" -r -90 $keep_channels -e "${reg_method^}" -o "$output_fusion_a" "$output_crop"
     	echo "."
         echo "Output A with iteration: ${iters}" >> $output_log
     fi
@@ -80,7 +89,7 @@ do
 	# Main = B, Sub = A
     if [[ $path_b == 1 ]]; then
     	echo "Output ${output_fusion_b} for Path B"
-	    mmfusion.py -g 0 -m 0 -s 1 -i "$iters" -r 90 $keep_channels -e "${reg_method^}" -o "$output_fusion_b" "$output_crop"
+	    mmfusion.py -g 0 $ch_option -i "$iters" -r 90 $keep_channels -e "${reg_method^}" -o "$output_fusion_b" "$output_crop"
     	echo "."
         echo "Output B with iteration: ${iters}" >> $output_log
     fi

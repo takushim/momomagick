@@ -11,15 +11,16 @@ file_sweep=""
 reg_method="Rigid"
 option_trunc=""
 crop_final=0
+reverse_over=""
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x X] [-y Y] [-z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] FILE_BACK"
+    echo "$(basename "$0") [-x X] [-y Y] [-z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] [-r] FILE_BACK"
     exit 1
 }
 
 # parse options
-while getopts "x:y:z:m:f:s:nac" OPT;
+while getopts "x:y:z:m:f:s:nacr" OPT;
 do
     case "$OPT" in
     x) shift_x="$OPTARG" ;;
@@ -31,6 +32,7 @@ do
     s) file_sweep="$OPTARG" ;;
     n) option_trunc="-n" ;;
     c) crop_final=1 ;;
+    r) reverse_over="-r" ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -47,9 +49,6 @@ elif [[ "${file_over,,}" == "fusion" ]]; then
     file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_fusion_?.tif' | head -n 1)"
 elif [[ "${file_over,,}" == "crop" ]]; then
     file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_crop_0.tif' | head -n 1)"
-else
-    echo "Invalid file name."
-    exit 1
 fi
 
 # find the overlay (sweeping) image if not specified
@@ -102,7 +101,7 @@ output_log="${stem_back}_log.txt"
 
 echo "Overlay:" $(date) > $output_log
 echo "Dropping unused channels from the EGFP file" >> $output_log
-mmcrop.py -o "$output_temp" -c 0 "$file_over"
+mmcrop.py -o "$output_temp" $reverse_over -c 0 "$file_over"
 
 echo "----------"
 echo "Overlaying EGFP on crop_0, method: ${reg_method,,}" >> $output_log
