@@ -9,6 +9,7 @@ input_filename = None
 output_filename = None
 output_suffix = "_crop.tif"
 channel = None
+reverse_channel = False
 register_area = None
 z_range = None
 t_range = None
@@ -18,6 +19,9 @@ parser = argparse.ArgumentParser(description='Crop a multi-page TIFF image.', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='output image filename. [basename]{0} by default'.format(output_suffix))
+
+parser.add_argument('-r', '--reverse-channel', action = 'store_true', \
+                    help='reverse the order of channels before selecting channel(s).')
 
 parser.add_argument('-c', '--channel', type = int, default = channel, \
                     help='specify the channel to process (minus index to remove).')
@@ -41,6 +45,7 @@ args = parser.parse_args()
 # set arguments
 input_filename = args.input_file
 channel = args.channel
+reverse_channel = args.reverse_channel
 z_range = args.z_range
 t_range = args.t_range
 register_area = args.register_area
@@ -64,13 +69,16 @@ if t_range is None:
 else:
     t_slice = slice(t_range[0], t_range[1] + 1, 1)
 
-if channel is None:
-    c_slice = slice(0, input_tiff.total_channel, 1)
-elif channel >= 0:
-    c_slice = [channel]
-else:
-    c_slice = np.arange(0, input_tiff.total_channel, 1)
-    c_slice = c_slice[c_slice != abs(channel)]
+c_slice = np.arange(0, input_tiff.total_channel, 1)
+if reverse_channel:
+    c_slice = c_slice[::-1]
+
+if channel is not None:
+    if channel >= 0:
+        c_slice = [c_slice[channel]]
+    else:
+        indexes = np.arange(0, input_tiff.total_channel, 1)
+        c_slice = c_slice[indexes != abs(channel)]
 
 if register_area is None:
     register_area = [0, 0, input_tiff.width, input_tiff.height]
