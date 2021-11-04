@@ -19,7 +19,7 @@ def turn_on_gpu (gpu_id):
     print("Free memory:", device.mem_info)
     return device
 
-def paste_slices (src_shape, tgt_shape, shifts = None, center = False):
+def paste_slices (src_shape, tgt_shape, center = False, shifts = None):
     if shifts is None:
         if center:
             shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
@@ -40,7 +40,7 @@ def paste_slices (src_shape, tgt_shape, shifts = None, center = False):
 
 def resize (image_array, shape, center = False):
     resized_array = np.zeros(shape, dtype = image_array.dtype)
-    slices_src, slices_tgt = paste_slices(image_array.shape, shape, center)
+    slices_src, slices_tgt = paste_slices(image_array.shape, shape, center = center)
     resized_array[slices_tgt] = image_array[slices_src].copy()
     return resized_array
 
