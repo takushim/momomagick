@@ -73,6 +73,15 @@ def rbm_to_matrix_3d (params):
     matrix[0:3, 0:3] = euler.euler2mat(*params[3:6])
     return matrix
 
+def offset_matrix (matrix, offset):
+    if len(offset) == 2:
+        matrix[0:2, 2] = matrix[0:2, 2] + np.array(offset)
+    elif len(offset) == 3:
+        matrix[0:3, 3] = matrix[0:3, 3] + np.array(offset)
+    else:
+        raise Exception("Cannot offset the matrix:", offset)
+    return matrix
+
 def decompose_matrix (matrix):
     # interpret the affine matrix
     trans, rot_mat, zoom, shear = affines.decompose(matrix)

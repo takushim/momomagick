@@ -5,6 +5,9 @@ source $HOME/.venv/gpu/bin/activate
 shift_x=0
 shift_y=0
 shift_z=0
+post_x=0
+post_y=0
+post_z=0
 auto_sweep=0
 file_over=""
 file_sweep=""
@@ -15,17 +18,20 @@ reverse_over=""
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x X] [-y Y] [-z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] [-r] FILE_BACK"
+    echo "$(basename "$0") [-x/X X] [-y/Y Y] [-z/Z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] [-r] FILE_BACK"
     exit 1
 }
 
 # parse options
-while getopts "x:y:z:m:f:s:nacr" OPT;
+while getopts "x:y:z:X:Y:Z:m:f:s:nacr" OPT;
 do
     case "$OPT" in
     x) shift_x="$OPTARG" ;;
     y) shift_y="$OPTARG" ;;
     z) shift_z="$OPTARG" ;;
+    X) post_x="$OPTARG" ;;
+    Y) post_y="$OPTARG" ;;
+    Z) post_z="$OPTARG" ;;
     a) auto_sweep=1 ;;
     m) reg_method="$OPTARG" ;;
     f) file_over="$OPTARG" ;;
@@ -91,6 +97,12 @@ else
     echo "Not an image file: ${file_sweep}"
 fi
 
+# post processing offset (moves EGFP part!!)
+offset_post=""
+if [[ "$post_x" != 0 ]] || [[ "$post_y" != 0 ]] || [[ "$post_z" != 0 ]]; then
+    offset_post="-S ${post_x} ${post_y} ${post_z}"
+fi
+
 # process!
 output_temp="${stem_over}_temp.tif"
 output_sweep="${stem_sweep}_${reg_method,,}_sweep.tif"
@@ -110,10 +122,10 @@ mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -e "${reg_method}" $option_trunc "$o
 echo "----------"
 if [[ $auto_sweep == 1 ]]; then
     echo "Overlaying crop_1 on crop_0 using automatic XY registration" >> $output_log
-    mmoverlay.py -g 0 -o "$output_over" -e XY $option_trunc -c 1 0 "$output_sweep" "$file_back"
+    mmoverlay.py -g 0 -o "$output_over" -e XY $option_trunc -c 1 0 $offset_post "$output_sweep" "$file_back"
 else
     echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
-    mmoverlay.py -g 0 -o "$output_over" -s "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc "$output_sweep" "$file_back"
+    mmoverlay.py -g 0 -o "$output_over" -s "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc $offset_post "$output_sweep" "$file_back"
 fi
 
 echo "----------"
@@ -123,6 +135,6 @@ mmcrop.py -o "$output_final" -c -1 "$output_over"
 if [[ $crop_final == 1 ]]; then
     echo "----------"
     echo "Output a mini-size version" >> $output_log
-    mmcrop.py -o "$output_mini" -R 64 64 128 128 "$output_final"
+    mmcrop.py -o "$output_mini" -R 0 64 256 128 "$output_final"
 fi
 

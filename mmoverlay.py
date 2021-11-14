@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, argparse, time, json
+import sys, argparse, time, json, copy
 import numpy as np
 from numpyencoder import NumpyEncoder
 from mmtools import gpuimage, mmtiff, register
@@ -8,7 +8,8 @@ from mmtools import gpuimage, mmtiff, register
 # default values
 input_filenames = None
 use_channels = None
-overlay_offset = None
+offset_init = None
+offset_post = None
 output_filename = None
 output_suffix = '_over_{0}.tif' # overwritten by the registration method
 output_json_filename = None
@@ -47,9 +48,13 @@ parser.add_argument('-t', '--optimizing-method', type = str, default = optimizin
                     choices = optimizing_method_list, \
                     help='Method to optimize the affine matrices')
 
-parser.add_argument('-s', '--overlay-offset', nargs = 3, type = float, default = overlay_offset, \
+parser.add_argument('-s', '--offset-init', nargs = 3, type = float, default = offset_init, \
                     metavar = ('X', 'Y', 'Z'), \
-                    help='Offset of the overlay image before registration (useful with "-e None")')
+                    help='Offset of the overlay image pre-registration (useful with "-e None")')
+
+parser.add_argument('-S', '--offset-post', nargs = 3, type = float, default = offset_post, \
+                    metavar = ('X', 'Y', 'Z'), \
+                    help='Offset of the overlay image post-registration (useful for adjustment")')
 
 parser.add_argument('-c', '--use-channels', nargs = 2, type = int, default = use_channels, \
                     help='specify two channels used for registration')
@@ -65,8 +70,10 @@ register_all = args.register_all
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 truncate_frames = args.truncate_frames
-if args.overlay_offset is not None:
-    overlay_offset = -np.array(args.overlay_offset[::-1])
+if args.offset_init is not None:
+    offset_init = -np.array(args.offset_init[::-1])
+if args.offset_post is not None:
+    offset_post = -np.array(args.offset_post[::-1])
 
 use_channels = args.use_channels
 if use_channels is None:
@@ -97,8 +104,8 @@ if np.isclose(*[tiff.z_step_um for tiff in input_tiffs]) == False:
     if input_tiffs[0].z_step_um > input_tiffs[1].z_step_um:
         z_ratio = input_tiffs[0].z_step_um / input_tiffs[1].z_step_um
         z_step_um = input_tiffs[1].z_step_um
-        overlay_offset[0] = overlay_offset[0] * z_ratio
-        print("Rescaling the overlay offset:", overlay_offset)
+        offset_init[0] = offset_init[0] * z_ratio
+        print("Rescaling the overlay offset:", offset_init)
         file = 0
     else:
         z_ratio = input_tiffs[1].z_step_um / input_tiffs[0].z_step_um
@@ -137,13 +144,13 @@ for index in range(max_frames):
         if over_image.shape != ref_image.shape:
             over_image = gpuimage.resize(over_image, ref_image.shape, center = True)
 
-        affine_result = register.register(ref_image, over_image, init_shift = overlay_offset, \
+        affine_result = register.register(ref_image, over_image, init_shift = offset_init, \
                                           gpu_id = gpu_id, \
                                           reg_method = registering_method, \
                                           opt_method = optimizing_method)
-
         print(affine_result['results'].message)
 
+        affine_result['offset_init'] = offset_init
         affine_matrix = affine_result['matrix']
 
         print("Matrix:")
@@ -157,13 +164,14 @@ for index in range(max_frames):
         print("Shear:", decomposed_matrix['shear'])
 
     # save result
-    affine_result_list.append(affine_result)
+    affine_result_list.append(copy.deepcopy(affine_result))
 
 print("End registration:", time.ctime())
 print(".")
 
 # affine transformation and overlay
 print("Start overlay:", time.ctime())
+print("Post-processing offset:", offset_post)
 print("Frame:", end = ' ')
 output_image_list = []
 ref_shape = input_images[1][0][0].shape
@@ -175,8 +183,14 @@ for index in range(len(affine_result_list)):
     # prepare output images
     image_list = []
 
-    # overlay images
+    # post-processing offset
     affine_matrix = affine_result_list[index]['matrix']
+    if offset_post is not None:
+        affine_matrix = register.offset_matrix(affine_matrix, offset_post)
+        affine_result_list[index]['offset_post'] = offset_post
+        affine_result_list[index]['matrix_offset'] = affine_matrix
+
+    # overlay images
     for channel in range(input_tiffs[0].total_channel):
         image = input_images[0][over_index][channel]
         if image.shape != ref_shape:
