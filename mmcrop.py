@@ -10,7 +10,7 @@ output_filename = None
 output_suffix = "_crop.tif"
 channel = None
 reverse_channel = False
-register_area = None
+crop_area = None
 z_range = None
 t_range = None
 
@@ -26,7 +26,7 @@ parser.add_argument('-r', '--reverse-channel', action = 'store_true', \
 parser.add_argument('-c', '--channel', type = int, default = channel, \
                     help='specify the channel to process (minus index to remove).')
 
-parser.add_argument('-R', '--register-area', type = int, nargs = 4, default = register_area, \
+parser.add_argument('-R', '--crop-area', type = int, nargs = 4, default = crop_area, \
                     metavar = ('X', 'Y', 'W', "H"),
                     help='Crop using the specified area.')
 
@@ -48,7 +48,7 @@ channel = args.channel
 reverse_channel = args.reverse_channel
 z_range = args.z_range
 t_range = args.t_range
-register_area = args.register_area
+crop_area = args.crop_area
 
 if args.output_file is None:
     output_filename.append(mmtiff.with_suffix(input_filename, output_suffix))
@@ -80,12 +80,12 @@ if channel is not None:
         indexes = np.arange(0, input_tiff.total_channel, 1)
         c_slice = c_slice[indexes != abs(channel)]
 
-if register_area is None:
-    register_area = [0, 0, input_tiff.width, input_tiff.height]
+if crop_area is None:
+    crop_area = [0, 0, input_tiff.width, input_tiff.height]
 
 # output TIFF
-print("Cropping using area:", register_area)
-x_slice, y_slice = mmtiff.area_to_slice(register_area)
+print("Cropping using area:", crop_area)
+x_slice, y_slice = mmtiff.area_to_slice(crop_area)
 print("Output image:", output_filename)
 output_image = input_image[t_slice, z_slice, c_slice, y_slice, x_slice]
 input_tiff.save_image(output_filename, output_image)
