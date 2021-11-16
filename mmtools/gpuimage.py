@@ -62,8 +62,16 @@ def z_zoom (input_image, ratio = 1.0, gpu_id = None):
         output_image = cp.asnumpy(output_image)
     return output_image
 
-def z_rotate (input_image, angle = 0.0, gpu_id = None):
-    rotate_tuple = (0, 2)
+def rotate (input_image, angle = 0.0, axis = 0, gpu_id = None):
+    if axis == 0 or axis == 'z' or axis == 'Z':
+        rotate_tuple = (1, 2)
+    elif axis == 1 or axis == 'y' or axis == 'Y':
+        rotate_tuple = (0, 2)
+    elif axis == 2 or axis == 'x' or axis == 'X':
+        rotate_tuple = (0, 1)
+    else:
+        raise Exception('Invalid axis was specified.')
+
     if gpu_id is None:
         image = ndimage.rotate(input_image, angle, axes = rotate_tuple, reshape = False)
     else:
@@ -72,6 +80,9 @@ def z_rotate (input_image, angle = 0.0, gpu_id = None):
         image = cp.asnumpy(image)
 
     return image
+
+def y_rotate (input_image, angle = 0.0, gpu_id = None):
+    return rotate(input_image, angle = angle, axis = 'y', gpu_id = gpu_id)
 
 def affine_transform (input_image, matrix, gpu_id = None):
     if gpu_id is None:

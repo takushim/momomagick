@@ -120,7 +120,7 @@ for index in range(input_tiff.total_time):
     sub_image = gpuimage.z_zoom(sub_image, ratio = z_ratio, gpu_id = gpu_id)
     if sub_rotation != 0:
         print("Rotating sub-channel by:", sub_rotation)
-        sub_image_reg = gpuimage.z_rotate(sub_image, angle = sub_rotation, gpu_id = gpu_id)
+        sub_image_reg = gpuimage.rotate(sub_image, angle = sub_rotation, , axis = 'y', gpu_id = gpu_id)
     else:
         sub_image_reg = sub_image
 
@@ -155,7 +155,7 @@ for index in range(input_tiff.total_time):
         # registration and fusion
         if sub_rotation != 0:
             print("Rotating sub-channel by:", sub_rotation)
-            sub_image_dec = gpuimage.z_rotate(sub_image_dec, angle = sub_rotation, gpu_id = gpu_id)
+            sub_image_dec = gpuimage.rotate(sub_image_dec, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
         else:
             sub_image_dec = sub_image_dec
         sub_image_dec = gpuimage.resize(sub_image_dec, main_image.shape, center = True)
