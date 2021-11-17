@@ -50,16 +50,33 @@ def crop (image_array, origin, shape):
     resized_array[slices_tgt] = image_array[slices_src].copy()
     return resized_array
 
-def z_zoom (input_image, ratio = 1.0, gpu_id = None):
-    if len(input_image.shape) < 3 or input_image.shape[0] == 1:
-        print("Cannot zoom 2D images.")
-        return input_image
+def zoom (input_image, ratio = 1.0, gpu_id = None):
+    if isinstance(ratio, (list, tuple, np.ndarray)):
+        if len(input_image.shape) > len(ratio):
+            ratio = [1.0 for i in range(len(input_image.shape) - len(ratio))] + ratio
+        elif len(input_image.shape) < len(ratio):
+            ratio = ratio[(len(ratio) - len(input_image.shape)):len(ratio)]
+    else:
+        ratio = [ratio for i in input_image.shape]
+
+    if np.allclose(ratio, 1.0):
+        return input_image.copy()
 
     if gpu_id is None:
-        output_image = ndimage.zoom(input_image, (ratio, 1.0, 1.0))
+        output_image = ndimage.zoom(input_image, ratio)
     else:
-        output_image = cpimage.zoom(cp.array(input_image), (ratio, 1.0, 1.0))
+        output_image = cpimage.zoom(cp.array(input_image), ratio)
         output_image = cp.asnumpy(output_image)
+
+    return output_image
+
+def z_zoom (input_image, ratio = 1.0, gpu_id = None):
+    if len(input_image.shape) < 3 or input_image.shape[0] == 1:
+        print("Skipping z-zooming of a 2D image.")
+        output_image = input_image.copy()
+    else:
+        output_image = zoom(input_image, ratio = (ratio, 1.0, 1.0), gpu_id = gpu_id)
+    
     return output_image
 
 def rotate (input_image, angle = 0.0, axis = 0, gpu_id = None):

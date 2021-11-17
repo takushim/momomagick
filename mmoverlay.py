@@ -97,25 +97,37 @@ if gpu_id is not None:
 input_tiffs = [mmtiff.MMTiff(file) for file in input_filenames]
 input_images = [tiff.as_list(list_channel = True) for tiff in input_tiffs]
 
+# xy-scale images
+pixelsize_list = [tiff.pixelsize_um for tiff in input_tiffs]
+pixelsize_um = np.min(pixelsize_list)
+xy_ratio_list = np.array(pixelsize_list) / pixelsize_um
+for file_index, xy_ratio in enumerate(xy_ratio_list):
+    if np.isclose(xy_ratio_list[file_index], 1.0) == False:
+        print("XY-scaling image #{0} at ratio = {1}".format(file_index, xy_ratio))
+        for index in range(input_tiffs[file_index].total_time):
+            for channel in range(input_tiffs[file_index].total_channel):
+                input_images[file_index][index][channel] = gpuimage.zoom(input_images[file_index][index][channel], \
+                                                                         ratio = (1.0, xy_ratio, xy_ratio), gpu_id = gpu_id)
+
+if np.isclose(xy_ratio_list[0], 1.0) == False:
+    print("Rescaling the xy overlay offset:", offset_init)
+    offset_init[1:] = offset_init[1:] * xy_ratio
+
 # z-scale images
-xy_pixel_um = input_tiffs[-1].pixelsize_um
-z_step_um = input_tiffs[-1].z_step_um
-if np.isclose(*[tiff.z_step_um for tiff in input_tiffs]) == False:
-    if input_tiffs[0].z_step_um > input_tiffs[1].z_step_um:
-        z_ratio = input_tiffs[0].z_step_um / input_tiffs[1].z_step_um
-        z_step_um = input_tiffs[1].z_step_um
-        offset_init[0] = offset_init[0] * z_ratio
-        print("Rescaling the overlay offset:", offset_init)
-        file = 0
-    else:
-        z_ratio = input_tiffs[1].z_step_um / input_tiffs[0].z_step_um
-        z_step_um = input_tiffs[0].z_step_um
-        file = 1
-    print("Z-scaling image #{0} at ratio = {1}".format(file, z_ratio))
-    for index in range(input_tiffs[file].total_time):
-        for channel in range(input_tiffs[file].total_channel):
-            input_images[file][index][channel] = gpuimage.z_zoom(input_images[file][index][channel], \
-                                                                 ratio = z_ratio, gpu_id = gpu_id)
+z_step_list = [tiff.z_step_um for tiff in input_tiffs]
+z_step_um = np.min(z_step_list)
+z_ratio_list = np.array(z_step_list) / z_step_um
+for file_index, z_ratio in enumerate(z_ratio_list):
+    if np.isclose(z_ratio_list[file_index], 1.0) == False:
+        print("Z-scaling image #{0} at ratio = {1}".format(file_index, z_ratio))
+        for index in range(input_tiffs[file_index].total_time):
+            for channel in range(input_tiffs[file_index].total_channel):
+                input_images[file_index][index][channel] = gpuimage.z_zoom(input_images[file_index][index][channel], \
+                                                                           ratio = z_ratio, gpu_id = gpu_id)
+
+if np.isclose(z_ratio_list[0], 1.0) == False:
+    print("Rescaling the z overlay offset:", offset_init)
+    offset_init[0] = offset_init[0] * z_ratio
 
 # registration and preparing affine matrices
 print("Start registration:", time.ctime())
@@ -231,5 +243,5 @@ with open(output_json_filename, 'w') as f:
 print("Output image:", output_filename)
 output_image = np.array(output_image_list).swapaxes(1, 2)
 mmtiff.save_image(output_filename, output_image, imagej = True, \
-                  xy_pixel_um = xy_pixel_um, \
+                  xy_pixel_um = pixelsize_um, \
                   z_step_um = z_step_um)
