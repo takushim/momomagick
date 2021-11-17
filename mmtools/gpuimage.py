@@ -81,9 +81,6 @@ def rotate (input_image, angle = 0.0, axis = 0, gpu_id = None):
 
     return image
 
-def y_rotate (input_image, angle = 0.0, gpu_id = None):
-    return rotate(input_image, angle = angle, axis = 'y', gpu_id = gpu_id)
-
 def affine_transform (input_image, matrix, gpu_id = None):
     if gpu_id is None:
         output_image = ndimage.affine_transform(input_image, matrix, mode = 'grid-constant')
