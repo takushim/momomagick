@@ -11,6 +11,11 @@ second_view_x=1400
 # show usage and exit
 function show_usage () {
     echo "$(basename "$0") [-f FIRST_VIEW_X] [-s SECOND_VIEW_X] [-m REG_METHOD] [-d] [-i ITER] file [file ...]"
+    echo "Default settings:"
+    echo "- reg_method: ${reg_method}"
+    echo "- first_view_x: ${first_view_x}"
+    echo "- second_view_x: ${second_view_x}"
+    echo "- deconv: ${deconv}"
     exit 1
 }
 
