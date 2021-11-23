@@ -8,8 +8,11 @@ from mmtools import gpuimage, mmtiff, register
 # default values
 input_filenames = None
 use_channels = None
-offset_init = None
-offset_post = None
+init_shift = [0.0, 0.0, 0.0]
+init_rotation = [0.0, 0.0, 0.0]
+init_zoom = [1.0, 1.0, 1.0]
+init_shear = [0.0, 0.0, 0.0]
+post_shift = None
 output_filename = None
 output_suffix = '_over_{0}.tif' # overwritten by the registration method
 output_json_filename = None
@@ -48,13 +51,25 @@ parser.add_argument('-t', '--optimizing-method', type = str, default = optimizin
                     choices = optimizing_method_list, \
                     help='Method to optimize the affine matrices')
 
-parser.add_argument('-s', '--offset-init', nargs = 3, type = float, default = offset_init, \
+parser.add_argument('-S', '--init-shift', nargs = 3, type = float, default = init_shift, \
                     metavar = ('X', 'Y', 'Z'), \
-                    help='Offset of the overlay image pre-registration (useful with "-e None")')
+                    help='Initial shift of the overlay image (useful with "-e None")')
 
-parser.add_argument('-p', '--offset-post', nargs = 3, type = float, default = offset_post, \
+parser.add_argument('-R', '--init-rotation', nargs = 3, type = float, default = init_rotation, \
                     metavar = ('X', 'Y', 'Z'), \
-                    help='Offset of the overlay image post-registration (useful for adjustment")')
+                    help='Initial rotation of the overlay image')
+
+parser.add_argument('-Z', '--init-zoom', nargs = 3, type = float, default = init_zoom, \
+                    metavar = ('X', 'Y', 'Z'), \
+                    help='Initial zoom of the overlay image')
+
+parser.add_argument('-H', '--init-shear', nargs = 3, type = float, default = init_shear, \
+                    metavar = ('X', 'Y', 'Z'), \
+                    help='Initial shear of the overlay image')
+
+parser.add_argument('-P', '--post-shift', nargs = 3, type = float, default = post_shift, \
+                    metavar = ('X', 'Y', 'Z'), \
+                    help='Post-registration shift of the overlay image (for adjustment")')
 
 parser.add_argument('-c', '--use-channels', nargs = 2, type = int, default = use_channels, \
                     help='specify two channels used for registration')
@@ -70,10 +85,14 @@ register_all = args.register_all
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 truncate_frames = args.truncate_frames
-if args.offset_init is not None:
-    offset_init = -np.array(args.offset_init[::-1])
-if args.offset_post is not None:
-    offset_post = -np.array(args.offset_post[::-1])
+
+init_shift = np.array(args.init_shift[::-1])
+init_rotation = np.array(args.init_rotation[::-1])
+init_zoom = np.array(args.init_zoom[::-1])
+init_shear = np.array(args.init_shear[::-1])
+
+if args.post_shift is not None:
+    post_shift = np.array(args.post_shift[::-1])
 
 use_channels = args.use_channels
 if use_channels is None:
@@ -110,8 +129,8 @@ for file_index, xy_ratio in enumerate(xy_ratio_list):
                                                                          ratio = (1.0, xy_ratio, xy_ratio), gpu_id = gpu_id)
 
 if np.isclose(xy_ratio_list[0], 1.0) == False:
-    print("Rescaling the xy overlay offset:", offset_init)
-    offset_init[1:] = offset_init[1:] * xy_ratio
+    print("Rescaling the xy overlay offset:", init_shift)
+    init_shift[1:] = init_shift[1:] * xy_ratio
 
 # z-scale images
 z_step_list = [tiff.z_step_um for tiff in input_tiffs]
@@ -126,8 +145,8 @@ for file_index, z_ratio in enumerate(z_ratio_list):
                                                                            ratio = z_ratio, gpu_id = gpu_id)
 
 if np.isclose(z_ratio_list[0], 1.0) == False:
-    print("Rescaling the z overlay offset:", offset_init)
-    offset_init[0] = offset_init[0] * z_ratio
+    print("Rescaling the z overlay offset:", init_shift)
+    init_shift[0] = init_shift[0] * z_ratio
 
 # show image sizes
 for index in range(len(input_images)):
@@ -161,13 +180,15 @@ for index in range(max_frames):
         if over_image.shape != ref_image.shape:
             over_image = gpuimage.resize(over_image, ref_image.shape, center = True)
 
-        affine_result = register.register(ref_image, over_image, init_shift = offset_init, \
+        init_params = register.params_dict_3d(shift = init_shift, rotation = init_rotation, \
+                                              zoom = init_zoom, shear = init_shear)
+        affine_result = register.register(ref_image, over_image, init_params = init_params, \
                                           gpu_id = gpu_id, \
                                           reg_method = registering_method, \
                                           opt_method = optimizing_method)
         print(affine_result['results'].message)
 
-        affine_result['offset_init'] = offset_init
+        affine_result['init_params'] = init_params
         affine_matrix = affine_result['matrix']
 
         print("Matrix:")
@@ -175,7 +196,7 @@ for index in range(max_frames):
 
         # interpret the affine matrix
         decomposed_matrix = register.decompose_matrix(affine_matrix)
-        print("Transport:", decomposed_matrix['transport'])
+        print("Shift:", decomposed_matrix['shift'])
         print("Rotation:", decomposed_matrix['rotation_angles'])
         print("Zoom:", decomposed_matrix['zoom'])
         print("Shear:", decomposed_matrix['shear'])
@@ -188,7 +209,7 @@ print(".")
 
 # affine transformation and overlay
 print("Start overlay:", time.ctime())
-print("Post-processing offset:", offset_post)
+print("Post-processing shift:", post_shift)
 print("Frame:", end = ' ')
 output_image_list = []
 ref_shape = input_images[1][0][0].shape
@@ -202,9 +223,9 @@ for index in range(len(affine_result_list)):
 
     # post-processing offset
     affine_matrix = affine_result_list[index]['matrix']
-    if offset_post is not None:
-        affine_matrix = register.offset_matrix(affine_matrix, offset_post)
-        affine_result_list[index]['offset_post'] = offset_post
+    if post_shift is not None:
+        affine_matrix = register.offset_matrix(affine_matrix, post_shift)
+        affine_result_list[index]['post_shift'] = post_shift
         affine_result_list[index]['matrix_offset'] = affine_matrix
 
     # overlay images
