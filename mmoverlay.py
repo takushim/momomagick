@@ -129,6 +129,11 @@ if np.isclose(z_ratio_list[0], 1.0) == False:
     print("Rescaling the z overlay offset:", offset_init)
     offset_init[0] = offset_init[0] * z_ratio
 
+# show image sizes
+for index in range(len(input_images)):
+    print("Image:", index, ", shape:", input_images[index][0][0].shape)
+
+
 # registration and preparing affine matrices
 print("Start registration:", time.ctime())
 print("Registering Method:", registering_method)

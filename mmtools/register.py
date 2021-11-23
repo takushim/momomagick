@@ -13,7 +13,7 @@ except ImportError:
     pass
 
 optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP", "None"]
-registering_methods = ["Full", "Rigid", "Drift", "XY", "POC", "None"]
+registering_methods = ["Full", "Rigid-Scale", "Rigid", "Drift", "XY", "POC", "None"]
 
 def turn_on_gpu (gpu_id):
     return gpuimage.turn_on_gpu(gpu_id)
@@ -71,6 +71,22 @@ def rbm_to_matrix_3d (params):
     matrix = np.array([[1.0, 0.0, 0.0, params[0]], [0.0, 1.0, 0.0, params[1]], \
                        [0.0, 0.0, 1.0, params[2]], [0.0, 0.0, 0.0, 1.0]])
     matrix[0:3, 0:3] = euler.euler2mat(*params[3:6])
+    return matrix
+
+def rbmscale_to_matrix_2d (params):
+    matrix = np.array([[1.0, 0.0, params[0]], [0.0, 1.0, params[1]], [0.0, 0.0, 1.0]])
+    rotate = np.array([[np.cos(params[2]), -np.sin(params[2])] \
+                       [np.sin(params[2]),  np.cos(params[2])]])
+    scale = np.array([[params[3], 0.0], [0.0,  params[4]]])
+    matrix[0:2, 0:2] = np.dot(rotate, scale)
+    return matrix
+
+def rbmscale_to_matrix_3d (params):
+    matrix = np.array([[1.0, 0.0, 0.0, params[0]], [0.0, 1.0, 0.0, params[1]], \
+                       [0.0, 0.0, 1.0, params[2]], [0.0, 0.0, 0.0, 1.0]])
+    rotate = euler.euler2mat(*params[3:6])
+    scale = np.array([[params[6], 0.0, 0.0], [0.0,  params[7], 0.0], [0.0,  0.0, params[8]]])
+    matrix[0:3, 0:3] = np.dot(rotate, scale)
     return matrix
 
 def offset_matrix (matrix, offset):
@@ -237,6 +253,9 @@ class Affine:
             elif reg_method == 'Rigid':
                 init_params = np.array([init_shift[0], init_shift[1], 0.0])
                 params_to_matrix = rbm_to_matrix_2d
+            elif reg_method == 'Rigid-Scale':
+                init_params = np.array([init_shift[0], init_shift[1], 0.0, 1.0, 1.0])
+                params_to_matrix = rbmscale_to_matrix_2d
             elif reg_method == 'Full':
                 init_params = np.array([1.0, 0.0, init_shift[0], 0.0, 1.0, init_shift[1]])
                 params_to_matrix = params_to_matrix_2d
@@ -258,6 +277,9 @@ class Affine:
             elif reg_method == 'Rigid':
                 init_params = np.array([init_shift, [0.0, 0.0, 0.0]]).flatten()
                 params_to_matrix = rbm_to_matrix_3d
+            elif reg_method == 'Rigid-Scale':
+                init_params = np.array([init_shift, [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]]).flatten()
+                params_to_matrix = rbmscale_to_matrix_3d
             elif reg_method == 'Full':
                 init_params = np.array([1.0, 0.0, 0.0, init_shift[0], 0.0, 1.0, 0.0, init_shift[1], 0.0, 0.0, 1.0, init_shift[2]])
                 params_to_matrix = params_to_matrix_3d
