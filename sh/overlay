@@ -100,7 +100,7 @@ fi
 # post processing offset (moves EGFP part!!)
 offset_post=""
 if [[ "$post_x" != 0 ]] || [[ "$post_y" != 0 ]] || [[ "$post_z" != 0 ]]; then
-    offset_post="-p ${post_x} ${post_y} ${post_z}"
+    offset_post="-P ${post_x} ${post_y} ${post_z}"
 fi
 
 # process!

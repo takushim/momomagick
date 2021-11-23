@@ -138,7 +138,7 @@ for index in range(input_tiff.total_time):
 
     # interpret the affine matrix
     decomposed_matrix = register.decompose_matrix(affine_matrix)
-    print("Transport:", decomposed_matrix['transport'])
+    print("Shift:", decomposed_matrix['shift'])
     print("Rotation:", decomposed_matrix['rotation_angles'])
     print("Zoom:", decomposed_matrix['zoom'])
     print("Shear:", decomposed_matrix['shear'])

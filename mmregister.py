@@ -137,7 +137,6 @@ affine_result_list = []
 output_image_list = []
 affine_register = register.Affine(ref_image[..., reg_slice_y, reg_slice_x], gpu_id = gpu_id)
 for index in range(len(input_images)):
-#for index in range(1):
     print("Starting optimization:", index)
     print("Registering Method:", registering_method)
     print("Optimizing Method:", optimizing_method)
@@ -145,14 +144,17 @@ for index in range(len(input_images)):
     start_time = time.perf_counter()
 
     if input_tiff.total_zstack == 1:
-        init_shift = init_shift_list[index]['shift'][1:]
+        # reference image can be 3d (broadcasted automatically during the registration)
+        init_params = register.default_params_2d()
+        init_params['shift'] = init_shift_list[index]['shift'][1:]
         input_image = input_images[index][0]
     else:
-        init_shift = init_shift_list[index]['shift']
+        init_params = register.default_params_3d()
+        init_params['shift'] = init_shift_list[index]['shift']
         input_image = input_images[index]
-    print("Initial shift:", init_shift)
+    print("Initial shift:", init_params['shift'])
 
-    affine_result = affine_register.register(input_image[..., reg_slice_y, reg_slice_x], init_shift, \
+    affine_result = affine_register.register(input_image[..., reg_slice_y, reg_slice_x], init_params, \
                                              opt_method = optimizing_method, reg_method = registering_method)
     final_matrix = affine_result['matrix']
 
@@ -171,7 +173,7 @@ for index in range(len(input_images)):
     # interpret the affine matrix
     decomposed_matrix = register.decompose_matrix(final_matrix)
     affine_result['decomposed'] = decomposed_matrix
-    print("Transport:", decomposed_matrix['transport'])
+    print("Shift:", decomposed_matrix['shift'])
     print("Rotation:", decomposed_matrix['rotation_angles'])
     print("Zoom:", decomposed_matrix['zoom'])
     print("Shear:", decomposed_matrix['shear'])
