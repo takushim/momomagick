@@ -52,7 +52,7 @@ parser.add_argument('-s', '--offset-init', nargs = 3, type = float, default = of
                     metavar = ('X', 'Y', 'Z'), \
                     help='Offset of the overlay image pre-registration (useful with "-e None")')
 
-parser.add_argument('-S', '--offset-post', nargs = 3, type = float, default = offset_post, \
+parser.add_argument('-p', '--offset-post', nargs = 3, type = float, default = offset_post, \
                     metavar = ('X', 'Y', 'Z'), \
                     help='Offset of the overlay image post-registration (useful for adjustment")')
 
