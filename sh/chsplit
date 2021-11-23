@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-for d in P0Ch_Stage*
-do
-    filename="${d}/${d}_MMStack_Pos0.ome.tif"
-    mmchsplit.py $filename
-done
