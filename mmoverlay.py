@@ -8,17 +8,17 @@ from mmtools import gpuimage, mmtiff, register
 # default values
 input_filenames = None
 use_channels = None
-init_shift = [0.0, 0.0, 0.0]
+init_flip = None
 init_rotation = [0.0, 0.0, 0.0]
-init_zoom = [1.0, 1.0, 1.0]
-init_shear = [0.0, 0.0, 0.0]
-post_shift = None
+init_shift = [0.0, 0.0, 0.0]
+post_shift = [0.0, 0.0, 0.0]
 output_filename = None
 output_suffix = '_over_{0}.tif' # overwritten by the registration method
 output_json_filename = None
 output_json_suffix = '.json' # overwritten by the registration method
 truncate_frames = False
 gpu_id = None
+scaling = None
 register_all = False
 registering_method = 'Full'
 registering_method_list = register.registering_methods
@@ -37,6 +37,9 @@ parser.add_argument('-j', '--output-json-file', default = output_json_filename, 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
 
+parser.add_argument('-c', '--use-channels', nargs = 2, type = int, default = use_channels, \
+                    help='specify two channels used for registration')
+
 parser.add_argument('-a', '--register-all', action = 'store_true', \
                     help='Perform registration for each pair of images')
 
@@ -51,28 +54,23 @@ parser.add_argument('-t', '--optimizing-method', type = str, default = optimizin
                     choices = optimizing_method_list, \
                     help='Method to optimize the affine matrices')
 
-parser.add_argument('-S', '--init-shift', nargs = 3, type = float, default = init_shift, \
-                    metavar = ('X', 'Y', 'Z'), \
-                    help='Initial shift of the overlay image (useful with "-e None")')
+parser.add_argument('-F', '--init-flip', type = str, default = init_flip, \
+                    help='Initial flipping of the overlay image (e.g., X, XZ, XYZ)')
 
 parser.add_argument('-R', '--init-rotation', nargs = 3, type = float, default = init_rotation, \
                     metavar = ('X', 'Y', 'Z'), \
-                    help='Initial rotation of the overlay image')
+                    help='Initial rotation of the overlay image. Applied after flip.')
 
-parser.add_argument('-Z', '--init-zoom', nargs = 3, type = float, default = init_zoom, \
+parser.add_argument('-S', '--init-shift', nargs = 3, type = float, default = init_shift, \
                     metavar = ('X', 'Y', 'Z'), \
-                    help='Initial zoom of the overlay image')
-
-parser.add_argument('-H', '--init-shear', nargs = 3, type = float, default = init_shear, \
-                    metavar = ('X', 'Y', 'Z'), \
-                    help='Initial shear of the overlay image')
+                    help='Initial shift of the overlay image. Applied after rotation.')
 
 parser.add_argument('-P', '--post-shift', nargs = 3, type = float, default = post_shift, \
                     metavar = ('X', 'Y', 'Z'), \
                     help='Post-registration shift of the overlay image (for adjustment")')
 
-parser.add_argument('-c', '--use-channels', nargs = 2, type = int, default = use_channels, \
-                    help='specify two channels used for registration')
+parser.add_argument('-x', '--scaling', type = float, default = scaling, \
+                    help='Scaling factor on registration.')
 
 parser.add_argument('input_files', nargs = 2, default = input_filenames, \
                     help='TIFF image files. The first image is affine transformed.')
@@ -85,11 +83,11 @@ register_all = args.register_all
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 truncate_frames = args.truncate_frames
+scaling = args.scaling
 
-init_shift = np.array(args.init_shift[::-1])
+init_flip = args.init_flip.lower()
 init_rotation = np.array(args.init_rotation[::-1])
-init_zoom = np.array(args.init_zoom[::-1])
-init_shear = np.array(args.init_shear[::-1])
+init_shift = np.array(args.init_shift[::-1])
 
 if args.post_shift is not None:
     post_shift = np.array(args.post_shift[::-1])
@@ -116,55 +114,66 @@ if gpu_id is not None:
 input_tiffs = [mmtiff.MMTiff(file) for file in input_filenames]
 input_images = [tiff.as_list(list_channel = True) for tiff in input_tiffs]
 
-# xy-scale images
+# scale images
 pixelsize_list = [tiff.pixelsize_um for tiff in input_tiffs]
-pixelsize_um = np.min(pixelsize_list)
-xy_ratio_list = np.array(pixelsize_list) / pixelsize_um
-for file_index, xy_ratio in enumerate(xy_ratio_list):
-    if np.isclose(xy_ratio_list[file_index], 1.0) == False:
-        print("XY-scaling image #{0} at ratio = {1}".format(file_index, xy_ratio))
+z_step_list = [tiff.z_step_um for tiff in input_tiffs]
+voxelsize_um = np.min(pixelsize_list + z_step_list)
+
+for file_index in range(len(input_images)):
+    xy_ratio = input_tiffs[file_index].pixelsize_um / voxelsize_um
+    z_ratio = input_tiffs[file_index].z_step_um / voxelsize_um
+    ratio = [z_ratio, xy_ratio, xy_ratio]
+
+    if np.allclose([xy_ratio, z_ratio], 1.0) == False:
+        print("Scaling image {0} at ratio:".format(file_index), ratio)
         for index in range(input_tiffs[file_index].total_time):
             for channel in range(input_tiffs[file_index].total_channel):
                 input_images[file_index][index][channel] = gpuimage.zoom(input_images[file_index][index][channel], \
-                                                                         ratio = (1.0, xy_ratio, xy_ratio), gpu_id = gpu_id)
+                                                                         ratio = ratio, gpu_id = gpu_id)
 
-if np.isclose(xy_ratio_list[0], 1.0) == False:
+# rescale initial offsets
+if np.isclose(input_tiffs[0].pixelsize_um, voxelsize_um) == False:
     print("Rescaling the xy overlay offset:", init_shift)
-    init_shift[1:] = init_shift[1:] * xy_ratio
+    init_shift[1:] = init_shift[1:] * input_tiffs[0].pixelsize_um / voxelsize_um
 
-# z-scale images
-z_step_list = [tiff.z_step_um for tiff in input_tiffs]
-z_step_um = np.min(z_step_list)
-z_ratio_list = np.array(z_step_list) / z_step_um
-for file_index, z_ratio in enumerate(z_ratio_list):
-    if np.isclose(z_ratio_list[file_index], 1.0) == False:
-        print("Z-scaling image #{0} at ratio = {1}".format(file_index, z_ratio))
-        for index in range(input_tiffs[file_index].total_time):
-            for channel in range(input_tiffs[file_index].total_channel):
-                input_images[file_index][index][channel] = gpuimage.z_zoom(input_images[file_index][index][channel], \
-                                                                           ratio = z_ratio, gpu_id = gpu_id)
-
-if np.isclose(z_ratio_list[0], 1.0) == False:
+if np.isclose(input_tiffs[0].z_step_um, voxelsize_um) == False:
     print("Rescaling the z overlay offset:", init_shift)
-    init_shift[0] = init_shift[0] * z_ratio
-
-# show image sizes
-for index in range(len(input_images)):
-    print("Image:", index, ", shape:", input_images[index][0][0].shape)
-
+    init_shift[0] = init_shift[0] * input_tiffs[0].z_step_um / voxelsize_um
 
 # registration and preparing affine matrices
 print("Start registration:", time.ctime())
 print("Registering Method:", registering_method)
 print("Optimizing Method:", optimizing_method)
+print("Scaling:", scaling)
 print("Channels:", use_channels)
+for index in range(len(input_images)):
+    print("Image:", index, ", shape:", input_images[index][0][0].shape)
 
-affine_result_list = []
+# max frames to be processed
 if truncate_frames:
     max_frames = min([tiff.total_time for tiff in input_tiffs])
 else:
     max_frames = max([tiff.total_time for tiff in input_tiffs])
 
+# pre-process images
+print("Initial flip:", init_flip)
+print("Initial rotation:", init_rotation)
+print("Initial shift:", init_shift)
+flip_x = -1 if 'x' in init_flip else 1
+flip_y = -1 if 'y' in init_flip else 1
+flip_z = -1 if 'z' in init_flip else 1
+
+for index in range(input_tiffs[0].total_time):
+    for channel in range(input_tiffs[0].total_channel):
+        image = input_images[0][index][channel][::flip_z, ::flip_y, ::flip_x]
+        for axis, angle in zip(['x', 'y', 'z'], init_rotation):
+            if np.isclose(angle, 0.0) == False:
+                image = gpuimage.rotate(image, angle = angle, axis = axis, gpu_id = gpu_id)
+        image = gpuimage.shift(image, init_shift, gpu_id = gpu_id)
+        input_images[0][index][channel] = image
+
+# registration
+affine_result_list = []
 for index in range(max_frames):
     # handle broadcasting
     over_index = index % input_tiffs[0].total_time
@@ -173,22 +182,32 @@ for index in range(max_frames):
     # registration
     if register_all or index == 0:
         print("Frame:", index)
-        over_image = input_images[0][over_index][use_channels[0]]
-        ref_image = input_images[1][ref_index][use_channels[1]]
+        over_image = input_images[0][over_index][use_channels[0]].copy()
+        ref_image = input_images[1][ref_index][use_channels[1]].copy()
 
         # resize the overlaying image
         if over_image.shape != ref_image.shape:
             over_image = gpuimage.resize(over_image, ref_image.shape, center = True)
 
-        init_params = register.params_dict_3d(shift = init_shift, rotation = init_rotation, \
-                                              zoom = init_zoom, shear = init_shear)
-        affine_result = register.register(ref_image, over_image, init_params = init_params, \
-                                          gpu_id = gpu_id, \
+        # scaling
+        if scaling is not None:
+            over_image = gpuimage.zoom(over_image, ratio = scaling, gpu_id = gpu_id)
+            ref_image = gpuimage.zoom(ref_image, ratio = scaling, gpu_id = gpu_id)
+
+        affine_result = register.register(ref_image, over_image, init_shift = None, gpu_id = gpu_id, \
                                           reg_method = registering_method, \
                                           opt_method = optimizing_method)
         print(affine_result['results'].message)
 
-        affine_result['init_params'] = init_params
+        # rescaling
+        if scaling is not None:
+            affine_result['scaling'] = scaling
+            affine_result['matrix'][0:3, 3] = affine_result['matrix'][0:3, 3] / scaling
+
+        affine_result['pre_flip'] = init_flip
+        affine_result['pre_rotation'] = init_rotation
+        affine_result['pre_shift'] = init_shift
+
         affine_matrix = affine_result['matrix']
 
         print("Matrix:")
@@ -220,13 +239,6 @@ for index in range(len(affine_result_list)):
 
     # prepare output images
     image_list = []
-
-    # post-processing offset
-    affine_matrix = affine_result_list[index]['matrix']
-    if post_shift is not None:
-        affine_matrix = register.offset_matrix(affine_matrix, post_shift)
-        affine_result_list[index]['post_shift'] = post_shift
-        affine_result_list[index]['matrix_offset'] = affine_matrix
 
     # overlay images
     for channel in range(input_tiffs[0].total_channel):
@@ -269,5 +281,4 @@ with open(output_json_filename, 'w') as f:
 print("Output image:", output_filename)
 output_image = np.array(output_image_list).swapaxes(1, 2)
 mmtiff.save_image(output_filename, output_image, imagej = True, \
-                  xy_pixel_um = pixelsize_um, \
-                  z_step_um = z_step_um)
+                  xy_pixel_um = voxelsize_um, z_step_um = voxelsize_um)
