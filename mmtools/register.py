@@ -96,56 +96,29 @@ def decompose_matrix (matrix):
     return {'shift': shift, 'rotation_matrix': rot_mat, 'rotation_angles': rot_angles, \
             'zoom': zoom, 'shear': shear}
 
-def offset_matrix (matrix, offset):
-    if len(offset) == 2:
-        matrix[0:2, 2] = matrix[0:2, 2] + np.array(offset)
-    elif len(offset) == 3:
-        matrix[0:3, 3] = matrix[0:3, 3] + np.array(offset)
-    else:
-        raise Exception("Cannot offset the matrix:", offset)
-    return matrix
-
-def params_dict_2d (shift = [0.0, 0.0], rotation = [0.0], zoom = [1.0, 1.0], shear = [0.0, 0.0]):
-    params = {}
-    params['shift'] = shift
-    params['rotation'] = [np.array(rotation).item()]
-    params['zoom'] = zoom
-    params['shear'] = shear
-    return params
-
-def params_dict_3d (shift = [0.0, 0.0, 0.0], rotation = [0.0, 0.0, 0.0], zoom = [1.0, 1.0, 1.0], shear = [0.0, 0.0, 0.0]):
-    params = {}
-    params['shift'] = shift
-    params['rotation'] = rotation
-    params['zoom'] = zoom
-    params['shear'] = shear
-    return params
-
-def register (ref_image, input_image, init_params = None, gpu_id = None, reg_method = "Full", opt_method = "Powell"):
-    if init_params is None:
-        # calculate POCs for pre-registration
-        poc_register = Poc(ref_image, gpu_id = gpu_id)
-        if reg_method == "POC":
-            poc_result = poc_register.register_subpixel(input_image, opt_method = opt_method)
+def register (ref_image, input_image, init_shift = None, gpu_id = None, reg_method = "Full", opt_method = "Powell"):
+    if init_shift is None:
+        if reg_method == "None":
+            init_shift = [0.0, 0.0, 0.0]
         else:
-            poc_result = poc_register.register(input_image)
-        poc_register = None
+            # calculate POCs for pre-registration
+            poc_register = Poc(ref_image, gpu_id = gpu_id)
+            if reg_method == "POC":
+                poc_result = poc_register.register_subpixel(input_image, opt_method = opt_method)
+            else:
+                poc_result = poc_register.register(input_image)
+            poc_register = None
+            init_shift = poc_result['shift']
 
     # calculate an affine matrix for registration
-    if len(input_image.shape) < 3:
-        if init_params is None:
-            init_params = params_dict_2d(shift = poc_result['shift'])
-    elif input_image.shape[0] == 1:
-        if init_params is None:
-            init_params = params_dict_2d(shift = poc_result['shift'])
+    if len(input_image.shape) == 3 and input_image.shape[0] == 1:
         ref_image = ref_image[0]
         input_image = input_image[0]
-    else:
-        if init_params is None:
-            init_params = params_dict_3d(shift = poc_result['shift'])
+        init_shift = init_shift[1:]
 
     affine_register = Affine(ref_image, gpu_id = gpu_id)
-    affine_result = affine_register.register(input_image, init_params, opt_method = opt_method, reg_method = reg_method)
+    affine_result = affine_register.register(input_image, init_shift = init_shift, 
+                                             opt_method = opt_method, reg_method = reg_method)
 
     return affine_result
 
@@ -248,65 +221,60 @@ class Affine:
             self.window_mat = cp.array(self.window_mat)
             self.ref_float = cp.array(self.ref_float)
 
-    def register (self, input_image, init_params = None, opt_method = "Powell", reg_method = "Full"):
+    def register (self, input_image, init_shift = None, opt_method = "Powell", reg_method = "Full"):
         reg_method = find_method(reg_method, registering_methods)
         opt_method = find_method(opt_method, optimizing_methods)
 
         if len(input_image.shape) == 2:
-            if init_params is None:
-                init_params = params_dict_2d()
+            if init_shift is None:
+                init_shift = [0.0, 0.0]
             else:
-                init_params = {key: list(value) for (key, value) in init_params.items()}
-
-            init_matrix = compose_matrix_2d(shift = init_params['shift'], rotation = init_params['rotation'], \
-                                            zoom = init_params['zoom'], shear = init_params['shear'])
+                init_shift = list(init_shift)
 
             if reg_method == 'None' or reg_method == 'POC':
-                opt_params = np.zeros(2)
+                init_params = init_shift
                 params_to_matrix = drift_to_matrix_2d
             elif reg_method == 'XY':
-                opt_params = np.zeros(2)
+                init_params = init_shift
                 params_to_matrix = xydrift_to_matrix_2d
             elif reg_method == 'Drift':
-                opt_params = np.zeros(2)
+                init_params = init_shift
                 params_to_matrix = drift_to_matrix_2d
             elif reg_method == 'Rigid':
-                opt_params = np.zeros(3)
+                init_params = init_shift + [0.0]
                 params_to_matrix = rbm_to_matrix_2d
             elif reg_method == 'Rigid-Zoom':
-                opt_params = np.array([0.0, 0.0, 0.0, 1.0, 1.0])
+                init_params = init_shift + [0.0] + [1.0, 1.0]
                 params_to_matrix = rbmzoom_to_matrix_2d
             elif reg_method == 'Full':
-                opt_params = np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0])
+                init_params = [1.0, 0.0, init_shift[0], 0.0, 1.0, init_shift[1]]
                 params_to_matrix =full_to_matrix_2d
             else:
                 raise Exception("Unknown registration method:", reg_method)
         elif len(input_image.shape) == 3:
-            if init_params is None:
-                init_params = params_dict_3d()
+            if init_shift is None:
+                init_shift = [0.0, 0.0, 0.0]
             else:
-                init_params = {key: list(value) for (key, value) in init_params.items()}
-
-            init_matrix = compose_matrix_3d(shift = init_params['shift'], rotation = init_params['rotation'], \
-                                            zoom = init_params['zoom'], shear = init_params['shear'])
+                init_shift = list(init_shift)
 
             if reg_method == 'None' or reg_method == 'POC':
-                opt_params = np.zeros(3)
+                init_params = init_shift
                 params_to_matrix = drift_to_matrix_3d
             elif reg_method == 'XY':
-                opt_params = np.zeros(3)
+                init_shift[0] = 0.0
+                init_params = init_shift
                 params_to_matrix = xydrift_to_matrix_3d
             elif reg_method == 'Drift':
-                opt_params = np.zeros(3)
+                init_params = init_shift
                 params_to_matrix = drift_to_matrix_3d
             elif reg_method == 'Rigid':
-                opt_params = np.zeros(6)
+                init_params = init_shift + [0.0, 0.0, 0.0]
                 params_to_matrix = rbm_to_matrix_3d
             elif reg_method == 'Rigid-Zoom':
-                opt_params = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0])
+                init_params = init_shift + [0.0, 0.0, 0.0] + [1.0, 1.0, 1.0]
                 params_to_matrix = rbmzoom_to_matrix_3d
             elif reg_method == 'Full':
-                opt_params = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0])
+                init_params = [1.0, 0.0, 0.0, init_shift[0], 0.0, 1.0, 0.0, init_shift[1], 0.0, 0.0, 1.0, init_shift[2]]
                 params_to_matrix = full_to_matrix_3d
             else:
                 raise Exception("Unknown registration method:", reg_method)
@@ -317,39 +285,35 @@ class Affine:
             image_float = normalize(input_image)
             def error_func (params):
                 matrix = params_to_matrix(params)
-                trans_float = ndimage.affine_transform(image_float, np.dot(matrix, init_matrix)) * self.window_mat
+                trans_float = ndimage.affine_transform(image_float, matrix) * self.window_mat
                 error = np.sum((self.ref_float - trans_float) * (self.ref_float - trans_float))
                 return error
         else:
             image_float = cp.array(normalize(input_image))
-            init_matrix_gpu = cp.array(init_matrix)
             def error_func (params):
                 matrix = cp.array(params_to_matrix(params))
-                trans_float = cpimage.affine_transform(image_float, cp.dot(matrix, init_matrix_gpu)) * self.window_mat
+                trans_float = cpimage.affine_transform(image_float, matrix) * self.window_mat
                 error = cp.asnumpy(cp.sum((self.ref_float - trans_float) * (self.ref_float - trans_float)))
                 return error
 
         if reg_method == "None" or reg_method == 'POC':
             results = optimize.OptimizeResult()
-            results.x = opt_params
+            results.x = init_params
             results.success = True
             results.message = 'Registration not performed.'
-            final_matrix = np.dot(params_to_matrix(opt_params), init_matrix)
         else:
             if opt_method == "None":
                 results = optimize.OptimizeResult()
-                results.x = opt_params
+                results.x = init_params
                 results.success = True
                 results.message = 'Optimization not performed.'
-                final_matrix = np.dot(params_to_matrix(opt_params), init_matrix)
             elif opt_method == "Auto":
-                results = optimize.minimize(error_func, opt_params)
-                final_matrix = np.dot(params_to_matrix(results.x), init_matrix)
+                results = optimize.minimize(error_func, init_params)
             else:
-                results = optimize.minimize(error_func, opt_params, method = opt_method)
-                final_matrix = np.dot(params_to_matrix(results.x), init_matrix)
+                results = optimize.minimize(error_func, init_params, method = opt_method)
 
-        return {'matrix': final_matrix, 'init_params': init_params, 'init_matrix': init_matrix, \
-                'opt_params': results.x, 'opt_matrix': params_to_matrix(results.x),
-                'opt_method': opt_method, 'reg_method': reg_method, 'results': results}
+        final_matrix = params_to_matrix(results.x)
+
+        return {'matrix': final_matrix, 'init_shift': init_shift, 'results': results, \
+                'opt_method': opt_method, 'reg_method': reg_method}
 

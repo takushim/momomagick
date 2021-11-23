@@ -145,16 +145,14 @@ for index in range(len(input_images)):
 
     if input_tiff.total_zstack == 1:
         # reference image can be 3d (broadcasted automatically during the registration)
-        init_params = register.default_params_2d()
-        init_params['shift'] = init_shift_list[index]['shift'][1:]
+        init_shift = init_shift_list[index]['shift'][1:]
         input_image = input_images[index][0]
     else:
-        init_params = register.default_params_3d()
-        init_params['shift'] = init_shift_list[index]['shift']
+        init_shift = init_shift_list[index]['shift']
         input_image = input_images[index]
-    print("Initial shift:", init_params['shift'])
+    print("Initial shift:", init_shift)
 
-    affine_result = affine_register.register(input_image[..., reg_slice_y, reg_slice_x], init_params, \
+    affine_result = affine_register.register(input_image[..., reg_slice_y, reg_slice_x], init_shift = init_shift, \
                                              opt_method = optimizing_method, reg_method = registering_method)
     final_matrix = affine_result['matrix']
 
