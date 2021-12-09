@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from math import pi
 import sys, argparse, json, time
 import numpy as np
 from pathlib import Path
@@ -12,7 +13,8 @@ input_filename = None
 output_txt_filename = None
 output_txt_suffix = '_{0}.json' # overwritten
 ref_filename = None
-use_channel = 0
+input_channel = 0
+ref_channel = 0
 output_aligned_image = False
 aligned_image_filename = None
 aligned_image_suffix = '_{0}.tif' # overwritten
@@ -22,6 +24,7 @@ registering_method_list = register.registering_methods
 optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
 register_area = None
+z_scaling = False
 
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -34,8 +37,11 @@ parser.add_argument('-g', '--gpu-id', default = gpu_id, \
 parser.add_argument('-r', '--ref-image', default = ref_filename, \
                     help='specify a reference image')
 
-parser.add_argument('-c', '--use-channel', type = int, default = use_channel, \
-                    help='specify the channel to process')
+parser.add_argument('-n', '--ref-channel', type = int, default = ref_channel, \
+                    help='specify the channel of the reference image to process')
+
+parser.add_argument('-c', '--input-channel', type = int, default = input_channel, \
+                    help='specify the channel of the input image to process')
 
 parser.add_argument('-R', '--register-area', type = int, nargs = 4, default = register_area, \
                    metavar = ('X', 'Y', 'W', "H"),
@@ -48,6 +54,9 @@ parser.add_argument('-e', '--registering-method', type = str, default = register
 parser.add_argument('-t', '--optimizing-method', type = str, default = optimizing_method, \
                     choices = optimizing_method_list, \
                     help='Method to optimize the affine matrices')
+
+parser.add_argument('-z', '--z-scaling', action = 'store_true', \
+                    help='Scale Z-axis to achieve isotrophic voxels')
 
 parser.add_argument('-A', '--output-aligned-image', action = 'store_true', \
                     help='output aligned images')
@@ -62,12 +71,14 @@ args = parser.parse_args()
 # set arguments
 input_filename = args.input_file
 ref_filename = args.ref_image
-use_channel = args.use_channel
+input_channel = args.input_channel
+ref_channel = args.ref_channel
 gpu_id = args.gpu_id
 output_aligned_image = args.output_aligned_image
 registering_method = args.registering_method
 optimizing_method = args.optimizing_method
 register_area = args.register_area
+z_scaling = args.z_scaling
 
 output_txt_suffix = output_txt_suffix.format(registering_method.lower())
 aligned_image_suffix = aligned_image_suffix.format(registering_method.lower())
@@ -90,16 +101,33 @@ if gpu_id is not None:
 input_tiff = mmtiff.MMTiff(input_filename)
 if input_tiff.colored:
     raise Exception('Input_image: color image not accepted')
-input_images = input_tiff.as_list(channel = use_channel, drop = True)
+input_images = input_tiff.as_list(list_channel = True)
+pixelsize_xy_um = input_tiff.pixelsize_um
+z_step_um = input_tiff.z_step_um
+
+z_ratio = z_step_um / pixelsize_xy_um
+if np.isclose(z_ratio, 1.0) == False and z_scaling == True:
+    z_step_um = pixelsize_xy_um
+    print("Z-scaling the input image:", z_ratio)
+    for index in range(input_tiff.total_time):
+        for channel in range(input_tiff.total_channel):
+            input_images[index][channel] = gpuimage.z_zoom(input_images[index][channel], \
+                                                           ratio = z_ratio, gpu_id = gpu_id)
 
 # read reference image
 if ref_filename is None:
-    ref_image = input_images[0].copy()
+    ref_image = input_images[0][input_channel].copy()
 else:
     ref_tiff = mmtiff.MMTiff(ref_filename)
     if ref_tiff.colored:
         raise Exception('Reference image: color reference image not accepted.')
-    ref_image = ref_tiff.as_list(channel = use_channel, drop = True)[0]
+    ref_image = ref_tiff.as_list(channel = ref_channel, drop = True)[0]
+
+    xy_ratio = ref_tiff.pixelsize_um / pixelsize_xy_um
+    z_ratio = ref_tiff.z_step_um / z_step_um
+    if np.isclose(xy_ratio, 1.0) == False or np.isclose(z_ratio, 1.0) == False:
+        print("Scaling the reference image:", (z_ratio, xy_ratio, xy_ratio))
+        ref_image = gpuimage.zoom(ref_image, ratio = (z_ratio, xy_ratio, xy_ratio), gpu_id = None)
 
 # prepare slices to crop areas used for registration
 if register_area is None:
@@ -108,19 +136,20 @@ if register_area is None:
 reg_slice_x, reg_slice_y = mmtiff.area_to_slice(register_area)
 print("Using X slice:", reg_slice_x)
 print("Using Y slice:", reg_slice_y)
+print("Input channel:", input_channel)
 
 # calculate POCs for pre-registration
 poc_result_list = []
 print("Pre-registrating using phase-only-correlation.")
 poc_register = register.Poc(ref_image[..., reg_slice_y, reg_slice_x], gpu_id = gpu_id)
 for index in range(len(input_images)):
-    poc_result = poc_register.register(input_images[index][..., reg_slice_y, reg_slice_x])
+    poc_result = poc_register.register(input_images[index][input_channel][..., reg_slice_y, reg_slice_x])
     poc_result_list.append(poc_result)
 
 # free gpu memory
 poc_register = None
 
-# losess filter to exclude outliers
+# lowess filter to exclude outliers
 values_list = []
 for i in range(len(ref_image.shape)):
     values = np.array([x['shift'][i] for x in poc_result_list])
@@ -146,10 +175,10 @@ for index in range(len(input_images)):
     if input_tiff.total_zstack == 1:
         # reference image can be 3d (broadcasted automatically during the registration)
         init_shift = init_shift_list[index]['shift'][1:]
-        input_image = input_images[index][0]
+        input_image = input_images[index][input_channel][0]
     else:
         init_shift = init_shift_list[index]['shift']
-        input_image = input_images[index]
+        input_image = input_images[index][input_channel]
     print("Initial shift:", init_shift)
 
     affine_result = affine_register.register(input_image[..., reg_slice_y, reg_slice_x], init_shift = init_shift, \
@@ -157,12 +186,16 @@ for index in range(len(input_images)):
     final_matrix = affine_result['matrix']
 
     if output_aligned_image:
-        output_image = gpuimage.affine_transform(input_image, final_matrix, gpu_id = gpu_id)
-        if input_tiff.total_zstack == 1:
-            output_image = output_image[np.newaxis, np.newaxis]
-        else:
-            output_image = output_image[:, np.newaxis]
-        output_image_list.append(output_image)
+        print("Preparing output images.")
+        output_image_channels = []
+        for channel in range(input_tiff.total_channel):
+            if input_tiff.total_zstack == 1:
+                output_image = gpuimage.affine_transform(input_images[index][channel][0], final_matrix, gpu_id = gpu_id)
+                output_image = output_image[np.newaxis]
+            else:
+                output_image = gpuimage.affine_transform(input_images[index][channel], final_matrix, gpu_id = gpu_id)
+            output_image_channels.append(output_image)
+        output_image_list.append(output_image_channels)
 
     print(affine_result['results'].message)
     print("Matrix:")
@@ -189,7 +222,16 @@ affine_register = None
 
 # summarize the results
 params_dict = {'image_filename': Path(input_filename).name,
-               'time_stamp': time.strftime("%a %d %b %H:%M:%S %Z %Y")}
+               'time_stamp': time.strftime("%a %d %b %H:%M:%S %Z %Y"),
+               'pixelsize_xy_um': pixelsize_xy_um,
+               'z_step_um': z_step_um,
+               'input_channel': input_channel,
+               'register_area': register_area}
+
+if ref_filename is not None:
+    params_dict['ref_filename'] = ref_filename
+    params_dict['ref_channel'] = ref_channel
+
 summary_list = []
 for index in range(len(input_images)):
     summary = {}
@@ -210,4 +252,5 @@ with open(output_txt_filename, 'w') as f:
 # output images
 if output_aligned_image:
     print("Output image:", aligned_image_filename)
-    input_tiff.save_image(aligned_image_filename, np.array(output_image_list))
+    mmtiff.save_image(aligned_image_filename, np.array(output_image_list).swapaxes(1, 2), \
+                      xy_pixel_um = pixelsize_xy_um, z_step_um = z_step_um)

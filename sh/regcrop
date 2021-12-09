@@ -7,20 +7,24 @@ deconv=0
 iter=10
 first_view_x=370
 second_view_x=1400
+z_scaling=0
+output_mini=0
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-f FIRST_VIEW_X] [-s SECOND_VIEW_X] [-m REG_METHOD] [-d] [-i ITER] file [file ...]"
+    echo "$(basename "$0") [-f FIRST_VIEW_X] [-s SECOND_VIEW_X] [-m REG_METHOD] [-z] [-d] [-i ITER] [-n] file [file ...]"
     echo "Default settings:"
     echo "- reg_method: ${reg_method}"
     echo "- first_view_x: ${first_view_x}"
     echo "- second_view_x: ${second_view_x}"
+    echo "- z-scaling: ${z_scaling}"
     echo "- deconv: ${deconv}"
+    echo "- output_mini: ${output_mini}"
     exit 1
 }
 
 # parse options
-while getopts "f:s:m:d" OPT;
+while getopts "f:s:m:di:zn" OPT;
 do
     case "$OPT" in
     f) first_view_x="$OPTARG" ;;
@@ -28,6 +32,8 @@ do
     m) reg_method="${OPTARG,,}" ;;
     d) deconv=1 ;;
     i) iter="$OPTARG" ;;
+    z) z_scaling=1 ;;
+    n) output_mini=1 ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -55,13 +61,22 @@ do
 	output_reg="${stem}_${reg_method,,}.tif"
 	output_crop_0="${stem}_${reg_method,,}_crop_0.tif"
 	output_crop_1="${stem}_${reg_method,,}_crop_1.tif"
+	output_crop_1_mini="${stem}_${reg_method,,}_crop_1_mini.tif"
 	output_deconv="${stem}_${reg_method,,}_crop_1_deconv.tif"
+	output_deconv_mini="${stem}_${reg_method,,}_crop_1_deconv_mini.tif"
     output_log="${stem}_regcrop.log"
 
     echo "Registration & cropping:" $(date) > $output_log
     echo "Method: ${reg_method,,}" >> $output_log
 
-    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "${reg_method}" -A -a "$output_reg" "$file"
+    if [[ $z_scaling == 1 ]]; then
+        echo "Z-scaling is ON during registration." >> $output_log
+        z_option="-z"
+    else
+        z_option=""
+    fi
+
+    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "${reg_method}" $z_option -A -a "$output_reg" "$file"
     mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" "$output_reg"
     echo "First view: ${first_view_x}" >> $output_log
     
@@ -71,6 +86,13 @@ do
     if [[ $deconv == 1 ]]; then
         echo "Deconvolution iterating: ${iter}" >> $output_log
         mmdeconv.py -g 0 -i "$iter" -o "$output_deconv" "$output_crop_1"
+    fi
+
+    if [[ $output_mini == 1 ]]; then
+        echo "----------"
+        echo "Output mini-size versions" >> $output_log
+        mmcrop.py -o "$output_crop_1_mini" -R 0 64 256 128 "$output_crop_1"
+        mmcrop.py -o "$output_deconv_mini" -R 0 64 256 128 "$output_deconv"
     fi
 
 done
