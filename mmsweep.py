@@ -134,4 +134,5 @@ print("Output image:", output_filename)
 output_image = np.array(output_image_list)[np.newaxis]
 mmtiff.save_image(output_filename, output_image, \
                   xy_res = 1 / input_tiffs[-1].pixelsize_um, \
-                  z_step_um = input_tiffs[-1].z_step_um)
+                  z_step_um = input_tiffs[-1].z_step_um, \
+                  finterval = input_tiffs[-1].finterval_sec)

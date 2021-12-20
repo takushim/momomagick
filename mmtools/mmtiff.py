@@ -6,6 +6,7 @@ from pathlib import Path
 
 pixelsize_um = 0.1625
 z_step_um = 0.5
+finterval_sec = 1
 
 def stem (filename):
     name = Path(filename).stem
@@ -50,11 +51,12 @@ def area_to_slice (area):
     slice_y = slice(area[1], area[1] + area[3], 1)
     return slice_x, slice_y
 
-def save_image (filename, image_array, xy_pixel_um = pixelsize_um, z_step_um = z_step_um, xy_res = None,
+def save_image (filename, image_array, xy_pixel_um = pixelsize_um, z_step_um = z_step_um, \
+                xy_res = None, finterval_sec = finterval_sec,
                 imagej = True, axes = 'TZCYX'):
     if xy_res is None:
         xy_res = 1 / xy_pixel_um
-    metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
+    metadata = {'spacing': z_step_um, 'unit': 'um', 'finterval': finterval_sec, 'Composite mode': 'composite'}
     if imagej:
         print('Saving image in the imagej format: ', image_array.shape, image_array.dtype)
         tifffile.imsave(filename, np.array(image_array), imagej = True, \
@@ -71,6 +73,7 @@ class MMTiff:
         self.micromanager_summary = None
         self.pixelsize_um = pixelsize_um
         self.z_step_um = z_step_um
+        self.finterval_sec = finterval_sec
 
         # read image
         self.filename = filename
@@ -129,15 +132,18 @@ class MMTiff:
             values = tiff.pages[0].tags['XResolution'].value
             self.pixelsize_um = float(values[1]) / float(values[0])
             print("Set pixelsize_um from the image", self.pixelsize_um)
+
         if 'ImageDescription' in tiff.pages[0].tags:
             if tiff.imagej_metadata is not None:
                 if 'spacing' in tiff.imagej_metadata:
                     self.z_step_um = tiff.imagej_metadata['spacing']
-                    print("Set z_step_um from the imagej metadata", self.z_step_um)
+                if 'finterval' in tiff.imagej_metadata:
+                    self.finterval_sec = tiff.imagej_metadata['finterval']
             elif tiff.ome_metadata is not None:
                 if 'spacing' in tiff.ome_metadata:
                     self.z_step_um = tiff.ome_metadata['spacing']
-                    print("Set z_step_um from the ome metadata", self.z_step_um)
+                if 'finterval' in tiff.imagej_metadata:
+                    self.finterval_sec = tiff.imagej_metadata['finterval']
 
     def as_list (self, channel = None, drop = True, list_channel = False):
         if channel is None:
@@ -177,7 +183,7 @@ class MMTiff:
 
     def save_image (self, filename, image_array):
         print('Saving image: ', image_array.shape, image_array.dtype)
-        metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
+        metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
         tifffile.imsave(filename, np.array(image_array), imagej = True, \
                 resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
                 metadata = metadata)
@@ -187,7 +193,7 @@ class MMTiff:
         #metadata = {'PhysicalSizeX': self.pixelsize_um, 'PhysicalSizeXUnit': 'um', \
         #            'PhysicalSizeY': self.pixelsize_um, 'PhysicalSizeYUnit': 'um', \
         #            'PhysicalSizeZ': self.z_step_um, 'PhysicalSizeZUnit': 'um'}
-        metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite'}
+        metadata = {'spacing': self.z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
         tifffile.imsave(filename, np.array(image_array), ome = True, \
                         resolution = (1 / self.pixelsize_um, 1 / self.pixelsize_um), \
                         metadata = metadata)

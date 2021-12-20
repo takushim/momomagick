@@ -179,4 +179,5 @@ for index in range(input_tiff.total_time):
 print("Output image:", output_filename)
 output_image = np.array(output_image_list).swapaxes(1, 2).astype(np.float32)
 mmtiff.save_image(output_filename, output_image, \
-    xy_res = 1 / input_tiff.pixelsize_um, z_step_um = input_tiff.pixelsize_um)
+                  xy_res = 1 / input_tiff.pixelsize_um, z_step_um = input_tiff.pixelsize_um, \
+                  finterval = input_tiff.finterval)

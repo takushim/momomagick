@@ -281,4 +281,5 @@ with open(output_json_filename, 'w') as f:
 print("Output image:", output_filename)
 output_image = np.array(output_image_list).swapaxes(1, 2)
 mmtiff.save_image(output_filename, output_image, imagej = True, \
-                  xy_pixel_um = voxelsize_um, z_step_um = voxelsize_um)
+                  xy_pixel_um = voxelsize_um, z_step_um = voxelsize_um, \
+                  finterval = input_tiffs[-1].finterval_sec)
