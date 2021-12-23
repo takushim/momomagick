@@ -254,4 +254,4 @@ if output_aligned_image:
     print("Output image:", aligned_image_filename)
     mmtiff.save_image(aligned_image_filename, np.array(output_image_list).swapaxes(1, 2), \
                       xy_pixel_um = pixelsize_xy_um, z_step_um = z_step_um, \
-                      finterval = input_tiff.finterval_sec)
+                      finterval_sec = input_tiff.finterval_sec)
