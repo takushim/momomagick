@@ -38,5 +38,5 @@ for analysis in "${analyses[@]}"; do
     output_txt="${output_folder}/${stem}_${analysis}.txt"
     output_graph="${output_folder}/${stem}_${analysis}.png"
 
-    mmanalyze_pytrace.py -a "$analysis" -o "$output_txt" -g "$output_graph" -x "$time_scale" "${files[@]}"
+    mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" -x "$time_scale" "${files[@]}"
 done

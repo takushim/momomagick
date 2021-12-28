@@ -1,36 +1,38 @@
 #!/usr/bin/env python
 
-import sys, re, argparse
+import sys, argparse, json
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from matplotlib import pyplot
-from mmtools import trackj, lifetime
+from mmtools import mmtiff, trackj, lifetime, particles
 
 # default values
 input_filenames = None
-time_scale = 1.0
+time_scale = None
 fitting_start = 0
-output_folder = 'analyze'
-output_stem = None
-suffix_tsv = ".txt"
-suffix_graph = ".png"
-stem_regression = '_regr'
-stem_lifetime = '_life'
-stem_newbinding = '_bind'
-stem_cumulative = '_cuml'
-optimizing_method = lifetime.default_method
-optimizing_method_list = lifetime.optimizing_methods
+output_filename = None
+output_suffix = "_{0}.txt"
+graph_filename = None
+graph_suffix = "_{0}.png"
+analysis_list = ['lifetime', 'regression', 'cumulative', 'counting']
+analysis = analysis_list[0]
+time_scale = 1.0
+opt_method = lifetime.default_method
+opt_method_list = lifetime.optimizing_methods
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Calculate lifetime and regression curves', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('-O', '--output-folder', default = output_folder, \
-                    help='folder to output results ({0} if not specified)'.format(output_folder))
+parser.add_argument('-o', '--output-file', default = output_filename, \
+                    help='output filenames ([basename]_{0} if not specified)'.format(output_suffix.format('[analysis]')))
 
-parser.add_argument('-o', '--output-stem', default = output_stem, \
-                    help='stem of output filenames (the first filename if not specified)')
+parser.add_argument('-g', '--graph-file', default = graph_filename, \
+                    help='graph filenames ([basename]_{0} if not specified)'.format(graph_suffix.format('[analysis]')))
+
+parser.add_argument('-a', '--analysis', type = str, default = analysis, choices = analysis_list, \
+                    help='Method used to analyze the tracking data')
 
 parser.add_argument('-x', '--time-scale', type = float, default = time_scale, \
                     help='interval of time-lapse (in seconds)')
@@ -38,72 +40,43 @@ parser.add_argument('-x', '--time-scale', type = float, default = time_scale, \
 parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start, \
                     help='starting point of fitting')
 
-parser.add_argument('-t', '--optimizing-method', type = str, default = optimizing_method, \
-                    choices = optimizing_method_list, \
+parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choices = opt_method_list, \
                     help='Method to optimize the one-phase-decay model')
 
 parser.add_argument('input_files', nargs = '+', default = input_filenames, \
-                    help='input TSV file or TrackJ CSV files')
+                    help='input JSON file of tracking data. Results from multiple files are merged.')
 args = parser.parse_args()
 
 # set arguments
 time_scale = args.time_scale
 input_filenames = args.input_files
 fitting_start = args.fitting_start
-optimizing_method = args.optimizing_method
+opt_method = args.opt_method
+analysis = args.analysis
 
-# set the stem of output filenames
-output_stem = args.output_stem
-if output_stem is None:
-    output_stem = Path(input_filenames[0]).stem
-    output_stem = re.sub('\.ome$', '', output_stem, flags = re.IGNORECASE)
-    output_stem = re.sub('\_speckles$', '', output_stem, flags = re.IGNORECASE)
+output_suffix = output_suffix.format(analysis)
+graph_suffix = graph_suffix.format(analysis)
 
-# prepare a folder
-output_folder = args.output_folder
-print("Making an output folder {0}.".format(output_folder))
-Path(output_folder).mkdir(parents = True, exist_ok = True)
+output_filename = args.output_file
+if output_filename is None:
+    output_filename = mmtiff.with_suffix(input_filenames[0], output_suffix)
 
-# functions for 
-def output_path (stem_suffix, file_suffix):
-    return Path(output_folder).joinpath(output_stem + stem_suffix + file_suffix)
+graph_filename = args.graph_file
+if graph_filename is None:
+    graph_filename = mmtiff.with_suffix(input_filenames[0], graph_suffix)
 
-def fitting_text (fitting):
-    koff = fitting['koff']
-    halflife = fitting['halflife']
-    start = fitting['start']
-    text = "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec (t >= {2})".format(koff, halflife, start)
-    return text
-
-def merge_results (names, tables):
-    max_index = np.argmax([len(table.frame) for table in tables])
-    frames = tables[max_index].frame.to_list()
-    times = tables[max_index].time.to_list()
-    count_list = []
-    for table in tables:
-        counts = [0] * len(frames)
-        max_len = len(table.spotcount)
-        counts[0:max_len] = table.spotcount.to_list()
-        count_list.append(counts)
-    return {'frame': frames, 'time': times, 'name_list': names, 'count_list': count_list}
-
-def dict_to_spot_table (result):
-    table_dict = {'Result_{0}'.format(i): result['count_list'][i] for i in range(len(result['count_list']))}
-    table = pd.DataFrame(table_dict)
-    return table
-
-def dict_to_output_table (result):
-    table = pd.DataFrame({'time': result['time'], 'frame': result['frame']}, columns = ['time', 'frame'])
-    for index in range(len(result['count_list'])):
-        table[result['name_list'][index]] = result['count_list'][index]
-    return table
-
-# read TSV or TrackJ CSV file
+# read JSON or TSV or TrackJ CSV file
 spot_tables = []
 for input_filename in input_filenames:
-    if Path(input_filename).suffix.lower() == ".txt":
+    suffix = Path(input_filename).suffix.lower()
+    if suffix == '.json':
+        with open(input_filename, 'r') as f:
+            spot_table = pd.DataFrame(particles.parse_tree(json.load(f)['spot_list']))
+            spot_table['plane'] = spot_table['time']
+            spot_table['total_index'] = spot_table['track']
+    elif suffix == ".txt":
         spot_table = pd.read_csv(input_filename, comment = '#', sep = '\t')
-    elif Path(input_filename).suffix.lower() == ".csv":
+    elif suffix == ".csv":
         spot_table = trackj.read_spots(input_filename)
     else:
         raise Exception("Unknown file format.")
@@ -113,167 +86,97 @@ for input_filename in input_filenames:
     print("{0}: {1} records and {2} tracks.".format(input_filename, total_records, total_records))
     spot_tables.append(spot_table)
 
-############################################################
-# regression table
-############################################################
-# combine results
-results = [lifetime.regression(table, time_scale = time_scale) for table in spot_tables]
-result_dict = merge_results(input_filenames, results)
+# analysis
+if analysis == 'regression':
+    results = [lifetime.regression(table, time_scale = time_scale) for table in spot_tables]
+elif analysis == 'lifetime':
+    results = [lifetime.lifetime(table, time_scale = time_scale) for table in spot_tables]
+elif analysis == 'cumulative':
+    results = [lifetime.cumulative(table, time_scale = time_scale) for table in spot_tables]
+elif analysis == 'counting':
+    results = [lifetime.new_bindings(table, time_scale = time_scale) for table in spot_tables]
+else:
+    raise Exception('Unknown analysis method: {0}'.format(analysis))
 
-# fitting
-spot_table = dict_to_spot_table(result_dict)
-spot_sum = spot_table.sum(axis = 1)
-times = np.array(result_dict['time'])
-fitting = lifetime.fit_one_phase_decay(times, spot_sum, method = optimizing_method)
-fitting_func = fitting['func']
-print("Params:", fitting['params'])
-print("Status:", fitting['message'])
+if analysis != 'counting':
+    max_index = np.argmax([len(result.frame) for result in results])
+    frames = results[max_index].frame.to_list()
+    times = results[max_index].time.to_list()
 
-# regression tsv
-output_filename = output_path(stem_regression, suffix_tsv)
-output_table = dict_to_output_table(result_dict)
-print("Output regression table to {0}.".format(output_filename))
-output_table.to_csv(output_filename, sep = '\t', index = False)
+    result_dict = {'frame': frames, 'time': times}
+    counts_sum = [0] * len(frames)
+    for index in range(len(results)):
+        counts = [0] * len(frames)
+        max_len = len(results[index].spotcount)
+        counts[0:max_len] = results[index].spotcount.to_list()
+        result_dict['Result_{0}'.format(index)] = counts
+        counts_sum = [count + sum for count, sum in zip(counts, counts_sum)]
 
-# regression graph
-output_filename = output_path(stem_regression, suffix_graph)
-print("Output regression graph to {0}.".format(output_filename))
-figure = pyplot.figure(figsize = (12, 8), dpi = 300)
-axes = figure.add_subplot(111)
-axes.set_title("Regression from t = 0", size = 'xx-large')
-curve_x = np.arange(times[0], np.max(times), times[0] / 10)
-axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
+    result_table = pd.DataFrame(result_dict)
+    result_table['sum'] = counts_sum
 
-width = times[0] / 2
-labels = result_dict['name_list']
-offset = np.zeros_like(times, dtype = float)
-for index in range(len(result_dict['count_list'])):
-    counts = np.array(result_dict['count_list'][index])
-    axes.bar(times, counts, bottom = offset, width = width, label = labels[index])
-    offset += np.array(counts)
+    # fitting
+    fitting = lifetime.fit_one_phase_decay(times, counts_sum, start = fitting_start, method = opt_method)
+    fitting_func = fitting['func']
+    print("Params:", fitting['params'])
+    print("Status:", fitting['message'])
 
-axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
-          fitting_text(fitting), size = 'large', ha = 'right', va = 'top')
-axes.legend()
+    # tsv
+    print("Output {0} table to {1}.".format(analysis, output_filename))
+    result_table.to_csv(output_filename, sep = '\t', index = False)
 
-figure.savefig(output_filename, dpi = 300)
-print(".")
+    # graph
+    print("Output {0} graph to {1}.".format(analysis, graph_filename))
 
-############################################################
-# lifetime table
-############################################################
-# combine results
-results = [lifetime.lifetime(table, time_scale = time_scale) for table in spot_tables]
-result_dict = merge_results(input_filenames, results)
+    if analysis == 'lifetime':
+        graph_title = "Lifetime distribution (total {0} spots)".format(sum(counts_sum))
+    elif analysis == 'cumulative':
+        graph_title = "Cumulative lifetime (total {0} spots)".format(counts_sum[0])
+    else:
+        graph_title = "Regression from t = 0 (total {0} spots)".format(counts_sum[0])
 
-# fitting
-spot_table = dict_to_spot_table(result_dict)
-spot_sum = spot_table.sum(axis = 1)
-times = np.array(result_dict['time'])
-fitting = lifetime.fit_one_phase_decay(times, spot_sum, start = fitting_start, method = optimizing_method)
-fitting_func = fitting['func']
-print("Params:", fitting['params'])
-print("Status:", fitting['message'])
 
-# lifetime tsv
-output_filename = output_path(stem_lifetime, suffix_tsv)
-output_table = dict_to_output_table(result_dict)
-print("Output lifetime table to {0}.".format(output_filename))
-output_table.to_csv(output_filename, sep = '\t', index = False)
+    figure = pyplot.figure(figsize = (12, 8), dpi = 300)
+    axes = figure.add_subplot(111)
+    axes.set_title(graph_title, size = 'xx-large')
+    curve_x = np.arange(times[0], np.max(times), times[0] / 10)
+    axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
 
-# lifetime graph
-output_filename = output_path(stem_lifetime, suffix_graph)
-print("Output lifetime graph to {0}.".format(output_filename))
-figure = pyplot.figure(figsize = (12, 8), dpi = 300)
-axes = figure.add_subplot(111)
-axes.set_title("Lifetime ({0} spots)".format(spot_sum.sum()), size = 'xx-large')
-curve_x = np.arange(times[0], np.max(times), times[0] / 10)
-axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
+    offset = np.zeros_like(times, dtype = float)
+    for index in range(len(results)):
+        counts = np.array(result_dict['Result_{0}'.format(index)])
+        axes.bar(times, counts, bottom = offset, width = times[0] / 2, label = input_filenames[index])
+        offset += np.array(counts)
 
-width = times[0] / 2
-labels = result_dict['name_list']
-offset = np.zeros_like(times, dtype = float)
-for index in range(len(result_dict['count_list'])):
-    counts = np.array(result_dict['count_list'][index])
-    axes.bar(times, counts, bottom = offset, width = width, label = labels[index])
-    offset += np.array(counts)
+    koff = fitting['koff']
+    halflife = fitting['halflife']
+    start = fitting['start']
+    fitting_text = "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec (t >= {2})".format(koff, halflife, start)
+    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
+              fitting_text, size = 'large', ha = 'right', va = 'top')
 
-axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
-          fitting_text(fitting), size = 'large', ha = 'right', va = 'top')
-axes.legend()
+    axes.legend()
 
-figure.savefig(output_filename, dpi = 300)
-print(".")
+    figure.savefig(graph_filename, dpi = 300)
 
-############################################################
-# cumulative lifetime table
-############################################################
-# combine results
-results = [lifetime.cumulative(table, time_scale = time_scale) for table in spot_tables]
-result_dict = merge_results(input_filenames, results)
+else:
+    output_table = pd.concat(results)
+    mean_lifetime = output_table[output_table.plane > 0].lifetime.mean()
 
-# fitting
-spot_table = dict_to_spot_table(result_dict)
-spot_sum = spot_table.sum(axis = 1)
-times = np.array(result_dict['time'])
-fitting = lifetime.fit_one_phase_decay(times, spot_sum, method = optimizing_method)
-fitting_func = fitting['func']
-print("Params:", fitting['params'])
-print("Status:", fitting['message'])
+    # tsv
+    print("Output {0} table to {1}.".format(analysis, output_filename))
+    output_table.to_csv(output_filename, sep = '\t', index = False)
 
-# lifetime tsv
-output_filename = output_path(stem_cumulative, suffix_tsv)
-output_table = dict_to_output_table(result_dict)
-print("Output cumulative lifetime table to {0}.".format(output_filename))
-output_table.to_csv(output_filename, sep = '\t', index = False)
+    # graph
+    print("Output {0} graph to {1}.".format(analysis, graph_filename))
+    graph_title = "Relationship between binding and lifetime (total {0} spots)".format(len(output_table))
 
-# lifetime graph
-output_filename = output_path(stem_cumulative, suffix_graph)
-print("Output cumulative lifetime graph to {0}.".format(output_filename))
-figure = pyplot.figure(figsize = (12, 8), dpi = 300)
-axes = figure.add_subplot(111)
-axes.set_title("Cumulative lifetime ({0} spots)".format(spot_sum[0], size = 'xx-large'))
-curve_x = np.arange(times[0], np.max(times), times[0] / 10)
-axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
-
-width = times[0] / 2
-labels = result_dict['name_list']
-offset = np.zeros_like(times, dtype = float)
-for index in range(len(result_dict['count_list'])):
-    counts = np.array(result_dict['count_list'][index])
-    axes.bar(times, counts, bottom = offset, width = width, label = labels[index])
-    offset += np.array(counts)
-
-axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
-          fitting_text(fitting), size = 'large', ha = 'right', va = 'top')
-axes.legend()
-
-figure.savefig(output_filename, dpi = 300)
-print(".")
-
-############################################################
-# new binding table
-############################################################
-# combine results
-results = [lifetime.new_bindings(table, time_scale = time_scale) for table in spot_tables]
-output_table = pd.concat(results)
-mean_lifetime = output_table[output_table.plane > 0].lifetime.mean()
-
-# new binding tsv
-output_filename = output_path(stem_newbinding, suffix_tsv)
-print("Output new-binding table to {0}.".format(output_filename))
-output_table.to_csv(output_filename, sep = '\t', index = False)
-
-# new binding graph
-output_filename = output_path(stem_newbinding, suffix_graph)
-print("Output new-binding graph to {0}.".format(output_filename))
-figure = pyplot.figure(figsize = (12, 8), dpi = 300)
-axes = figure.add_subplot(111)
-axes.set_title("Binding plane and lifetime", size = 'xx-large')
-axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
-axes.scatter(output_table.plane, output_table.lifetime, color = 'orange')
-axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
-            "Mean lifetime = {0:.3f} sec (plane > 0)".format(mean_lifetime), \
-            size = 'xx-large', ha = 'right', va = 'top')
-figure.savefig(output_filename, dpi = 300)
-print(".")
+    figure = pyplot.figure(figsize = (12, 8), dpi = 300)
+    axes = figure.add_subplot(111)
+    axes.set_title(graph_title, size = 'xx-large')
+    axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
+    axes.scatter(output_table.plane, output_table.lifetime, color = 'orange')
+    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
+                "Mean lifetime = {0:.3f} sec (plane > 0)".format(mean_lifetime), \
+                size = 'xx-large', ha = 'right', va = 'top')
+    figure.savefig(graph_filename, dpi = 300)
