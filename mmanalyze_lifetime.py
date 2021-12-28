@@ -141,17 +141,20 @@ if analysis != 'counting':
     axes.set_title(graph_title, size = 'xx-large')
     curve_x = np.arange(times[0], np.max(times), times[0] / 10)
     axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
+    axes.set_ylim(bottom = 0)
 
     offset = np.zeros_like(times, dtype = float)
     for index in range(len(results)):
         counts = np.array(result_dict['Result_{0}'.format(index)])
-        axes.bar(times, counts, bottom = offset, width = times[0] / 2, label = input_filenames[index])
+        axes.bar(times, counts, bottom = offset, width = times[0] / 2, label = Path(input_filenames[index]).name)
         offset += np.array(counts)
 
     koff = fitting['koff']
     halflife = fitting['halflife']
     start = fitting['start']
     fitting_text = "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec (t >= {2})".format(koff, halflife, start)
+    print(fitting_text)
+
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
               fitting_text, size = 'large', ha = 'right', va = 'top')
 
@@ -162,6 +165,8 @@ if analysis != 'counting':
 else:
     output_table = pd.concat(results)
     mean_lifetime = output_table[output_table.plane > 0].lifetime.mean()
+    mean_text = "Mean lifetime = {0:.3f} sec (plane > 0)".format(mean_lifetime)
+    print(mean_text)
 
     # tsv
     print("Output {0} table to {1}.".format(analysis, output_filename))
@@ -177,6 +182,5 @@ else:
     axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
     axes.scatter(output_table.plane, output_table.lifetime, color = 'orange')
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
-                "Mean lifetime = {0:.3f} sec (plane > 0)".format(mean_lifetime), \
-                size = 'xx-large', ha = 'right', va = 'top')
+              mean_text, size = 'xx-large', ha = 'right', va = 'top')
     figure.savefig(graph_filename, dpi = 300)

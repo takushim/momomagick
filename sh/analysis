@@ -34,9 +34,11 @@ fi
 # process!
 mkdir -p "$output_folder"
 for analysis in "${analyses[@]}"; do
+    echo "**** ${analysis} ****"
     stem="$(echo ${files[0]} | sed 's/\.json$//')"
     output_txt="${output_folder}/${stem}_${analysis}.txt"
     output_graph="${output_folder}/${stem}_${analysis}.png"
 
     mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" -x "$time_scale" "${files[@]}"
+    echo "."
 done
