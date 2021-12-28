@@ -29,32 +29,30 @@ if output_filename is None:
     output_filename = mmtiff.with_suffix(input_filename, output_suffix)
 
 # read JSON or TSV or TrackJ CSV file
-suffix = Path(input_filename).suffix.lower()
-if suffix == '.json':
-    with open(input_filename, 'r') as f:
-        records = json.load(f)        
-        spot_table = pd.DataFrame(particles.parse_tree(records['spot_list']), dtype = object)
-elif suffix == ".txt":
-    spot_table = pd.read_csv(input_filename, comment = '#', sep = '\t')
-elif suffix == ".csv":
-    spot_table = trackj.read_spots(input_filename)
-else:
-    raise Exception("Unknown file format.")
-    
-total_records = len(spot_table.total_index)
-total_tracks = len(spot_table.total_index.unique())
-print("{0}: {1} records and {2} tracks.".format(input_filename, total_records, total_tracks))
+with open(input_filename, 'r') as f:
+    spot_list = json.load(f)['spot_list']
+    spot_list = [spot for spot in spot_list if spot.get('delete', False) == False]
 
+# draw graph
 graph = graphviz.Graph(engine = 'dot', format = Path(output_filename).suffix[1:])
-
-graph.node("Start")
 graph.attr("node", shape = "rectangle")
-for index in spot_table.total_index.unique():
-    track_table = spot_table[spot_table.total_index == index]
-    node = "Start"
-    for track_index in range(len(track_table)):
-        current = "Spot_{0}".format(track_table.index[track_index])
-        graph.edge(node, current)
-        node = current
+
+def add_child_edges (spot, parent):
+    name = "Spot_{0}".format(spot['index'])
+    label = "Spot_{0} (t = {1})\nx{2:.2f} y{3:.2f} z{4}".format(spot['index'], spot['time'], spot['x'], spot['y'], spot['z'])
+    graph.node(name = name, label = label)
+    if parent is None:
+        graph.node(name = name, label = label)
+    else:
+        graph.node(name = name, label = label)
+        graph.edge("Spot_{0}".format(spot['index']), "Spot_{0}".format(parent['index']))
+
+    child_list = particles.find_children(spot, spot_list)
+    for child in child_list:
+        add_child_edges(child, spot)
+
+root_list = [spot for spot in spot_list if spot['parent'] is None]
+for root in root_list:
+    add_child_edges(root, None)
 
 graph.render(Path(output_filename).stem)
