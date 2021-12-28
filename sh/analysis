@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source $HOME/.venv/gpu/bin/activate
+
+output_folder="analysis"
+time_scale='1.0'
+analyses=("lifetime" "regression" "cumulative" "counting")
+
+# show usage and exit
+function show_usage () {
+    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] file [file ...]"
+    exit 1
+}
+
+# parse options
+while getopts "o:x:" OPT;
+do
+    case "$OPT" in
+    o) output_folder="$OPTARG" ;;
+    x) time_scale="$OPTARG" ;;
+    :) show_usage ;;
+    \?) show_usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# find an image file if not specified
+if [ $# == 0 ]; then
+    files=("$(find . -maxdepth 1 -iname '*_track.json' | head -n 1)")
+else
+    files=("$@")
+fi
+
+# process!
+mkdir -p "$output_folder"
+for analysis in "${analyses[@]}"; do
+    stem="$(echo ${files[0]} | sed 's/\.json$//')"
+    output_txt="${output_folder}/${stem}_${analysis}.txt"
+    output_graph="${output_folder}/${stem}_${analysis}.png"
+
+    mmanalyze_pytrace.py -a "$analysis" -o "$output_txt" -g "$output_graph" -x "$time_scale" "${files[@]}"
+done
