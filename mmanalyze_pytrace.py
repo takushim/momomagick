@@ -54,6 +54,9 @@ fitting_start = args.fitting_start
 opt_method = args.opt_method
 analysis = args.analysis
 
+output_suffix = output_suffix.format(analysis)
+graph_suffix = graph_suffix.format(analysis)
+
 output_filename = args.output_file
 if output_filename is None:
     output_filename = mmtiff.with_suffix(input_filenames[0], output_suffix)
@@ -65,12 +68,11 @@ if graph_filename is None:
 # read JSON or TSV or TrackJ CSV file
 spot_tables = []
 for input_filename in input_filenames:
-    suffix = Path(input_filenames).suffix.lower()
-
+    suffix = Path(input_filename).suffix.lower()
     if suffix == '.json':
         with open(input_filename, 'r') as f:
-            records = json.load(f)        
-            spot_table = pd.DataFrame(particles.parse_tree(records['spot_list']))
+            spot_table = pd.DataFrame(particles.parse_tree(json.load(f)['spot_list']))
+            spot_table['plane'] = spot_table['time']
     elif suffix == ".txt":
         spot_table = pd.read_csv(input_filename, comment = '#', sep = '\t')
     elif suffix == ".csv":
@@ -101,9 +103,9 @@ if analysis != 'counting':
     times = results[max_index].time.to_list()
 
     result_dict = {'frame': frames, 'time': times}
-    counts_sum = [0] * max_index
+    counts_sum = [0] * len(frames)
     for index in range(len(results)):
-        counts = [0] * max_index
+        counts = [0] * len(frames)
         max_len = len(results[index].spotcount)
         counts[0:max_len] = results[index].spotcount.to_list()
         result_dict['Result_{0}'.format(index)] = counts
@@ -137,8 +139,8 @@ if analysis != 'counting':
     axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
 
     offset = np.zeros_like(times, dtype = float)
-    for index in range(len(result_dict['count_list'])):
-        counts = np.array(result_dict['count_list'][index])
+    for index in range(len(results)):
+        counts = np.array(result_dict['Result_{0}'.format(index)])
         axes.bar(times, counts, bottom = offset, width = times[0] / 2, label = input_filenames[index])
         offset += np.array(counts)
 
@@ -151,7 +153,7 @@ if analysis != 'counting':
               fitting_text, size = 'large', ha = 'right', va = 'top')
     axes.legend()
 
-    figure.savefig(output_filename, dpi = 300)
+    figure.savefig(graph_filename, dpi = 300)
 
 else:
     output_table = pd.concat(results)
@@ -171,4 +173,4 @@ else:
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
                 "Mean lifetime = {0:.3f} sec (plane > 0)".format(mean_lifetime), \
                 size = 'xx-large', ha = 'right', va = 'top')
-    figure.savefig(output_filename, dpi = 300)
+    figure.savefig(graph_filename, dpi = 300)
