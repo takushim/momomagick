@@ -128,10 +128,13 @@ if analysis != 'counting':
     # graph
     print("Output {0} graph to {1}.".format(analysis, graph_filename))
 
-    if analysis == 'regression':
-        graph_title = 'Regression from t = 0'
+    if analysis == 'lifetime':
+        graph_title = "Lifetime distribution (total {0} spots)".format(sum(counts_sum))
+    elif analysis == 'cumulative':
+        graph_title = "Cumulative lifetime (total {0} spots)".format(counts_sum[0])
     else:
-        graph_title = '{0} ({1} spots)'.format(analysis, sum(counts_sum))
+        graph_title = "Regression from t = 0 (total {0} spots)".format(counts_sum[0])
+
 
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
@@ -149,9 +152,9 @@ if analysis != 'counting':
     halflife = fitting['halflife']
     start = fitting['start']
     fitting_text = "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec (t >= {2})".format(koff, halflife, start)
-
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
               fitting_text, size = 'large', ha = 'right', va = 'top')
+
     axes.legend()
 
     figure.savefig(graph_filename, dpi = 300)
@@ -166,9 +169,11 @@ else:
 
     # graph
     print("Output {0} graph to {1}.".format(analysis, graph_filename))
+    graph_title = "Relationship between binding and lifetime (total {0} spots)".format(len(output_table))
+
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
-    axes.set_title("Binding plane and lifetime", size = 'xx-large')
+    axes.set_title(graph_title, size = 'xx-large')
     axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
     axes.scatter(output_table.plane, output_table.lifetime, color = 'orange')
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
