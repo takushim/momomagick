@@ -15,7 +15,7 @@ def parse_tree (spot_list):
         current = leaf_list[index]
         track_list = []
         while current is not None:
-            current['total_index'] = index
+            current['track'] = index
             track_list.append(current)
             parent = [spot for spot in spot_list if spot['index'] == current['parent']]
 

@@ -73,6 +73,7 @@ for input_filename in input_filenames:
         with open(input_filename, 'r') as f:
             spot_table = pd.DataFrame(particles.parse_tree(json.load(f)['spot_list']))
             spot_table['plane'] = spot_table['time']
+            spot_table['total_index'] = spot_table['track']
     elif suffix == ".txt":
         spot_table = pd.read_csv(input_filename, comment = '#', sep = '\t')
     elif suffix == ".csv":
