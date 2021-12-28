@@ -15,15 +15,16 @@ reg_method="Rigid"
 option_trunc=""
 crop_final=0
 reverse_over=""
+use_deconv=0
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x/X X] [-y/Y Y] [-z/Z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] [-r] FILE_BACK"
+    echo "$(basename "$0") [-x/X X] [-y/Y Y] [-z/Z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] [-r] [-d] FILE_BACK"
     exit 1
 }
 
 # parse options
-while getopts "x:y:z:X:Y:Z:m:f:s:nacr" OPT;
+while getopts "x:y:z:X:Y:Z:m:f:s:nacrd" OPT;
 do
     case "$OPT" in
     x) shift_x="$OPTARG" ;;
@@ -38,6 +39,7 @@ do
     s) file_sweep="$OPTARG" ;;
     n) option_trunc="-n" ;;
     c) crop_final=1 ;;
+    d) use_deconv=1 ;;
     r) reverse_over="-r" ;;
     :) show_usage ;;
     \?) show_usage ;;
@@ -64,7 +66,11 @@ fi
 
 # find the background image if not specified
 if [[ "$#" == 0 ]]; then
-    file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_1.tif' | head -n 1)"
+    if [[ $use_deconv == 1 ]]; then
+        file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_1_deconv.tif' | head -n 1)"
+    else
+        file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_1.tif' | head -n 1)"
+    fi
 elif [[ "$#" == 1 ]]; then
     file_back="$@"
 else
@@ -125,7 +131,7 @@ if [[ $auto_sweep == 1 ]]; then
     mmoverlay.py -g 0 -o "$output_over" -e XY $option_trunc -c 1 0 $offset_post "$output_sweep" "$file_back"
 else
     echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
-    mmoverlay.py -g 0 -o "$output_over" -s "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc $offset_post "$output_sweep" "$file_back"
+    mmoverlay.py -g 0 -o "$output_over" -S "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc $offset_post "$output_sweep" "$file_back"
 fi
 
 echo "----------"

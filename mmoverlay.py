@@ -85,7 +85,9 @@ optimizing_method = args.optimizing_method
 truncate_frames = args.truncate_frames
 scaling = args.scaling
 
-init_flip = args.init_flip.lower()
+init_flip = args.init_flip
+if init_flip is not None:
+    init_flip = init_flip.lower()
 init_rotation = np.array(args.init_rotation[::-1])
 init_shift = np.array(args.init_shift[::-1])
 
@@ -159,9 +161,14 @@ else:
 print("Initial flip:", init_flip)
 print("Initial rotation:", init_rotation)
 print("Initial shift:", init_shift)
-flip_x = -1 if 'x' in init_flip else 1
-flip_y = -1 if 'y' in init_flip else 1
-flip_z = -1 if 'z' in init_flip else 1
+if init_flip is not None:
+    flip_x = -1 if 'x' in init_flip else 1
+    flip_y = -1 if 'y' in init_flip else 1
+    flip_z = -1 if 'z' in init_flip else 1
+else:
+    flip_x = 1
+    flip_y = 1
+    flip_z = 1
 
 for index in range(input_tiffs[0].total_time):
     for channel in range(input_tiffs[0].total_channel):

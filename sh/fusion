@@ -8,6 +8,7 @@ keep_channels=""
 path_a=0
 path_b=0
 rev_channels=0
+view_x=370
 
 # show usage and exit
 function show_usage () {
