@@ -152,7 +152,8 @@ if analysis != 'counting':
     koff = fitting['koff']
     halflife = fitting['halflife']
     start = fitting['start']
-    fitting_text = "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec (t >= {2})".format(koff, halflife, start)
+    fitting_text = "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec ({2:.3f} frames), fit using t >= {3}".\
+                   format(koff, halflife, halflife / time_scale, start)
     print(fitting_text)
 
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
@@ -165,7 +166,8 @@ if analysis != 'counting':
 else:
     output_table = pd.concat(results)
     mean_lifetime = output_table[output_table.plane > 0].lifetime.mean()
-    mean_text = "Mean lifetime = {0:.3f} sec (plane > 0)".format(mean_lifetime)
+    mean_text = "Mean lifetime = {0:.3f} sec ({1:.3f} frames, plane > 0)".\
+                format(mean_lifetime, mean_lifetime / time_scale)
     print(mean_text)
 
     # tsv
