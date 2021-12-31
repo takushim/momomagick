@@ -1,4 +1,3 @@
-
 # get/set parameters from command line arguments
 Param([Switch]$help = $false,
       [String]$file = "")
@@ -9,6 +8,7 @@ if ($help -eq $true) {
 }
 
 # default values
+$ErrorActionPreference = 'Stop'
 . $HOME\.venv\gpu\Scripts\Activate.ps1
 $script = [IO.Path]::Combine("$HOME\bin\pytrace", "mmtrack.py")
 if ($file.length -eq 0){

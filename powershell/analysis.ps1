@@ -1,4 +1,3 @@
-
 # get/set parameters from command line arguments
 Param([Switch]$help = $false,
       [String]$folder = 'analysis',
@@ -11,6 +10,7 @@ if ($help -eq $true) {
 }
 
 # default values
+$ErrorActionPreference = 'Stop'
 . $HOME\.venv\gpu\Scripts\Activate.ps1
 $scriptpath = "$HOME\bin\dispim"
 $script = [IO.Path]::Combine($scriptpath, "mmanalyze_lifetime.py")
