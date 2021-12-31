@@ -4,20 +4,22 @@ source $HOME/.venv/gpu/bin/activate
 
 output_folder="analysis"
 time_scale='1.0'
+fit_start='0'
 analyses=("lifetime" "regression" "cumulative" "counting")
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] file [file ...]"
+    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] [-s FIT_START] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "o:x:" OPT;
+while getopts "o:x:s:" OPT;
 do
     case "$OPT" in
     o) output_folder="$OPTARG" ;;
     x) time_scale="$OPTARG" ;;
+    s) fit_start="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -39,6 +41,6 @@ for analysis in "${analyses[@]}"; do
     output_txt="${output_folder}/${stem}_${analysis}.txt"
     output_graph="${output_folder}/${stem}_${analysis}.png"
 
-    mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" -x "$time_scale" "${files[@]}"
+    mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" -x "$time_scale" -s "$fit_start" "${files[@]}"
     echo "."
 done
