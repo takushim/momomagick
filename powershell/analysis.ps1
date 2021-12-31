@@ -2,10 +2,11 @@
 Param([Switch]$help = $false,
       [String]$folder = 'analysis',
       [Float]$timescale = 1.0,
+      [Int]$fitstart = 0,
       [String[]]$files = @())
 
 if ($help -eq $true) {
-      Write-Host ("Example: {0} -timescale 10.0 -folder temp -files A, B, C" -f $MyInvocation.MyCommand.Name)
+      Write-Host ("Example: {0} -timescale 10.0 -fitstart 0 -folder temp -files A, B, C" -f $MyInvocation.MyCommand.Name)
       return 0
 }
 
@@ -27,7 +28,7 @@ foreach ($analysis in $analyses){
       $graph = [IO.Path]::Combine($folder, ("{0}_{1}.png" -f $stem, $analysis))
       $parameters = @{
             FilePath = (Get-command "py.exe")
-            ArgumentList = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis) + $files
+            ArgumentList = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis, "-s", $fitstart) + $files
       }
       Start-Process -NoNewWindow -Wait @parameters
 }
