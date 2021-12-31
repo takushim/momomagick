@@ -139,15 +139,15 @@ if analysis != 'counting':
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
     axes.set_title(graph_title, size = 'xx-large')
-    curve_x = np.arange(times[0], np.max(times), times[0] / 10)
-    axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
-    axes.set_ylim(bottom = 0)
-
     offset = np.zeros_like(times, dtype = float)
     for index in range(len(results)):
         counts = np.array(result_dict['Result_{0}'.format(index)])
         axes.bar(times, counts, bottom = offset, width = times[0] / 2, label = Path(input_filenames[index]).name)
         offset += np.array(counts)
+
+    curve_x = np.arange(times[0], np.max(times), times[0] / 10)
+    axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
+    axes.set_ylim(bottom = 0)
 
     koff = fitting['koff']
     halflife = fitting['halflife']
@@ -181,8 +181,8 @@ else:
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
     axes.set_title(graph_title, size = 'xx-large')
-    axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
     axes.scatter(output_table.plane, output_table.lifetime, color = 'orange')
+    axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
               mean_text, size = 'xx-large', ha = 'right', va = 'top')
     figure.savefig(graph_filename, dpi = 300)
