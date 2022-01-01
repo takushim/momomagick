@@ -4,8 +4,9 @@ import tifffile
 import numpy as np
 import scipy.ndimage as ndimage
 from logging import getLogger
-from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
-from aicsimageio.types import PhysicalPixelSizes
+from ome_types import to_xml
+from ome_types.model import OME, Image, Pixels, TiffData, Channel
+from ome_types.model.simple_types import PixelType, ChannelID
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as cpimage
@@ -28,6 +29,19 @@ def turn_on_gpu (gpu_id):
     print("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
     print("Free memory:", device.mem_info)
     return device
+
+dtype_to_ometype = {
+    np.dtype(np.int8): PixelType.INT8,
+    np.dtype(np.int16): PixelType.INT16,
+    np.dtype(np.int32): PixelType.INT32,
+    np.dtype(np.uint8): PixelType.UINT8,
+    np.dtype(np.uint16): PixelType.UINT16,
+    np.dtype(np.uint32): PixelType.UINT32,
+    np.dtype(np.float32): PixelType.FLOAT,
+    np.dtype(np.float64): PixelType.DOUBLE,
+    np.dtype(np.complex64): PixelType.COMPLEXFLOAT,
+    np.dtype(np.complex128): PixelType.COMPLEXDOUBLE,
+}
 
 class Stack:
     def __init__ (self, fileio = None, series = 0, keep_s_axis = False):
@@ -86,17 +100,40 @@ class Stack:
         resolution = (1 / self.pixel_um[2], 1 / self.pixel_um[1])
         z_step_um = self.pixel_um[0]
         metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
-        tifffile.imsave(filename, self.image_array.swapaxes(1, 2), imagej = True, \
-                        resolution = resolution, metadata = metadata)
+        tifffile.imwrite(filename, self.image_array.swapaxes(1, 2), imagej = True, \
+                         resolution = resolution, metadata = metadata)
 
     def save_ome_tiff (self, filename):
-        pixelsize = PhysicalPixelSizes(*self.pixel_um)
-        ome = OmeTiffWriter.build_ome(data_shapes = [self.image_array.shape], \
-                                      data_types = [self.image_array.dtype], \
-                                      image_name = [filename], dimension_order = [self.axes], \
-                                      physical_pixel_sizes = [pixelsize])
-        print(ome)
-        OmeTiffWriter.save(self.image_array, filename, ome_xml = ome)
+        channels = self.c_count * self.s_count if self.has_s_axis else self.c_count
+        samples_per_pixel = self.s_count if self.has_s_axis else 1
+
+        ome_pixels = Pixels(id = "Pixels:0", dimension_order = self.axes[::-1], \
+                           type = dtype_to_ometype[self.image_array.dtype], \
+                           size_t = self.t_count, size_c = channels, \
+                           size_z = self.z_count, size_y = self.height, size_x = self.width, \
+                           interleaved = True if self.has_s_axis else None)
+        ome_pixels.physical_size_z = self.pixel_um[2]
+        ome_pixels.physical_size_y = self.pixel_um[1]
+        ome_pixels.physical_size_x = self.pixel_um[0]
+
+        tiffdata = TiffData(plane_count = self.t_count * channels * self.z_count, ifd = 0)
+        ome_pixels.tiff_data_blocks = [tiffdata]
+        ome_channels = []
+        for index in range(channels):
+            ome_channel = Channel(samples_per_pixel = samples_per_pixel)
+            ome_channel.id = ChannelID("Channel:0:{0}".format(index))
+            ome_channel.name = "Channel {0}".format(index)
+            ome_channels.append(ome_channel)
+        ome_pixels.channels = ome_channels
+
+        ome_image = Image(name = filename, id = "Image:0", pixels = ome_pixels)
+        ome_object = OME(image = ome_image)
+        ome_xml = to_xml(ome_object)
+
+        resolution = (1 / self.pixel_um[2], 1 / self.pixel_um[1])
+        z_step_um = self.pixel_um[0]
+        metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
+        tifffile.imwrite(filename, self.image_array, ome = True, description = ome_xml)
 
     def __update_dimensions (self):
         self.t_count = self.image_array.shape[0]
