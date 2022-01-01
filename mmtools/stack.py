@@ -87,9 +87,9 @@ class Stack:
 
     def save_ome_tiff (self, filename):
         ome = OmeTiffWriter.build_ome(data_shapes = self.image_array.shape, \
-                                      data_types = self.image_array.dtype, \
+                                      data_types = [self.image_array.dtype] * len(self.image_array.shape), \
                                       image_name = filename, dimension_order = self.axes, \
-                                      phyxical_pisel_sizes = self.pixel_um, is_rgb = self.has_s_axis)
+                                      physical_pixel_sizes = self.pixel_um)
         OmeTiffWriter.save(self.image_array, filename, ome_xml = ome)
 
     def __update_dimensions (self):
