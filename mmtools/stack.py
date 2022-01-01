@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import tifffile
+import tifffile, logging
 import numpy as np
 from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 import scipy.ndimage as ndimage
@@ -10,9 +10,9 @@ try:
 except ImportError:
     pass
 
-pixel_um = 0.1625
-z_step_um = 0.5
-finterval_sec = 1
+default_pixel_um = 0.1625
+default_z_step_um = 0.5
+default_finterval_sec = 1
 
 def turn_on_gpu (gpu_id):
     if gpu_id is None:
@@ -56,7 +56,7 @@ class Stack:
             with tifffile.TiffFile(fileio) as tiff:
                 axes = tiff.series[0].axes
                 image_array = tiff.asarray(series = 0)
-                metadata = self.read_metadata(tiff)
+                metadata = self.__read_metadata(tiff)
 
             if 'T' not in axes:
                 image_array = image_array[np.newaxis]
@@ -98,7 +98,7 @@ class Stack:
         self.z_count = self.image_array.shape[2]
         self.height = self.image_array.shape[3]
         self.width = self.image_array.shape[4]
-        if len(self.image_array.shape) > 4:
+        if len(self.image_array.shape) > 5:
             self.s_count = self.image_array.shape[5]
             self.has_s_axis = True
             self.axes = 'TCZYXS'
@@ -110,21 +110,31 @@ class Stack:
     def __read_metadata (self, tiff):
         metadata = {}
 
-        values = tiff.pages[0].tags.get('XResolution', [pixel_um, 1])
-        metadata['x_pixel_um'] = float(values[1]) / float(values[0])
+        if 'XResolution' in tiff.pages[0].tags:
+            values = tiff.pages[0].tags['XResolution'].value
+            metadata['x_pixel_um'] = float(values[1]) / float(values[0])
+        else:
+            metadata['x_pixel_um'] = default_pixel_um
 
-        values = tiff.pages[0].tags.get('YResolution', [pixel_um, 1])
-        metadata['y_pixel_um'] = float(values[1]) / float(values[0])
+        if 'YResolution' in tiff.pages[0].tags:
+            values = tiff.pages[0].tags['YResolution'].value
+            metadata['y_pixel_um'] = float(values[1]) / float(values[0])
+        else:
+            metadata['y_pixel_um'] = default_pixel_um
 
         if tiff.imagej_metadata is not None:
-            metadata['z_step_um'] = tiff.imagej_metadata.get('spacing', z_step_um)
-            metadata['finterval_sec'] = tiff.imagej_metadata.get('finterval_sec', finterval_sec)
+            logging.debug('Read imagej metadata: {0}'.format(str(metadata)))
+            metadata['z_step_um'] = tiff.imagej_metadata.get('spacing', default_z_step_um)
+            metadata['finterval_sec'] = tiff.imagej_metadata.get('finterval_sec', default_finterval_sec)
         elif tiff.ome_metadata is not None:
-            metadata['z_step_um'] = tiff.ome_metadata.get('spacing', z_step_um)
-            metadata['finterval_sec'] = tiff.ome_metadata.get('finterval_sec', finterval_sec)
+            logging.debug('Read ome metadata: {0}'.format(str(metadata)))
+            metadata['z_step_um'] = tiff.ome_metadata.get('spacing', default_z_step_um)
+            metadata['finterval_sec'] = tiff.ome_metadata.get('finterval_sec', default_finterval_sec)
         else:
-            metadata['z_step_um'] = z_step_um
-            metadata['finterval_sec'] = finterval_sec
+            metadata['z_step_um'] = default_z_step_um
+            metadata['finterval_sec'] = default_finterval_sec
+
+        return metadata
 
     def __set_metadata (self, metadata):
         self.pixel_um = [metadata['z_step_um'], metadata['y_pixel_um'], metadata['x_pixel_um']]
