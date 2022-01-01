@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 
-import tifffile, logging
+import tifffile
 import numpy as np
-from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
 import scipy.ndimage as ndimage
+from logging import getLogger
+from aicsimageio.writers.ome_tiff_writer import OmeTiffWriter
+from aicsimageio.types import PhysicalPixelSizes
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as cpimage
 except ImportError:
     pass
+
+logger = getLogger(__name__)
 
 default_pixel_um = 0.1625
 default_z_step_um = 0.5
@@ -26,12 +30,12 @@ def turn_on_gpu (gpu_id):
     return device
 
 class Stack:
-    def __init__ (self, fileio = None, keep_s_axis = False):
+    def __init__ (self, fileio = None, series = 0, keep_s_axis = False):
         if fileio is None:
             self.reset_stack()
         else:
             try:
-                self.read_image(fileio, keep_s_axis = keep_s_axis)
+                self.read_image(fileio, series = series, keep_s_axis = keep_s_axis)
             except OSError:
                 self.reset_stack()
                 raise
@@ -49,13 +53,13 @@ class Stack:
         self.has_s_axis = False
         self.image_array = None
 
-    def read_image (self, fileio, keep_s_axis = False):
+    def read_image (self, fileio, series = 0, keep_s_axis = False):
         try:
             self.reset_stack()
 
             with tifffile.TiffFile(fileio) as tiff:
-                axes = tiff.series[0].axes
-                image_array = tiff.asarray(series = 0)
+                axes = tiff.series[series].axes
+                image_array = tiff.asarray(series = series)
                 metadata = self.__read_metadata(tiff)
 
             if 'T' not in axes:
@@ -86,10 +90,12 @@ class Stack:
                         resolution = resolution, metadata = metadata)
 
     def save_ome_tiff (self, filename):
-        ome = OmeTiffWriter.build_ome(data_shapes = self.image_array.shape, \
-                                      data_types = [self.image_array.dtype] * len(self.image_array.shape), \
-                                      image_name = filename, dimension_order = self.axes, \
-                                      physical_pixel_sizes = self.pixel_um)
+        pixelsize = PhysicalPixelSizes(*self.pixel_um)
+        ome = OmeTiffWriter.build_ome(data_shapes = [self.image_array.shape], \
+                                      data_types = [self.image_array.dtype], \
+                                      image_name = [filename], dimension_order = [self.axes], \
+                                      physical_pixel_sizes = [pixelsize])
+        print(ome)
         OmeTiffWriter.save(self.image_array, filename, ome_xml = ome)
 
     def __update_dimensions (self):
@@ -123,11 +129,11 @@ class Stack:
             metadata['y_pixel_um'] = default_pixel_um
 
         if tiff.imagej_metadata is not None:
-            logging.debug('Read imagej metadata: {0}'.format(str(metadata)))
+            logger.debug('Read imagej metadata: {0}'.format(str(metadata)))
             metadata['z_step_um'] = tiff.imagej_metadata.get('spacing', default_z_step_um)
             metadata['finterval_sec'] = tiff.imagej_metadata.get('finterval_sec', default_finterval_sec)
         elif tiff.ome_metadata is not None:
-            logging.debug('Read ome metadata: {0}'.format(str(metadata)))
+            logger.debug('Read ome metadata: {0}'.format(str(metadata)))
             metadata['z_step_um'] = tiff.ome_metadata.get('spacing', default_z_step_um)
             metadata['finterval_sec'] = tiff.ome_metadata.get('finterval_sec', default_finterval_sec)
         else:
@@ -169,14 +175,14 @@ class Stack:
 
     def resize (self, shape, centering = False):
         new_array = self.__new_array(shape)
-        slices_src, slices_tgt = self.__paste_slices(self.image_array.shape, shape, centering = centering)
+        slices_src, slices_tgt = self.__pasting_slices(self.image_array.shape, shape, centering = centering)
         new_array[:, :, slices_tgt] = self.image_array[:, :, slices_src]
         self.image_array = new_array
         self.__update_dimensions()
 
     def crop (self, shape, offset):
         new_array = self.__new_array(shape)
-        slices_src, slices_tgt = self.__paste_slices(self.image_array.shape, shape, offset = -offset)
+        slices_src, slices_tgt = self.__pasting_slices(self.image_array.shape, shape, offset = -offset)
         new_array[:, :, slices_tgt] = self.image_array[:, :, slices_src]
         self.image_array = new_array
         self.__update_dimensions()
