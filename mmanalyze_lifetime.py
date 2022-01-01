@@ -152,7 +152,7 @@ if analysis != 'counting':
     koff = fitting['koff']
     halflife = fitting['halflife']
     start = fitting['start']
-    fitting_text = "Off-rate = {0:.3f} /sec, Half-life = {1:.3f} sec ({2:.3f} frames), fit using t >= {3}".\
+    fitting_text = "Off-rate = {0:.3e} /sec, Half-life = {1:.3f} sec ({2:.3f} frames), fit using t >= {3}".\
                    format(koff, halflife, halflife / time_scale, start)
     print(fitting_text)
 
