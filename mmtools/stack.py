@@ -128,12 +128,13 @@ class Stack:
 
         ome_image = Image(name = filename, id = "Image:0", pixels = ome_pixels)
         ome_object = OME(image = ome_image)
-        ome_xml = to_xml(ome_object)
+        ome_xml = to_xml(ome_object).encode()
 
-        resolution = (1 / self.pixel_um[2], 1 / self.pixel_um[1])
-        z_step_um = self.pixel_um[0]
-        metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
-        tifffile.imwrite(filename, self.image_array, ome = True, description = ome_xml)
+        #resolution = (1 / self.pixel_um[2], 1 / self.pixel_um[1])
+        #z_step_um = self.pixel_um[0]
+        #metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
+        with tifffile.TiffWriter(filename, ome = True) as tiff:
+            tiff.write(self.image_array, description = ome_xml)
 
     def __update_dimensions (self):
         self.t_count = self.image_array.shape[0]
