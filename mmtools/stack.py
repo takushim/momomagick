@@ -111,7 +111,7 @@ class Stack:
         tifffile.imwrite(filename, self.image_array.swapaxes(1, 2), imagej = True, \
                          resolution = resolution, metadata = metadata)
 
-    def save_ome_tiff (self, filename):
+    def save_ome_tiff (self, filename, bigtiff = False):
         if self.has_s_axis:
             image_array = self.__concat_s_channel(self.image_array)
             c_count = image_array.shape[1]
@@ -149,7 +149,7 @@ class Stack:
         ome_xml = to_xml(OME(images = [ome_image])).encode()
 
         with open(filename, "wb") as fileio:
-            with tifffile.TiffWriter(fileio) as tiff:
+            with tifffile.TiffWriter(fileio, bigtiff = bigtiff) as tiff:
                 tiff.write(image_array, description = ome_xml, metadata = None)
 
     def __update_dimensions (self):
