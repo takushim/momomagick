@@ -6,7 +6,7 @@ import scipy.ndimage as ndimage
 from logging import getLogger
 from ome_types import to_xml, OME
 from ome_types.model import Image, Pixels, TiffData, Channel
-from ome_types.model.simple_types import PixelType, ChannelID
+from ome_types.model.simple_types import PixelType, ChannelID, UnitsLength, UnitsTime
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as cpimage
@@ -112,35 +112,27 @@ class Stack:
                            size_t = self.t_count, size_c = channels, \
                            size_z = self.z_count, size_y = self.height, size_x = self.width, \
                            interleaved = True if self.has_s_axis else None)
-        ome_pixels.physical_size_z = self.pixel_um[2]
-        ome_pixels.physical_size_y = self.pixel_um[1]
-        ome_pixels.physical_size_x = self.pixel_um[0]
 
-        tiffdata = TiffData(plane_count = self.t_count * channels * self.z_count, ifd = 0)
-        ome_pixels.tiff_data_blocks = [tiffdata]
-        ome_channels = []
-        for index in range(channels):
-            ome_channel = Channel(samples_per_pixel = samples_per_pixel)
-            ome_channel.id = ChannelID("Channel:0:{0}".format(index))
-            ome_channel.name = "Channel {0}".format(index)
-            ome_channels.append(ome_channel)
-        ome_pixels.channels = ome_channels
+        ome_pixels.physical_size_x = self.pixel_um[2]
+        ome_pixels.physical_size_y = self.pixel_um[1]
+        ome_pixels.physical_size_z = self.pixel_um[0]
+        ome_pixels.physical_size_x_unit = UnitsLength.MICROMETER
+        ome_pixels.physical_size_y_unit = UnitsLength.MICROMETER
+        ome_pixels.physical_size_z_unit = UnitsLength.MICROMETER
+        ome_pixels.time_increment = self.finterval_sec
+        ome_pixels.time_increment_unit = UnitsTime.SECOND
+
+        ome_pixels.tiff_data_blocks = [TiffData(plane_count = self.t_count * channels * self.z_count, ifd = 0)]
+        ome_pixels.channels = [Channel(samples_per_pixel = samples_per_pixel, \
+                                       id = ChannelID("Channel:0:{0}".format(index))) \
+                               for index in range(channels)]
 
         ome_image = Image(name = filename, id = "Image:0", pixels = ome_pixels)
-        ome_object = OME(images = [ome_image])
-        ome_xml = to_xml(ome_object).encode()
+        ome_xml = to_xml(OME(images = [ome_image])).encode()
 
         with open(filename, "wb") as fileio:
-            tiff = tifffile.TiffWriter(fileio)
-            description = ome_xml
-            tiff.write(
-                 self.image_array,
-                 description = description,
-                 photometric = "MINISBLACK",
-                 metadata = None,
-                 planarconfig = None,
-            )
-            tiff.close()
+            with tifffile.TiffWriter(fileio) as tiff:
+                tiff.write(self.image_array, description = ome_xml, metadata = None)
 
     def __update_dimensions (self):
         self.t_count = self.image_array.shape[0]
