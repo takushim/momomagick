@@ -4,8 +4,8 @@ import tifffile
 import numpy as np
 import scipy.ndimage as ndimage
 from logging import getLogger
-from ome_types import to_xml
-from ome_types.model import OME, Image, Pixels, TiffData, Channel
+from ome_types import to_xml, OME
+from ome_types.model import Image, Pixels, TiffData, Channel
 from ome_types.model.simple_types import PixelType, ChannelID
 try:
     import cupy as cp
@@ -127,14 +127,20 @@ class Stack:
         ome_pixels.channels = ome_channels
 
         ome_image = Image(name = filename, id = "Image:0", pixels = ome_pixels)
-        ome_object = OME(image = ome_image)
+        ome_object = OME(images = [ome_image])
         ome_xml = to_xml(ome_object).encode()
 
-        #resolution = (1 / self.pixel_um[2], 1 / self.pixel_um[1])
-        #z_step_um = self.pixel_um[0]
-        #metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
-        with tifffile.TiffWriter(filename, ome = True) as tiff:
-            tiff.write(self.image_array, description = ome_xml)
+        with open(filename, "wb") as fileio:
+            tiff = tifffile.TiffWriter(fileio)
+            description = ome_xml
+            tiff.write(
+                 self.image_array,
+                 description = description,
+                 photometric = "MINISBLACK",
+                 metadata = None,
+                 planarconfig = None,
+            )
+            tiff.close()
 
     def __update_dimensions (self):
         self.t_count = self.image_array.shape[0]
