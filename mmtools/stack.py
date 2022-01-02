@@ -6,7 +6,7 @@ import scipy.ndimage as ndimage
 from logging import getLogger
 from ome_types import to_xml, OME
 from ome_types.model import Image, Pixels, TiffData, Channel
-from ome_types.model.simple_types import PixelType, ChannelID, UnitsLength, UnitsTime
+from ome_types.model.simple_types import PixelType, ChannelID, UnitsLength, UnitsTime, Color
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as cpimage
@@ -42,6 +42,8 @@ dtype_to_ometype = {
     np.dtype(np.complex64): PixelType.COMPLEXFLOAT,
     np.dtype(np.complex128): PixelType.COMPLEXDOUBLE,
 }
+
+ome_colors = [Color(0xFF000000), Color(0x00FF0000), Color(0x0000FF00), Color(0x000000FF)]
 
 class Stack:
     def __init__ (self, fileio = None, series = 0, keep_s_axis = False):
@@ -85,16 +87,22 @@ class Stack:
 
             image_array = image_array.swapaxes(1, 2)
             if ('S' in axes) and (keep_s_axis == False):
-                image_list = [image_array[..., index] for index in range(image_array.shape[-1])]
-                image_array = np.stack(image_list, axis = 1)
+                image_array = self.__concat_s_channel(image_array)
 
             self.image_array = image_array
             self.__update_dimensions()
             self.__set_metadata(metadata)
 
+            logger.debug("Image shaped into: {0} {1}".format(str(self.image_array.shape), self.axes))
+
         except OSError:
             self.reset_stack()
             raise
+
+    def __concat_s_channel (self, image_array):
+        image_list = [image_array[..., index] for index in range(image_array.shape[-1])]
+        image_array = np.concatenate(image_list, axis = 1)
+        return image_array
 
     def save_imagej_tiff (self, filename):
         resolution = (1 / self.pixel_um[2], 1 / self.pixel_um[1])
@@ -104,12 +112,18 @@ class Stack:
                          resolution = resolution, metadata = metadata)
 
     def save_ome_tiff (self, filename):
-        channels = self.c_count * self.s_count if self.has_s_axis else self.c_count
-        samples_per_pixel = self.s_count if self.has_s_axis else 1
+        if self.has_s_axis:
+            image_array = self.__concat_s_channel(self.image_array)
+            c_count = image_array.shape[1]
+            samples_per_pixel = self.has_s_axis
+        else:
+            image_array = self.image_array
+            c_count = self.c_count
+            samples_per_pixel = 1
 
-        ome_pixels = Pixels(id = "Pixels:0", dimension_order = self.axes[::-1], \
+        ome_pixels = Pixels(id = "Pixels:0", dimension_order = 'XYZCT', \
                            type = dtype_to_ometype[self.image_array.dtype], \
-                           size_t = self.t_count, size_c = channels, \
+                           size_t = self.t_count, size_c = c_count, \
                            size_z = self.z_count, size_y = self.height, size_x = self.width, \
                            interleaved = True if self.has_s_axis else None)
 
@@ -122,17 +136,21 @@ class Stack:
         ome_pixels.time_increment = self.finterval_sec
         ome_pixels.time_increment_unit = UnitsTime.SECOND
 
-        ome_pixels.tiff_data_blocks = [TiffData(plane_count = self.t_count * channels * self.z_count, ifd = 0)]
+        ome_pixels.tiff_data_blocks = [TiffData(plane_count = self.t_count * c_count * self.z_count, ifd = 0)]
         ome_pixels.channels = [Channel(samples_per_pixel = samples_per_pixel, \
                                        id = ChannelID("Channel:0:{0}".format(index))) \
-                               for index in range(channels)]
+                               for index in range(c_count)]
+
+        if self.has_s_axis:
+            for index in range(c_count):
+                ome_pixels.channels[index].color = ome_colors[index % 4]
 
         ome_image = Image(name = filename, id = "Image:0", pixels = ome_pixels)
         ome_xml = to_xml(OME(images = [ome_image])).encode()
 
         with open(filename, "wb") as fileio:
             with tifffile.TiffWriter(fileio) as tiff:
-                tiff.write(self.image_array, description = ome_xml, metadata = None)
+                tiff.write(image_array, description = ome_xml, metadata = None)
 
     def __update_dimensions (self):
         self.t_count = self.image_array.shape[0]
