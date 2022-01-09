@@ -181,19 +181,23 @@ else:
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
     axes.set_title(graph_title, size = 'xx-large')
+    axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
 
     colors = ['orange', 'green', 'blue', 'red']
     max_plane = output_table['plane'].max()
     max_frame = output_table['lifeframe'].max()
 
-    for plane in range(max_plane):
-        plot_table = output_table[output_table.plane == plane].reset_index(drop = True)
+    mean_range = 5
+    for index in range(max_plane // mean_range + 1):
+        plane_min = mean_range * index
+        plane_max = min(mean_range * (index + 1) - 1, max_plane)
+
+        plot_table = output_table[(plane_min <= output_table.plane) & (output_table.plane <= plane_max)].reset_index(drop = True)
         if len(plot_table) == 0:
             continue
 
-        length = 0.4
         plot_mean = plot_table['lifetime'].mean()
-        axes.hlines(plot_mean, plane - length, plane + length, color = 'black', linestyle = '-')
+        axes.hlines(plot_mean, plane_min, plane_max, color = 'black', linestyle = '--')
 
     for plane in range(max_plane):
         for frame in range(1, max_frame + 1):
@@ -208,7 +212,6 @@ else:
 
             axes.scatter(plot_table.plane_zigzag, plot_table.lifetime, color = colors[plane % len(colors)], marker = '.')
 
-    axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
               mean_text, size = 'xx-large', ha = 'right', va = 'top')
     figure.savefig(graph_filename, dpi = 300)
