@@ -38,5 +38,5 @@ if (Test-Path $record) {
       Copy-Item $record $output_record
 }
 
-Write-Output ("----") | Tee-object -Append -FilePath $logfile
+Write-Output (".") | Tee-object -Append -FilePath $logfile
 
