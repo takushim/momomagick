@@ -19,7 +19,7 @@ registering_method_list = register.registering_methods
 optimizing_method = "Powell"
 optimizing_method_list = register.optimizing_methods
 psf_folder = Path(__file__).parent.joinpath('psf')
-psf_filename = 'diSPIM.tif'
+psf_filename = 'dispim_iso.tif'
 iterations = 0
 
 # parse arguments
