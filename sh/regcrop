@@ -3,6 +3,7 @@ set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
 reg_method="Drift"
+opt_method="Powell"
 deconv=0
 iter=10
 first_view_x=370
@@ -12,9 +13,10 @@ output_mini=0
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-f FIRST_VIEW_X] [-s SECOND_VIEW_X] [-m REG_METHOD] [-z] [-d] [-i ITER] [-n] file [file ...]"
+    echo "$(basename "$0") [-f X1] [-s X2] [-e REG] [-t OPT] [-z] [-d] [-i ITER] [-n] file [file ...]"
     echo "Default settings:"
     echo "- reg_method: ${reg_method}"
+    echo "- opt_method: ${opt_method}"
     echo "- first_view_x: ${first_view_x}"
     echo "- second_view_x: ${second_view_x}"
     echo "- z-scaling: ${z_scaling}"
@@ -24,12 +26,13 @@ function show_usage () {
 }
 
 # parse options
-while getopts "f:s:m:di:zn" OPT;
+while getopts "f:s:e:di:znt:" OPT;
 do
     case "$OPT" in
     f) first_view_x="$OPTARG" ;;
     s) second_view_x="$OPTARG" ;;
-    m) reg_method="${OPTARG,,}" ;;
+    e) reg_method="$OPTARG" ;;
+    t) opt_method="$OPTARG" ;;
     d) deconv=1 ;;
     i) iter="$OPTARG" ;;
     z) z_scaling=1 ;;
@@ -76,7 +79,7 @@ do
         z_option=""
     fi
 
-    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "${reg_method}" $z_option -A -a "$output_reg" "$file"
+    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $z_option -A -a "$output_reg" "$file"
     mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" "$output_reg"
     echo "First view: ${first_view_x}" >> $output_log
     
