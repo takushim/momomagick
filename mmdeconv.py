@@ -10,7 +10,7 @@ psf_folder = Path(__file__).parent.joinpath('psf')
 input_filename = None
 output_filename = None
 output_suffix = '_dec.tif'
-psf_filename = 'diSPIM.tif'
+psf_filename = 'dispim_iso.tif'
 iterations = 10
 gpu_id = None
 

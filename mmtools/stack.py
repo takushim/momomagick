@@ -3,6 +3,7 @@
 import tifffile
 import numpy as np
 import scipy.ndimage as ndimage
+from pathlib import Path
 from logging import getLogger
 from ome_types import to_xml, OME
 from ome_types.model import Image, Pixels, TiffData, Channel
@@ -29,6 +30,12 @@ def turn_on_gpu (gpu_id):
     print("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
     print("Free memory:", device.mem_info)
     return device
+
+def with_suffix (filename, suffix):
+    filename = Path(filename).with_suffix('')
+    if filename.suffix.lower() == '.ome':
+        filename = filename.with_suffix('')
+    return str(filename) + suffix
 
 dtype_to_ometype = {
     np.dtype(np.int8): PixelType.INT8,
@@ -90,7 +97,7 @@ class Stack:
                 image_array = self.__concat_s_channel(image_array)
 
             self.image_array = image_array
-            self.__update_dimensions()
+            self.update_dimensions()
             self.__set_metadata(metadata)
 
             logger.debug("Image shaped into: {0} {1}".format(str(self.image_array.shape), self.axes))
@@ -105,6 +112,7 @@ class Stack:
         return image_array
 
     def save_imagej_tiff (self, filename):
+        logger.debug("Saving ImageJ. Shape: {0}. Type: {1}".format(self.image_array.shape, self.image_array.dtype))
         resolution = (1 / self.pixel_um[2], 1 / self.pixel_um[1])
         z_step_um = self.pixel_um[0]
         metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
@@ -112,6 +120,7 @@ class Stack:
                          resolution = resolution, metadata = metadata)
 
     def save_ome_tiff (self, filename, bigtiff = False):
+        logger.debug("Saving OME. Shape: {0}. Type: {1}".format(self.image_array.shape, self.image_array.dtype))
         if self.has_s_axis:
             image_array = self.__concat_s_channel(self.image_array)
             c_count = image_array.shape[1]
@@ -152,7 +161,7 @@ class Stack:
             with tifffile.TiffWriter(fileio, bigtiff = bigtiff) as tiff:
                 tiff.write(image_array, description = ome_xml, metadata = None)
 
-    def __update_dimensions (self):
+    def update_dimensions (self):
         self.t_count = self.image_array.shape[0]
         self.c_count = self.image_array.shape[1]
         self.z_count = self.image_array.shape[2]
@@ -200,7 +209,7 @@ class Stack:
         self.pixel_um = [metadata['z_step_um'], metadata['y_pixel_um'], metadata['x_pixel_um']]
         self.finterval_sec = metadata['finterval_sec']
     
-    def __pasting_slices (src_shape, tgt_shape, centering = False, offset = None):
+    def __pasting_slices (self, src_shape, tgt_shape, centering = False, offset = None):
         if centering:
             shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
         else:
@@ -228,20 +237,22 @@ class Stack:
         return np.zeros(new_shape, dtype = self.image_array.dtype)
 
     def resize (self, shape, centering = False):
-        new_array = self.__new_array(shape)
-        slices_src, slices_tgt = self.__pasting_slices(self.image_array.shape, shape, centering = centering)
-        new_array[:, :, slices_tgt] = self.image_array[:, :, slices_src]
-        self.image_array = new_array
-        self.__update_dimensions()
+        t_slice = slice(0, self.t_count, 1)
+        c_slice = slice(0, self.c_count, 1)
 
-    def crop (self, shape, offset):
         new_array = self.__new_array(shape)
-        slices_src, slices_tgt = self.__pasting_slices(self.image_array.shape, shape, offset = -offset)
-        new_array[:, :, slices_tgt] = self.image_array[:, :, slices_src]
-        self.image_array = new_array
-        self.__update_dimensions()
+        current_shape = [self.z_count, self.height, self.width]
+        slices_src, slices_tgt = self.__pasting_slices(current_shape, shape, centering = centering)
+        new_array[tuple([t_slice, c_slice] + slices_tgt)] = self.image_array[tuple([t_slice, c_slice] + slices_src)]
 
-    def __apply_all (self, image_func):
+        self.image_array = new_array
+        self.update_dimensions()
+
+    def crop (self, slice_list):
+        self.image_array = self.image_array[tuple(slice_list)].copy()
+        self.update_dimensions()
+
+    def apply_all (self, image_func):
         output_frames = []
         for t_index in range(self.t_count):
             output_channels = []
@@ -279,8 +290,8 @@ class Stack:
                     image = cp.asnumpy(cpimage.zoom(image, ratio))
                 return image
 
-            self.image_array = self.__apply_all(zoom_func)
-            self.__update_dimensions()
+            self.image_array = self.apply_all(zoom_func)
+            self.update_dimensions()
             self.pixel_um = [self.pixel_um[i] / ratio[i] for i in range(len(self.pixel_um))]
 
     def scale_by_pixelsize (self, pixel_um, gpu_id = None):
@@ -315,8 +326,8 @@ class Stack:
                 image = cp.asnumpy(image)
             return image
 
-        self.image_array = self.__apply_all(rotate_func)
-        self.__update_dimensions()
+        self.image_array = self.apply_all(rotate_func)
+        self.update_dimensions()
 
     def affine_transform (self, matrix, gpu_id = None):
         def affine_func (image):
@@ -327,8 +338,8 @@ class Stack:
                 image = cp.asnumpy(image)
             return image
 
-        self.image_array = self.__apply_all(affine_func)
-        self.__update_dimensions()
+        self.image_array = self.apply_all(affine_func)
+        self.update_dimensions()
 
     def shift (self, offset, gpu_id = None):
         def shift_func (image):
@@ -338,5 +349,5 @@ class Stack:
                 image = cp.asnumpy(cpimage.interpolation.shift(cp.array(image), offset))
             return image
 
-        self.image_array = self.__apply_all(shift_func)
-        self.__update_dimensions()
+        self.image_array = self.apply_all(shift_func)
+        self.update_dimensions()

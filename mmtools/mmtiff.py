@@ -98,7 +98,7 @@ class MMTiff:
             #self.set_metadata()
             if tiff.is_micromanager:
                 self.read_micromanager_metadata(tiff)
-            else:
+            elif tiff.imagej_metadata is not None:
                 self.read_image_metadata(tiff)
 
         if 'Z' not in axes:
