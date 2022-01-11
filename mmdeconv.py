@@ -102,7 +102,7 @@ if input_stack.z_count > 1:
         return deconvolve.deconvolve(image, psf_image, iterations = iterations, gpu_id = gpu_id)
 else:
     def deconvolve_image (image):
-        return deconvolve.deconvolve(image[0], psf_image[0], iterations = iterations, gpu_id = gpu_id)
+        return deconvolve.deconvolve(image[0], psf_image[0], iterations = iterations, gpu_id = gpu_id)[np.newaxis]
 
 logger.info("Deconvolution started")
 input_stack.apply_all(deconvolve_image, progress = True)
