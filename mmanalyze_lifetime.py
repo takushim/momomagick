@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-import sys, argparse, json
+import argparse, json
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from matplotlib import pyplot
-from mmtools import mmtiff, trackj, lifetime, particles
+from mmtools import stack, trackj, lifetime, particles, log
 
 # default values
 input_filenames = None
@@ -20,6 +20,7 @@ analysis = analysis_list[0]
 time_scale = 1.0
 opt_method = lifetime.default_method
 opt_method_list = lifetime.optimizing_methods
+log_level = 'INFO'
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Calculate lifetime and regression curves', \
@@ -43,9 +44,15 @@ parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start
 parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choices = opt_method_list, \
                     help='Method to optimize the one-phase-decay model')
 
+parser.add_argument('-L', '--log-level', default = log_level, \
+                    help='Log level: DEBUG, INFO, WARNING, ERROR or CRITICAL')
+
 parser.add_argument('input_files', nargs = '+', default = input_filenames, \
                     help='input JSON file of tracking data. Results from multiple files are merged.')
 args = parser.parse_args()
+
+# logging
+logger = log.get_logger(__file__, level = args.log_level)
 
 # set arguments
 time_scale = args.time_scale
@@ -59,11 +66,11 @@ graph_suffix = graph_suffix.format(analysis)
 
 output_filename = args.output_file
 if output_filename is None:
-    output_filename = mmtiff.with_suffix(input_filenames[0], output_suffix)
+    output_filename = stack.with_suffix(input_filenames[0], output_suffix)
 
 graph_filename = args.graph_file
 if graph_filename is None:
-    graph_filename = mmtiff.with_suffix(input_filenames[0], graph_suffix)
+    graph_filename = stack.with_suffix(input_filenames[0], graph_suffix)
 
 # read JSON or TSV or TrackJ CSV file
 spot_tables = []
@@ -83,7 +90,7 @@ for input_filename in input_filenames:
     
     total_records = len(spot_table.total_index)
     total_tracks = len(spot_table.total_index.unique())
-    print("{0}: {1} records and {2} tracks.".format(input_filename, total_records, total_records))
+    logger.info("{0}: {1} records and {2} tracks.".format(input_filename, total_records, total_records))
     spot_tables.append(spot_table)
 
 # analysis
@@ -118,15 +125,14 @@ if analysis != 'counting':
     # fitting
     fitting = lifetime.fit_one_phase_decay(times, counts_sum, start = fitting_start, method = opt_method)
     fitting_func = fitting['func']
-    print("Params:", fitting['params'])
-    print("Status:", fitting['message'])
+    logger.info("Fitting: {0}".format(fitting['message']))
 
     # tsv
-    print("Output {0} table to {1}.".format(analysis, output_filename))
+    logger.info("Output {0} table to {1}.".format(analysis, output_filename))
     result_table.to_csv(output_filename, sep = '\t', index = False)
 
     # graph
-    print("Output {0} graph to {1}.".format(analysis, graph_filename))
+    logger.info("Output {0} graph to {1}.".format(analysis, graph_filename))
 
     if analysis == 'lifetime':
         graph_title = "Lifetime distribution (total {0} spots)".format(sum(counts_sum))
@@ -154,7 +160,7 @@ if analysis != 'counting':
     start = fitting['start']
     fitting_text = "Off-rate = {0:.3e} /sec, Half-life = {1:.3f} sec ({2:.3f} frames), fit using t >= {3}".\
                    format(koff, halflife, halflife / time_scale, start)
-    print(fitting_text)
+    logger.info(fitting_text)
 
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
               fitting_text, size = 'large', ha = 'right', va = 'top')
@@ -168,14 +174,14 @@ else:
     mean_lifetime = output_table[output_table.plane > 0].lifetime.mean()
     mean_text = "Mean lifetime = {0:.3f} sec ({1:.3f} frames, plane > 0)".\
                 format(mean_lifetime, mean_lifetime / time_scale)
-    print(mean_text)
+    logger.info(mean_text)
 
     # tsv
-    print("Output {0} table to {1}.".format(analysis, output_filename))
+    logger.info("Output {0} table to {1}.".format(analysis, output_filename))
     output_table.to_csv(output_filename, sep = '\t', index = False)
 
     # graph
-    print("Output {0} graph to {1}.".format(analysis, graph_filename))
+    logger.info("Output {0} graph to {1}.".format(analysis, graph_filename))
     graph_title = "Relationship between binding and lifetime (total {0} spots)".format(len(output_table))
 
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)

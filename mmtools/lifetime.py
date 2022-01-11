@@ -2,7 +2,10 @@
 
 import numpy as np
 import pandas as pd
+from logging import getLogger
 from scipy import optimize
+
+logger = getLogger(__name__)
 
 life_columns = ['frame', 'time', 'spotcount']
 binding_columns = ['plane', 'lifeframe', 'lifetime']
@@ -33,7 +36,7 @@ def life_count (spot_table):
 
 def fit_one_phase_decay (time_list, count_list, start = 0, method = default_method):
     if start > 0:
-        print("Start fitting from:", start)
+        logger.info("Start fitting from: {0}".format(start))
         time_list = time_list[start:]
         count_list = count_list[start:]
 
@@ -66,12 +69,12 @@ def regression (spot_table, time_scale = 1.0):
     work_table = spot_table.copy()
     start_plane = np.min(work_table.plane)
     if start_plane > 0:
-        print("Setting plane {0} as the beginning".format(start_plane))
+        logger.info("Setting plane {0} as the beginning".format(start_plane))
         work_table.plane = work_table.plane - start_plane
 
     # spots to be counted
     index_set = set(work_table[work_table.plane == 0].total_index.tolist())
-    print("Regression set:", index_set)
+    logger.info("Regression set: {0}".format(index_set))
 
     # regression
     output_counts = []
@@ -89,7 +92,7 @@ def lifetime (spot_table, time_scale = 1.0):
     # drop plane starting from the time-lapse image
     start_plane = np.min(work_table.plane)
     index_set = set(work_table[work_table.plane == start_plane].total_index.tolist())
-    print("Dropping spots that start from plane {0}:".format(start_plane), index_set)
+    logger.info("Dropping spots that start from plane {0}: {1}".format(start_plane, index_set))
     work_table = work_table[work_table.total_index.isin(index_set) == False]
 
     # prepare data (life_count starts from 0)
@@ -107,7 +110,7 @@ def cumulative (spot_table, time_scale = 1.0):
     # drop plane starting from the time-lapse image
     start_plane = np.min(work_table.plane)
     index_set = set(work_table[work_table.plane == start_plane].total_index.tolist())
-    print("Dropping spots that start from plane {0}:".format(start_plane), index_set)
+    logger.info("Dropping spots that start from plane {0}:".format(start_plane, index_set))
     work_table = work_table[work_table.total_index.isin(index_set) == False]
 
     # prepare data (life_count starts from 0)
