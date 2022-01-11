@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
 import numpy as np
+from logging import getLogger
 from . import stack
 try:
     import cupy as cp
 except ImportError:
     pass
+
+logger = getLogger(__name__)
 
 def turn_on_gpu (gpu_id):
     return stack.turn_on_gpu(gpu_id)
@@ -23,7 +26,9 @@ def deconvolve_cpu (input_image, psf_image, iterations = 10):
         psf_images = psf_image
     else:
         psf_images = [psf_image]
-    
+
+    logger.debug("Input image. Shape: {0}".format(input_image.shape))
+    logger.debug("PSF images. Shapes: {0}".format([image.shape for image in psf_images]))
     psf_images = [image.astype(float) / np.sum(image) for image in psf_images]
     psf_images = [stack.resize(image, orig_image.shape, centering = True) for image in psf_images]
 
@@ -46,6 +51,8 @@ def deconvolve_gpu (input_image, psf_image, iterations = 10):
     else:
         psf_images = [psf_image]
     
+    logger.debug("Input image. Shape: {0}".format(input_image.shape))
+    logger.debug("PSF images. Shapes: {0}".format([image.shape for image in psf_images]))
     psf_images = [image.astype(float) / np.sum(image) for image in psf_images]
     psf_images = [stack.resize(image, orig_image.shape, centering = True) for image in psf_images]
     psf_images = [cp.array(image) for image in psf_images]
