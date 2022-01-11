@@ -9,7 +9,6 @@ from tqdm import tqdm
 from ome_types import to_xml, from_xml, OME
 from ome_types.model import Image, Pixels, TiffData, Channel
 from ome_types.model.simple_types import PixelType, ChannelID, UnitsLength, UnitsTime, Color
-from mmtools import log
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as cpimage
@@ -39,6 +38,35 @@ def with_suffix (filename, suffix):
         filename = filename.with_suffix('')
     return str(filename) + suffix
 
+def resize (image_array, shape, centering = False, offset = None):
+    resized_array = np.zeros(shape, dtype = image_array.dtype)
+    slices_src, slices_tgt = __pasting_slices(image_array.shape, shape, centering = centering, offset = offset)
+    resized_array[slices_tgt] = image_array[slices_src].copy()
+    return resized_array
+
+def crop (image_array, origin, shape):
+    slice_list = [slice(o, s, 1) for o, s in zip(origin, shape)]
+    return image_array[tuple(slice_list)].copy()
+
+def __pasting_slices (src_shape, tgt_shape, centering = False, offset = None):
+    if centering:
+        shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
+    else:
+        shifts = np.array([0] * len(src_shape))
+
+    if offset is not None:
+        shifts = shifts + np.array(offset)
+
+    src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, src_shape)]
+    src_bounds = np.minimum(src_shape, tgt_shape - shifts)
+    slices_src = tuple([slice(x, y) for x, y in zip(src_starts, src_bounds)])
+
+    tgt_starts = [0 if x < 0 else min(x, y) for x, y in zip(shifts, tgt_shape)]
+    tgt_bounds = np.minimum(src_shape + shifts, tgt_shape)
+    slices_tgt = tuple([slice(x, y) for x, y in zip(tgt_starts, tgt_bounds)])
+
+    return [slices_src, slices_tgt]
+
 dtype_to_ometype = {
     np.dtype(np.int8): PixelType.INT8,
     np.dtype(np.int16): PixelType.INT16,
@@ -52,7 +80,42 @@ dtype_to_ometype = {
     np.dtype(np.complex128): PixelType.COMPLEXDOUBLE,
 }
 
+ome_ratio_to_um = {
+    UnitsLength.METER: 1.0e-6,
+    UnitsLength.MILLIMETER: 1.0e-3,
+    UnitsLength.MICROMETER: 1.0,
+    UnitsLength.NANOMETER: 1.0e3,
+    UnitsLength.PICOMETER: 1.0e6,
+    UnitsLength.ANGSTROM: 1.0e-1,
+    UnitsLength.INCH: 25.4e4,
+}
+
+ome_ratio_to_sec = {
+    UnitsTime.HOUR: 3600.0,
+    UnitsTime.MINUTE: 60.0,
+    UnitsTime.SECOND: 1.0,
+    UnitsTime.MILLISECOND: 1.0e-3,
+    UnitsTime.MICROSECOND: 1.0e-6,
+    UnitsTime.NANOSECOND: 1.0e-9,
+    UnitsTime.PICOSECOND: 1.0e-12,
+}
+
 ome_colors = [Color(0xFF000000), Color(0x00FF0000), Color(0x0000FF00), Color(0x000000FF)]
+
+imagej_ratio_to_um = {
+    'm': 1.0e6,
+    'mm': 1.0e3,
+    'um': 1.0,
+    '\u03BCm': 1.0,
+    'nm': 1.0e-3,
+    'pm': 1.0e-6,
+}
+
+resunit_ratio_to_um = {
+    1: 1.0,     # no definition
+    2: 25.4e3,  # inch
+    3: 1.0e4,   # cm
+}
 
 class Stack:
     def __init__ (self, fileio = None, series = 0, keep_s_axis = False):
@@ -181,85 +244,95 @@ class Stack:
     def __read_metadata (self, tiff, series = 0):
         metadata = {}
 
-        if 'XResolution' in tiff.pages[series].tags:
-            values = tiff.pages[series].tags['XResolution'].value
-            metadata['x_pixel_um'] = float(values[1]) / float(values[0])
-        else:
-            metadata['x_pixel_um'] = default_pixel_um
+        if tiff.ome_metadata is not None:
+            logger.debug('Reading ome metadata: {0}'.format(str(metadata)))
 
-        if 'YResolution' in tiff.pages[series].tags:
-            values = tiff.pages[series].tags['YResolution'].value
-            metadata['y_pixel_um'] = float(values[1]) / float(values[0])
-        else:
-            metadata['y_pixel_um'] = default_pixel_um
-
-        if tiff.imagej_metadata is not None:
-            metadata['z_step_um'] = tiff.imagej_metadata.get('spacing', default_z_step_um)
-            metadata['finterval_sec'] = tiff.imagej_metadata.get('finterval_sec', default_finterval_sec)
-            logger.debug('Read imagej metadata: {0}'.format(str(metadata)))
-        elif tiff.ome_metadata is not None:
             ome = from_xml(tiff.ome_metadata)
+            if hasattr(ome.images[series].pixels, "physical_size_x"):
+                ratio = ome_ratio_to_um.get(ome.images[series].pixels.physical_size_x_unit, 1.0)
+                metadata['x_pixel_um'] = ome.images[series].pixels.physical_size_x * ratio
+            else:
+                metadata['x_pixel_um'] = default_pixel_um
+
+            if hasattr(ome.images[series].pixels, "physical_size_y"):
+                ratio = ome_ratio_to_um.get(ome.images[series].pixels.physical_size_y_unit, 1.0)
+                metadata['y_pixel_um'] = ome.images[series].pixels.physical_size_y * ratio
+            else:
+                metadata['y_pixel_um'] = default_pixel_um
+
             if hasattr(ome.images[series].pixels, "physical_size_z"):
-                metadata['z_step_um'] = ome.images[series].pixels.physical_size_z
+                ratio = ome_ratio_to_um.get(ome.images[series].pixels.physical_size_z_unit, 1.0)
+                metadata['z_step_um'] = ome.images[series].pixels.physical_size_z * ratio
             else:
                 metadata['z_step_um'] = default_z_step_um
 
             if hasattr(ome.images[series].pixels, "time_increment"):
-                metadata['finterval_sec'] = ome.images[series].pixels.time_increment
+                ratio = ome_ratio_to_sec.get(ome.images[series].pixels.time_increment_unit, 1.0)
+                metadata['finterval_sec'] = ome.images[series].pixels.time_increment * ratio
             else:
                 metadata['finterval_sec'] = default_finterval_sec
 
-            logger.debug('Read ome metadata: {0}'.format(str(metadata)))
         else:
-            metadata['z_step_um'] = default_z_step_um
-            metadata['finterval_sec'] = default_finterval_sec
+            if tiff.imagej_metadata is not None:
+                logger.debug('Reading imagej metadata: {0}'.format(str(metadata)))
+                ratio = imagej_ratio_to_um.get(tiff.imagej_metadata.get('unit', 'um'), 1.0)
+                metadata['z_step_um'] = tiff.imagej_metadata.get('spacing', default_z_step_um) * ratio
+                metadata['finterval_sec'] = tiff.imagej_metadata.get('finterval_sec', default_finterval_sec)
+            else:
+                logger.debug('No imagej metadata found')
+                metadata['z_step_um'] = default_z_step_um
+                metadata['finterval_sec'] = default_finterval_sec
+                if 'ResolutionUnit' in tiff.pages[series].tags:
+                    ratio = resunit_ratio_to_um.get(tiff.pages[series].tags['ResolutionUnit'].value, 1.0)
+                else:
+                    ratio = 1.0
+
+            if 'XResolution' in tiff.pages[series].tags:
+                values = tiff.pages[series].tags['XResolution'].value
+                metadata['x_pixel_um'] = float(values[1]) / float(values[0]) * ratio
+            else:
+                metadata['x_pixel_um'] = default_pixel_um
+
+            if 'YResolution' in tiff.pages[series].tags:
+                values = tiff.pages[series].tags['YResolution'].value
+                metadata['y_pixel_um'] = float(values[1]) / float(values[0]) * ratio
+            else:
+                metadata['y_pixel_um'] = default_pixel_um
 
         return metadata
 
     def __set_metadata (self, metadata):
         self.pixel_um = [metadata['z_step_um'], metadata['y_pixel_um'], metadata['x_pixel_um']]
         self.finterval_sec = metadata['finterval_sec']
-    
-    def __pasting_slices (self, src_shape, tgt_shape, centering = False, offset = None):
-        if centering:
-            shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
-        else:
-            shifts = np.array([0] * len(src_shape))
 
+    def resize_image (self, shape, centering = False, offset = None):
+        shape = [self.t_count, self.c_count] + list(shape)
         if offset is not None:
-            shifts = shifts + np.array(offset)
+            offset = [0, 0] + list(offset)
+        self.resize_all(shape, centering = centering, offset = offset)
 
-        src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, src_shape)]
-        src_bounds = np.minimum(src_shape, tgt_shape - shifts)
-        slices_src = tuple([slice(x, y) for x, y in zip(src_starts, src_bounds)])
+    def resize_all (self, shape, centering = False, offset = None):
+        shape = list(shape) + self.image_array.shape[len(shape):]
+        if offset is not None:
+            offset = list(offset) + [0] * (len(self.image_array) - len(offset))
 
-        tgt_starts = [0 if x < 0 else min(x, y) for x, y in zip(shifts, tgt_shape)]
-        tgt_bounds = np.minimum(src_shape + shifts, tgt_shape)
-        slices_tgt = tuple([slice(x, y) for x, y in zip(tgt_starts, tgt_bounds)])
-
-        return [slices_src, slices_tgt]
-
-    def __new_array (self, shape):
-        if self.has_s_axis:
-            new_shape = [self.t_count, self.c_count, *shape, self.s_count]
-        else:
-            new_shape = [self.t_count, self.c_count, *shape]
-
-        return np.zeros(new_shape, dtype = self.image_array.dtype)
-
-    def resize (self, shape, centering = False):
-        t_slice = slice(0, self.t_count, 1)
-        c_slice = slice(0, self.c_count, 1)
-
-        new_array = self.__new_array(shape)
-        current_shape = [self.z_count, self.height, self.width]
-        slices_src, slices_tgt = self.__pasting_slices(current_shape, shape, centering = centering)
-        new_array[tuple([t_slice, c_slice] + slices_tgt)] = self.image_array[tuple([t_slice, c_slice] + slices_src)]
+        slices_src, slices_tgt = __pasting_slices(self.image_array.shape, shape, centering = centering, offset = offset)
+        new_array = np.zeros(shape, dtype = self.image_array.dtype)
+        new_array[tuple(slices_tgt)] = self.image_array[tuple(slices_src)].copy()
 
         self.image_array = new_array
         self.update_dimensions()
 
-    def crop (self, slice_list):
+    def crop_image (self, origin, shape):
+        origin = [0, 0] + list(origin)
+        shape = [self.t_count, self.c_count] + list(shape)
+        self.crop_all(origin, shape)
+
+    def crop_all (self, origin, shape):
+        slice_list = [slice(o, s, 1) for o, s in zip(origin, shape)]
+        self.crop_by_slice(slice_list)
+
+    def crop_by_slice (self, slice_list):
         self.image_array = self.image_array[tuple(slice_list)].copy()
         self.update_dimensions()
 

@@ -8,7 +8,7 @@ deconv=0
 iter=10
 first_view_x=370
 second_view_x=1400
-z_scaling=0
+scale_iso=0
 output_mini=0
 
 # show usage and exit
@@ -19,7 +19,7 @@ function show_usage () {
     echo "- opt_method: ${opt_method}"
     echo "- first_view_x: ${first_view_x}"
     echo "- second_view_x: ${second_view_x}"
-    echo "- z-scaling: ${z_scaling}"
+    echo "- scale_iso: ${scale_iso}"
     echo "- deconv: ${deconv}"
     echo "- output_mini: ${output_mini}"
     exit 1
@@ -35,7 +35,7 @@ do
     t) opt_method="$OPTARG" ;;
     d) deconv=1 ;;
     i) iter="$OPTARG" ;;
-    z) z_scaling=1 ;;
+    z) scale_iso=1 ;;
     n) output_mini=1 ;;
     :) show_usage ;;
     \?) show_usage ;;
@@ -72,14 +72,14 @@ do
     echo "Registration & cropping:" $(date) > $output_log
     echo "Method: ${reg_method,,}" >> $output_log
 
-    if [[ $z_scaling == 1 ]]; then
-        echo "Z-scaling is ON during registration." >> $output_log
-        z_option="-z"
+    if [[ $scale_iso == 1 ]]; then
+        echo "Isomertic scaling is ON during registration." >> $output_log
+        scale_option="-s"
     else
-        z_option=""
+        scale_option=""
     fi
 
-    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $z_option -A -a "$output_reg" "$file"
+    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -A -a "$output_reg" "$file"
     mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" "$output_reg"
     echo "First view: ${first_view_x}" >> $output_log
     

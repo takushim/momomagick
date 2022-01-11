@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import argparse, tifffile
+import argparse
+import numpy as np
 from pathlib import Path
 from mmtools import stack, deconvolve, log
 
@@ -12,6 +13,7 @@ output_suffix = '_deconv.tif'
 psf_filename = None
 psf_iso = 'dispim_iso_bw.tif'
 psf_noniso = 'dispim_0.5um_bw.tif'
+psf_2d = 'dispim_2d_bw.tif'
 iterations = 10
 gpu_id = None
 log_level = 'INFO'
@@ -22,7 +24,7 @@ parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='Output image file name ([basename]{0} if not specified)'.format(output_suffix))
 
 parser.add_argument('-p', '--psf-image', default = psf_filename, \
-                    help='Psf image (current -> system folder). None: {0} or {1}'.format(psf_iso, psf_noniso))
+                    help='Name of psf image in the current or system folders. None: {0}'.format([psf_iso, psf_noniso, psf_2d]))
 
 parser.add_argument('-i', '--iterations', type = int, default = iterations, \
                     help='Number of iterations')
@@ -68,10 +70,13 @@ input_stack = stack.Stack(input_filename)
 
 # load psf image
 if psf_filename is None:
-    if scale_isometric:
-        psf_path = Path(psf_folder).joinpath(psf_iso)
+    if input_stack.z_count > 1:
+        if scale_isometric:
+            psf_path = Path(psf_folder).joinpath(psf_iso)
+        else:
+            psf_path = Path(psf_folder).joinpath(psf_noniso)
     else:
-        psf_path = Path(psf_folder).joinpath(psf_noniso)
+        psf_path = Path(psf_folder).joinpath(psf_2d)
 else:
     if Path(psf_filename).exists():
         psf_path = Path(psf_filename)
@@ -79,7 +84,8 @@ else:
         psf_path = Path(psf_folder).joinpath(psf_filename)
 
 logger.info("PSF image: {0}".format(psf_path))
-psf_image = tifffile.imread(psf_path)
+psf_stack = stack.Stack(psf_path)
+psf_image = psf_stack.image_array[0, 0]
 
 # setting image scale
 pixel_orig = input_stack.pixel_um
@@ -87,9 +93,16 @@ if scale_isometric:
     logger.info("Scaling image: {0}".format(min(pixel_orig)))
     input_stack.scale_by_pixelsize(min(pixel_orig), gpu_id = gpu_id)
 
+if np.allclose(input_stack.pixel_um, psf_stack.pixel_um, atol = 1e-2) == False:
+    logger.warning("Pixel sizes are different. Image: {0}. PSF: {1}.".format(input_stack.pixel_um, psf_stack.pixel_um))
+
 # deconvolution
-def deconvolve_image (image):
-    return deconvolve.deconvolve(image, psf_image, iterations = iterations, gpu_id = gpu_id)
+if input_stack.z_count > 1:
+    def deconvolve_image (image):
+        return deconvolve.deconvolve(image, psf_image, iterations = iterations, gpu_id = gpu_id)
+else:
+    def deconvolve_image (image):
+        return deconvolve.deconvolve(image[0], psf_image[0], iterations = iterations, gpu_id = gpu_id)
 
 logger.info("Deconvolution started")
 input_stack.apply_all(deconvolve_image, progress = True)

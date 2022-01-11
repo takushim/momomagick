@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 
-import sys
 import numpy as np
-from . import gpuimage
+from . import stack
 try:
     import cupy as cp
 except ImportError:
     pass
 
 def turn_on_gpu (gpu_id):
-    return gpuimage.turn_on_gpu(gpu_id)
+    return stack.turn_on_gpu(gpu_id)
 
 def deconvolve (input_image, psf_image, iterations = 10, gpu_id = None):
     if gpu_id is None:
@@ -19,7 +18,6 @@ def deconvolve (input_image, psf_image, iterations = 10, gpu_id = None):
 
 def deconvolve_cpu (input_image, psf_image, iterations = 10):
     orig_image = input_image.astype(float)
-    #orig_image = orig_image / np.sum(orig_image)
 
     if isinstance(psf_image, list):
         psf_images = psf_image
@@ -27,7 +25,7 @@ def deconvolve_cpu (input_image, psf_image, iterations = 10):
         psf_images = [psf_image]
     
     psf_images = [image.astype(float) / np.sum(image) for image in psf_images]
-    psf_images = [gpuimage.resize(image, orig_image.shape, center = True) for image in psf_images]
+    psf_images = [stack.resize(image, orig_image.shape, centering = True) for image in psf_images]
 
     psf_ffts = [np.fft.fftn(np.fft.ifftshift(image)) for image in psf_images]
     hat_ffts = [np.fft.fftn(np.fft.ifftshift(np.flip(image))) for image in psf_images]
@@ -42,7 +40,6 @@ def deconvolve_cpu (input_image, psf_image, iterations = 10):
 
 def deconvolve_gpu (input_image, psf_image, iterations = 10):
     orig_image = cp.array(input_image.astype(float))
-    #orig_image = orig_image / cp.sum(orig_image)
 
     if isinstance(psf_image, list):
         psf_images = psf_image
@@ -50,7 +47,7 @@ def deconvolve_gpu (input_image, psf_image, iterations = 10):
         psf_images = [psf_image]
     
     psf_images = [image.astype(float) / np.sum(image) for image in psf_images]
-    psf_images = [gpuimage.resize(image, orig_image.shape, center = True) for image in psf_images]
+    psf_images = [stack.resize(image, orig_image.shape, centering = True) for image in psf_images]
     psf_images = [cp.array(image) for image in psf_images]
 
     psf_ffts = [cp.fft.fftn(cp.fft.ifftshift(image)) for image in psf_images]

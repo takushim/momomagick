@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-import argparse, logging
-from pathlib import Path
+import argparse
 from mmtools import stack, log
 
 # default values
@@ -65,6 +64,7 @@ else:
 # read an image file
 input_stack = stack.Stack(input_filename)
 
+# slices
 if t_range is None:
     t_slice = slice(0, input_stack.t_count, 1)
 else:
@@ -95,7 +95,7 @@ else:
 
 # crop TIFF
 logger.info("Cropping using area: {0}".format(crop_area))
-input_stack.crop([t_slice, c_slice, z_slice, y_slice, x_slice])
+input_stack.crop_by_slice([t_slice, c_slice, z_slice, y_slice, x_slice])
 
 # output TIFF
 logger.info("Output image: {0}".format(output_filename))
