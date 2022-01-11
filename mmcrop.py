@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import argparse, logging
-from mmtools import stack
+from pathlib import Path
+from mmtools import stack, log
 
 # default values
 input_filename = None
@@ -46,10 +47,7 @@ parser.add_argument('input_file', default = input_filename, \
 args = parser.parse_args()
 
 # logging
-log_level = args.log_level
-logging.basicConfig(format = '%(asctime)s %(name)s %(levelname)s: %(message)s')
-logger = logging.getLogger(__file__)
-logger.setLevel(log_level)
+logger = log.get_logger(__file__, level = args.log_level)
 
 # set arguments
 input_filename = args.input_file
@@ -96,9 +94,9 @@ else:
     y_slice = slice(crop_area[1], crop_area[1] + crop_area[3], 1)
 
 # crop TIFF
-logging.info("Cropping using area: {0}".format(crop_area))
+logger.info("Cropping using area: {0}".format(crop_area))
 input_stack.crop([t_slice, c_slice, z_slice, y_slice, x_slice])
 
 # output TIFF
-logging.info("Output image: {0}".format(output_filename))
+logger.info("Output image: {0}".format(output_filename))
 input_stack.save_ome_tiff(output_filename)

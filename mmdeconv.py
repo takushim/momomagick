@@ -1,118 +1,103 @@
 #!/usr/bin/env python
 
-import sys, argparse, tifffile, time
-import numpy as np
+import argparse, tifffile
 from pathlib import Path
-from mmtools import mmtiff, deconvolve, gpuimage
+from mmtools import stack, deconvolve, log
 
 # defaults
 psf_folder = Path(__file__).parent.joinpath('psf')
 input_filename = None
 output_filename = None
-output_suffix = '_dec.tif'
-psf_filename = 'dispim_iso.tif'
+output_suffix = '_deconv.tif'
+psf_filename = None
+psf_iso = 'dispim_iso_bw.tif'
+psf_noniso = 'dispim_0.5um_bw.tif'
 iterations = 10
 gpu_id = None
+log_level = 'INFO'
 
 parser = argparse.ArgumentParser(description = 'Deconvolve images using the Richardson-Lucy algorhythm', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default = output_filename, \
-                    help='output image file name ([basename]{0} if not specified)'.format(output_suffix))
+                    help='Output image file name ([basename]{0} if not specified)'.format(output_suffix))
 
 parser.add_argument('-p', '--psf-image', default = psf_filename, \
-                    help='filename of psf image, searched in current folder -> program folder')
+                    help='Psf image (current -> system folder). None: {0} or {1}'.format(psf_iso, psf_noniso))
 
 parser.add_argument('-i', '--iterations', type = int, default = iterations, \
-                    help='number of iterations')
+                    help='Number of iterations')
 
-parser.add_argument('-s', '--z-scale-psf', action = 'store_true', \
-                    help='Scale the z axis of psf (not image)')
+parser.add_argument('-s', '--scale-isometric', action = 'store_true', \
+                    help='Scale the image to make it isometric.')
 
-parser.add_argument('-r', '--restore-z-scale', action = 'store_true', \
-                    help='Restore z scaling of images after deconvolution')
+parser.add_argument('-r', '--restore-scale', action = 'store_true', \
+                    help='Restore the z scale of image after deconvolution')
 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='Turn on GPU use with the specified ID')
 
+parser.add_argument('-L', '--log-level', default = log_level, \
+                    help='Log level: DEBUG, INFO, WARNING, ERROR or CRITICAL')
+
 parser.add_argument('input_file', default = input_filename, \
-                    help='a multipage TIFF file to deconvolve')
+                    help='Image file to deconvolve')
 
 args = parser.parse_args()
+
+# logging
+logger = log.get_logger(__file__, level = args.log_level)
 
 # defaults
 iterations = args.iterations
 psf_filename = args.psf_image
-restore_z_scale = args.restore_z_scale
-z_scale_psf = args.z_scale_psf
+scale_isometric = args.scale_isometric
+restore_scale = args.restore_scale
 gpu_id = args.gpu_id
 input_filename = args.input_file
 if args.output_file is None:
-    output_filename = mmtiff.with_suffix(input_filename, output_suffix)
+    output_filename = stack.with_suffix(input_filename, output_suffix)
 else:
     output_filename = args.output_file
 
 # turn on GPU device
-deconvolve.turn_on_gpu(gpu_id)
-
-# load psf image
-if Path(psf_filename).exists():
-    print("Read PSF image in the current folder:", psf_filename)
-    psf_image = tifffile.imread(psf_filename)
-else:
-    psf_path = Path(psf_folder).joinpath(psf_filename)
-    if psf_path.exists():
-        print("Read PSF image in the system folder:", str(psf_path))
-        psf_image = tifffile.imread(str(psf_path))
-    else:
-        raise Exception('PSF file {0} not found'.format(psf_filename))
+stack.turn_on_gpu(gpu_id)
 
 # load input image
-input_tiff = mmtiff.MMTiff(input_filename)
-input_list = input_tiff.as_list(list_channel = True)
+logger.info("Loading image: {0}".format(input_filename))
+input_stack = stack.Stack(input_filename)
+
+# load psf image
+if psf_filename is None:
+    if scale_isometric:
+        psf_path = Path(psf_folder).joinpath(psf_iso)
+    else:
+        psf_path = Path(psf_folder).joinpath(psf_noniso)
+else:
+    if Path(psf_filename).exists():
+        psf_path = Path(psf_filename)
+    else:
+        psf_path = Path(psf_folder).joinpath(psf_filename)
+
+logger.info("PSF image: {0}".format(psf_path))
+psf_image = tifffile.imread(psf_path)
 
 # setting image scale
-z_scale_ratio = 1
-if input_tiff.total_zstack > 1:
-    ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
-    if np.isclose(ratio, 1.0) == False:
-        print("Setting z scaling of images:", ratio)
-        z_scale_ratio = ratio
-else:
-    z_scale_ratio = 1
+pixel_orig = input_stack.pixel_um
+if scale_isometric:
+    logger.info("Scaling image: {0}".format(min(pixel_orig)))
+    input_stack.scale_by_pixelsize(min(pixel_orig), gpu_id = gpu_id)
 
-# z-zoom psf
-if z_scale_psf and input_tiff.total_zstack > 1:
-    ratio = input_tiff.pixelsize_um / input_tiff.z_step_um
-    if np.isclose(ratio, 1.0) == False:
-        psf_image = gpuimage.z_zoom(psf_image, ratio, gpu_id = gpu_id)
-        print("Scaling psf image into:", ratio)
+# deconvolution
+def deconvolve_image (image):
+    return deconvolve.deconvolve(image, psf_image, iterations = iterations, gpu_id = gpu_id)
 
-# save results in the CTZYX order
-output_image_list = []
-print("Start deconvolution:", time.ctime())
-print("Frames:", end = ' ')
-for index in range(input_tiff.total_time):
-    image_list = []
-    for channel in range(input_tiff.total_channel):
-        image = input_list[index][channel]
-        if z_scale_ratio != 1:
-            image = gpuimage.z_zoom(image, z_scale_ratio, gpu_id = gpu_id)
-        image = deconvolve.deconvolve(image, psf_image, iterations = iterations, gpu_id = gpu_id)
-        if restore_z_scale:
-            image = gpuimage.z_zoom(image, 1 / z_scale_ratio, gpu_id = gpu_id)
-        image_list.append(image)
-    output_image_list.append(image_list)
-    print(index, end = ' ', flush = True)
-print(".")
-print("End deconvolution:", time.ctime())
+logger.info("Deconvolution started")
+input_stack.apply_all(deconvolve_image, progress = True)
 
-# shape output into the TZCYX order
-output_image = np.array(output_image_list).swapaxes(1, 2)
-if (input_tiff.dtype.kind == 'i' or input_tiff.dtype.kind == 'u') and \
-        np.max(output_image) <= np.iinfo(input_tiff.dtype).max:
-    output_image = mmtiff.float_to_int(output_image, input_tiff.dtype)
-else:
-    output_image = output_image.astype(np.float32)
+if restore_scale:
+    logger.info("Restoring scale: {0}".format(pixel_orig))
+    input_stack.scale_by_pixelsize(pixel_orig, gpu_id = gpu_id)
 
 # output in the ImageJ format, dimensions should be in TZCYX order
-input_tiff.save_image(output_filename, output_image)
+logger.info("Saving image: {0}".format(output_filename))
+input_stack.save_ome_tiff(output_filename)

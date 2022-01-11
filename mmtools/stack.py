@@ -5,9 +5,11 @@ import numpy as np
 import scipy.ndimage as ndimage
 from pathlib import Path
 from logging import getLogger
-from ome_types import to_xml, OME
+from tqdm import tqdm
+from ome_types import to_xml, from_xml, OME
 from ome_types.model import Image, Pixels, TiffData, Channel
 from ome_types.model.simple_types import PixelType, ChannelID, UnitsLength, UnitsTime, Color
+from mmtools import log
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as cpimage
@@ -22,13 +24,13 @@ default_finterval_sec = 1
 
 def turn_on_gpu (gpu_id):
     if gpu_id is None:
-        print("GPU ID not specified. Continuing with CPU.")
+        logger.warning("GPU ID not specified. Continuing with CPU.")
         return None
 
     device = cp.cuda.Device(gpu_id)
     device.use()
-    print("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
-    print("Free memory:", device.mem_info)
+    logger.info("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
+    logger.info("Free memory:", device.mem_info)
     return device
 
 def with_suffix (filename, suffix):
@@ -83,7 +85,7 @@ class Stack:
             with tifffile.TiffFile(fileio) as tiff:
                 axes = tiff.series[series].axes
                 image_array = tiff.asarray(series = series)
-                metadata = self.__read_metadata(tiff)
+                metadata = self.__read_metadata(tiff, series = series)
 
             if 'T' not in axes:
                 image_array = image_array[np.newaxis]
@@ -176,29 +178,38 @@ class Stack:
             self.has_s_axis = False
             self.axes = 'TCZYX'
 
-    def __read_metadata (self, tiff):
+    def __read_metadata (self, tiff, series = 0):
         metadata = {}
 
-        if 'XResolution' in tiff.pages[0].tags:
-            values = tiff.pages[0].tags['XResolution'].value
+        if 'XResolution' in tiff.pages[series].tags:
+            values = tiff.pages[series].tags['XResolution'].value
             metadata['x_pixel_um'] = float(values[1]) / float(values[0])
         else:
             metadata['x_pixel_um'] = default_pixel_um
 
-        if 'YResolution' in tiff.pages[0].tags:
-            values = tiff.pages[0].tags['YResolution'].value
+        if 'YResolution' in tiff.pages[series].tags:
+            values = tiff.pages[series].tags['YResolution'].value
             metadata['y_pixel_um'] = float(values[1]) / float(values[0])
         else:
             metadata['y_pixel_um'] = default_pixel_um
 
         if tiff.imagej_metadata is not None:
-            logger.debug('Read imagej metadata: {0}'.format(str(metadata)))
             metadata['z_step_um'] = tiff.imagej_metadata.get('spacing', default_z_step_um)
             metadata['finterval_sec'] = tiff.imagej_metadata.get('finterval_sec', default_finterval_sec)
+            logger.debug('Read imagej metadata: {0}'.format(str(metadata)))
         elif tiff.ome_metadata is not None:
+            ome = from_xml(tiff.ome_metadata)
+            if hasattr(ome.images[series].pixels, "physical_size_z"):
+                metadata['z_step_um'] = ome.images[series].pixels.physical_size_z
+            else:
+                metadata['z_step_um'] = default_z_step_um
+
+            if hasattr(ome.images[series].pixels, "time_increment"):
+                metadata['finterval_sec'] = ome.images[series].pixels.time_increment
+            else:
+                metadata['finterval_sec'] = default_finterval_sec
+
             logger.debug('Read ome metadata: {0}'.format(str(metadata)))
-            metadata['z_step_um'] = tiff.ome_metadata.get('spacing', default_z_step_um)
-            metadata['finterval_sec'] = tiff.ome_metadata.get('finterval_sec', default_finterval_sec)
         else:
             metadata['z_step_um'] = default_z_step_um
             metadata['finterval_sec'] = default_finterval_sec
@@ -252,7 +263,7 @@ class Stack:
         self.image_array = self.image_array[tuple(slice_list)].copy()
         self.update_dimensions()
 
-    def apply_all (self, image_func):
+    def __apply_all (self, image_func):
         output_frames = []
         for t_index in range(self.t_count):
             output_channels = []
@@ -269,7 +280,19 @@ class Stack:
                     image = image_func(image)
                     output_channels.append(image)
             output_frames.append(output_channels)
-        return np.array(output_frames)
+            yield t_index
+
+        self.image_array = np.array(output_frames)
+        self.update_dimensions()
+
+    def apply_all (self, image_func, progress = False):
+        if progress:
+            with tqdm(total = self.t_count - 1) as pbar:
+                for index in self.__apply_all(image_func):
+                    pbar.n = index
+                    pbar.refresh()
+        else:
+            self.__apply_all(image_func)
 
     def scale_by_ratio (self, ratio = 1.0, gpu_id = None):
         if isinstance(ratio, (list, tuple, np.ndarray)):
@@ -290,8 +313,7 @@ class Stack:
                     image = cp.asnumpy(cpimage.zoom(image, ratio))
                 return image
 
-            self.image_array = self.apply_all(zoom_func)
-            self.update_dimensions()
+            self.apply_all(zoom_func)
             self.pixel_um = [self.pixel_um[i] / ratio[i] for i in range(len(self.pixel_um))]
 
     def scale_by_pixelsize (self, pixel_um, gpu_id = None):
@@ -326,8 +348,7 @@ class Stack:
                 image = cp.asnumpy(image)
             return image
 
-        self.image_array = self.apply_all(rotate_func)
-        self.update_dimensions()
+        self.apply_all(rotate_func)
 
     def affine_transform (self, matrix, gpu_id = None):
         def affine_func (image):
@@ -338,8 +359,7 @@ class Stack:
                 image = cp.asnumpy(image)
             return image
 
-        self.image_array = self.apply_all(affine_func)
-        self.update_dimensions()
+        self.apply_all(affine_func)
 
     def shift (self, offset, gpu_id = None):
         def shift_func (image):
@@ -349,5 +369,4 @@ class Stack:
                 image = cp.asnumpy(cpimage.interpolation.shift(cp.array(image), offset))
             return image
 
-        self.image_array = self.apply_all(shift_func)
-        self.update_dimensions()
+        self.apply_all(shift_func)
