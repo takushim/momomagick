@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
 import argparse, json
-from tempfile import TemporaryFile
 import numpy as np
 from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
 from numpyencoder import NumpyEncoder
 from statsmodels.nonparametric.smoothers_lowess import lowess
-from mmtools import gpuimage, stack, register, log, jencode
+from mmtools import gpuimage, stack, register, log
 
 # defaults
 gpu_id = None
