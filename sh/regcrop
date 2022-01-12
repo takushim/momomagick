@@ -10,11 +10,13 @@ first_view_x=370
 second_view_x=1400
 scale_iso=0
 output_mini=0
+psf_file=""
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-f X1] [-s X2] [-e REG] [-t OPT] [-z] [-d] [-i ITER] [-n] file [file ...]"
+    echo "$(basename "$0") [-f X1] [-s X2] [-p PSF] [-e REG] [-t OPT] [-z] [-d] [-i ITER] [-n] file [file ...]"
     echo "Default settings:"
+    echo "- psf_file: ${psf_file} (None for default)"
     echo "- reg_method: ${reg_method}"
     echo "- opt_method: ${opt_method}"
     echo "- first_view_x: ${first_view_x}"
@@ -26,11 +28,12 @@ function show_usage () {
 }
 
 # parse options
-while getopts "f:s:e:di:znt:" OPT;
+while getopts "f:s:p:e:di:znt:" OPT;
 do
     case "$OPT" in
     f) first_view_x="$OPTARG" ;;
     s) second_view_x="$OPTARG" ;;
+    p) psf_file="$OPTARG" ;;
     e) reg_method="$OPTARG" ;;
     t) opt_method="$OPTARG" ;;
     d) deconv=1 ;;
@@ -48,6 +51,15 @@ if [ $# == 0 ]; then
     files=("$(find . -maxdepth 1 -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
 else
     files=("$@")
+fi
+
+# psf
+if [[ "$psf_file" == "" ]]; then
+    psf_option1=""
+    psf_option2=""
+else
+    psf_option1="-p"
+    psf_option2="$psf_file"
 fi
 
 # process!
@@ -88,7 +100,7 @@ do
 
     if [[ $deconv == 1 ]]; then
         echo "Deconvolution iterating: ${iter}" >> $output_log
-        mmdeconv.py -g 0 -i "$iter" $scale_option -o "$output_deconv" "$output_crop_1"
+        mmdeconv.py -g 0 -i "$iter" $psf_option1 $psf_option2 $scale_option -o "$output_deconv" "$output_crop_1"
     fi
 
     if [[ $output_mini == 1 ]]; then
