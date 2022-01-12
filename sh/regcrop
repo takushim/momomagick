@@ -88,7 +88,7 @@ do
 
     if [[ $deconv == 1 ]]; then
         echo "Deconvolution iterating: ${iter}" >> $output_log
-        mmdeconv.py -g 0 -i "$iter" -o "$output_deconv" "$output_crop_1"
+        mmdeconv.py -g 0 -i "$iter" $scale_option -o "$output_deconv" "$output_crop_1"
     fi
 
     if [[ $output_mini == 1 ]]; then

@@ -65,7 +65,7 @@ else:
 stack.turn_on_gpu(gpu_id)
 
 # load input image
-logger.info("Loading image: {0}".format(input_filename))
+logger.info("Loading image: {0}.".format(input_filename))
 input_stack = stack.Stack(input_filename)
 
 # load psf image
@@ -83,34 +83,34 @@ else:
     else:
         psf_path = Path(psf_folder).joinpath(psf_filename)
 
-logger.info("PSF image: {0}".format(psf_path))
+logger.info("PSF image: {0}.".format(psf_path))
 psf_stack = stack.Stack(psf_path)
 psf_image = psf_stack.image_array[0, 0]
 
 # setting image scale
-pixel_orig = input_stack.pixel_um
+pixel_orig = input_stack.voxel_um
 if scale_isometric:
-    logger.info("Scaling image: {0}".format(min(pixel_orig)))
-    input_stack.scale_by_pixelsize(min(pixel_orig), gpu_id = gpu_id)
+    logger.info("Scaling image to be isometric. Pixel-size: {0}.".format(min(pixel_orig)))
+    input_stack.scale_isometric(gpu_id = gpu_id)
 
-if np.allclose(input_stack.pixel_um, psf_stack.pixel_um, atol = 1e-2) == False:
-    logger.warning("Pixel sizes are different. Image: {0}. PSF: {1}.".format(input_stack.pixel_um, psf_stack.pixel_um))
+if np.allclose(input_stack.voxel_um, psf_stack.voxel_um, atol = 1e-2) == False:
+    logger.warning("Pixel sizes are different. Image: {0}. PSF: {1}.".format(input_stack.voxel_um, psf_stack.voxel_um))
 
 # deconvolution
 if input_stack.z_count > 1:
-    def deconvolve_image (image):
+    def deconvolve_image (image, t_index, c_index):
         return deconvolve.deconvolve(image, psf_image, iterations = iterations, gpu_id = gpu_id)
 else:
-    def deconvolve_image (image):
+    def deconvolve_image (image, t_index, c_index):
         return deconvolve.deconvolve(image[0], psf_image[0], iterations = iterations, gpu_id = gpu_id)[np.newaxis]
 
-logger.info("Deconvolution started")
+logger.info("Deconvolution started.")
 input_stack.apply_all(deconvolve_image, progress = True)
 
 if restore_scale:
-    logger.info("Restoring scale: {0}".format(pixel_orig))
+    logger.info("Restoring scale: {0}.".format(pixel_orig))
     input_stack.scale_by_pixelsize(pixel_orig, gpu_id = gpu_id)
 
 # output in the ImageJ format, dimensions should be in TZCYX order
-logger.info("Saving image: {0}".format(output_filename))
+logger.info("Saving image: {0}.".format(output_filename))
 input_stack.save_ome_tiff(output_filename)

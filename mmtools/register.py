@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import sys
 import numpy as np
+from logging import getLogger
 from functools import reduce
 from transforms3d import affines, euler
 from scipy import ndimage, optimize
@@ -11,6 +11,8 @@ try:
     from cupyx.scipy import ndimage as cpimage
 except ImportError:
     pass
+
+logger = getLogger(__name__)
 
 optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP", "None"]
 registering_methods = ["Full", "Rigid-Zoom", "Rigid", "Drift", "XY", "POC", "None"]
@@ -166,8 +168,9 @@ class Poc:
         max_val = poc_image[max_pos]
         full_size = np.array(input_image.shape).astype(float)
         half_size = full_size / 2
+        init_corr = max_val / (np.prod(half_size) / np.prod(full_size))
 
-        fit_shape = np.array([fit_size for s in input_image.shape])
+        fit_shape = np.array([fit_size] * len(input_image.shape))
         poc_fit = gpuimage.crop(poc_image, max_pos - fit_shape // 2, fit_shape)
         input_range = [np.arange(-(fit_size // 2), (fit_size + 1) // 2, 1) for s in input_image.shape]
         inputs = np.meshgrid(*input_range, indexing = 'ij')
@@ -206,7 +209,6 @@ class Poc:
         else:
             results = optimize.minimize(error_func, init_params, method = opt_method)
 
-        init_corr = max_val / (np.prod(half_size) / np.prod(full_size))
         return {'shift': (max_pos - self.center + results.x[1:]), 'corr': results.x[0], \
                 'init_shift': (max_pos - self.center), 'init_corr': init_corr, \
                 'opt_method': opt_method, 'init_params': init_params, \

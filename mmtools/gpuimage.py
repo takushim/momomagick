@@ -1,32 +1,35 @@
 #!/usr/bin/env python
 
-import sys
 import numpy as np
 from scipy import ndimage
+from logging import getLogger
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as cpimage
 except ImportError:
     pass
 
+logger = getLogger(__name__)
+
 def turn_on_gpu (gpu_id):
     if gpu_id is None:
-        print("GPU ID not specified. Continuing with CPU.")
+        logger.warning("GPU ID not specified. Continuing with CPU.")
         return None
+
     device = cp.cuda.Device(gpu_id)
     device.use()
-    print("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
-    print("Free memory:", device.mem_info)
+    logger.info("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
+    logger.info("Free memory:", device.mem_info)
     return device
 
-def paste_slices (src_shape, tgt_shape, center = False, shifts = None):
-    if shifts is None:
-        if center:
-            shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
-        else:
-            shifts = np.array([0 for i in range(len(src_shape))])
+def pasting_slices (src_shape, tgt_shape, centering = False, offset = None):
+    if centering:
+        shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
     else:
-        shifts = np.array(shifts)
+        shifts = np.array([0] * len(src_shape))
+
+    if offset is not None:
+        shifts = shifts + np.array(offset)
 
     src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, src_shape)]
     src_bounds = np.minimum(src_shape, tgt_shape - shifts)
@@ -38,19 +41,20 @@ def paste_slices (src_shape, tgt_shape, center = False, shifts = None):
 
     return [slices_src, slices_tgt]
 
-def resize (image_array, shape, center = False):
+def resize (image_array, shape, centering = False):
     resized_array = np.zeros(shape, dtype = image_array.dtype)
-    slices_src, slices_tgt = paste_slices(image_array.shape, shape, center = center)
+    slices_src, slices_tgt = pasting_slices(image_array.shape, shape, centering = centering)
     resized_array[slices_tgt] = image_array[slices_src].copy()
     return resized_array
 
 def crop (image_array, origin, shape):
     resized_array = np.zeros(shape, dtype = image_array.dtype)
-    slices_src, slices_tgt = paste_slices(image_array.shape, shape, shifts = -origin)
+    slices_src, slices_tgt = pasting_slices(image_array.shape, shape, offset = -origin)
     resized_array[slices_tgt] = image_array[slices_src].copy()
     return resized_array
 
 def zoom (input_image, ratio = 1.0, gpu_id = None):
+    logger.warning("This function will be deplicated.")
     if isinstance(ratio, (list, tuple, np.ndarray)):
         if len(input_image.shape) > len(ratio):
             ratio = [1.0 for i in range(len(input_image.shape) - len(ratio))] + ratio
@@ -71,24 +75,41 @@ def zoom (input_image, ratio = 1.0, gpu_id = None):
     return output_image
 
 def z_zoom (input_image, ratio = 1.0, gpu_id = None):
+    logger.warning("This function will be deplicated.")
     if len(input_image.shape) < 3 or input_image.shape[0] == 1:
-        print("Skipping z-zooming of a 2D image.")
+        logger.info("Skipping z-zooming of a 2D image.")
         output_image = input_image.copy()
     else:
         output_image = zoom(input_image, ratio = (ratio, 1.0, 1.0), gpu_id = gpu_id)
     
     return output_image
 
-def rotate (input_image, angle = 0.0, axis = 0, gpu_id = None):
-    if axis == 0 or axis == 'z' or axis == 'Z':
-        rotate_tuple = (1, 2)
-    elif axis == 1 or axis == 'y' or axis == 'Y':
-        rotate_tuple = (0, 2)
-    elif axis == 2 or axis == 'x' or axis == 'X':
-        rotate_tuple = (0, 1)
+def scale (input_image, ratio, gpu_id = None):
+    if np.allclose(ratio, 1.0) == False:
+        if gpu_id is None:
+            output_image = ndimage.zoom(input_image, ratio)
+        else:
+            output_image = cpimage.zoom(cp.array(input_image), ratio)
+            output_image = cp.asnumpy(output_image)
     else:
-        raise Exception('Invalid axis was specified.')
+        output_image = input_image.copy()
 
+    return output_image
+
+def expand_ratio (ratio):
+    if isinstance(ratio, (list, tuple, np.ndarray)):
+        if len(ratio) == 0:
+            ratio = [1.0, 1.0, 1.0]
+        elif len(ratio) == 1:
+            ratio = [ratio[0], ratio[0], ratio[0]]
+        elif len(ratio) == 2:
+            ratio = [ratio[0], ratio[1], ratio[1]]
+    else:
+        ratio = [ratio, ratio, ratio]
+
+    return ratio
+
+def rotate (input_image, angle, rotate_tuple, gpu_id = None):
     if gpu_id is None:
         image = ndimage.rotate(input_image, angle, axes = rotate_tuple, reshape = False)
     else:
@@ -98,6 +119,18 @@ def rotate (input_image, angle = 0.0, axis = 0, gpu_id = None):
 
     return image
 
+def axis_to_tuple (axis):
+    if axis == 0 or axis == 'z' or axis == 'Z':
+        rotate_tuple = (1, 2)
+    elif axis == 1 or axis == 'y' or axis == 'Y':
+        rotate_tuple = (0, 2)
+    elif axis == 2 or axis == 'x' or axis == 'X':
+        rotate_tuple = (0, 1)
+    else:
+        raise Exception('Invalid axis was specified.')
+
+    return rotate_tuple
+
 def affine_transform (input_image, matrix, gpu_id = None):
     if gpu_id is None:
         output_image = ndimage.affine_transform(input_image, matrix, mode = 'grid-constant')
@@ -106,10 +139,10 @@ def affine_transform (input_image, matrix, gpu_id = None):
         output_image = cp.asnumpy(output_image)
     return output_image
 
-def shift (input_image, shifts, gpu_id = None):
+def shift (input_image, offset, gpu_id = None):
     if gpu_id is None:
-        output_image = ndimage.interpolation.shift(input_image, shifts)
+        output_image = ndimage.interpolation.shift(input_image, offset)
     else:
-        output_image = cpimage.interpolation.shift(cp.array(input_image), shifts)
+        output_image = cpimage.interpolation.shift(cp.array(input_image), offset)
         output_image = cp.asnumpy(output_image)
     return output_image

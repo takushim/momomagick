@@ -1,19 +1,14 @@
 #!/usr/bin/env python
 
-import tifffile
+import tifffile, json
 import numpy as np
-import scipy.ndimage as ndimage
 from pathlib import Path
 from logging import getLogger
 from tqdm import tqdm
 from ome_types import to_xml, from_xml, OME
 from ome_types.model import Image, Pixels, TiffData, Channel
 from ome_types.model.simple_types import PixelType, ChannelID, UnitsLength, UnitsTime, Color
-try:
-    import cupy as cp
-    from cupyx.scipy import ndimage as cpimage
-except ImportError:
-    pass
+from . import gpuimage
 
 logger = getLogger(__name__)
 
@@ -22,50 +17,13 @@ default_z_step_um = 0.5
 default_finterval_sec = 1
 
 def turn_on_gpu (gpu_id):
-    if gpu_id is None:
-        logger.warning("GPU ID not specified. Continuing with CPU.")
-        return None
-
-    device = cp.cuda.Device(gpu_id)
-    device.use()
-    logger.info("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
-    logger.info("Free memory:", device.mem_info)
-    return device
+    return gpuimage.turn_on_gpu(gpu_id)
 
 def with_suffix (filename, suffix):
     filename = Path(filename).with_suffix('')
     if filename.suffix.lower() == '.ome':
         filename = filename.with_suffix('')
     return str(filename) + suffix
-
-def resize (image_array, shape, centering = False, offset = None):
-    resized_array = np.zeros(shape, dtype = image_array.dtype)
-    slices_src, slices_tgt = __pasting_slices(image_array.shape, shape, centering = centering, offset = offset)
-    resized_array[slices_tgt] = image_array[slices_src].copy()
-    return resized_array
-
-def crop (image_array, origin, shape):
-    slice_list = [slice(o, s, 1) for o, s in zip(origin, shape)]
-    return image_array[tuple(slice_list)].copy()
-
-def __pasting_slices (src_shape, tgt_shape, centering = False, offset = None):
-    if centering:
-        shifts = (np.array(tgt_shape) - np.array(src_shape)) // 2
-    else:
-        shifts = np.array([0] * len(src_shape))
-
-    if offset is not None:
-        shifts = shifts + np.array(offset)
-
-    src_starts = [min(-x, y) if x < 0 else 0 for x, y in zip(shifts, src_shape)]
-    src_bounds = np.minimum(src_shape, tgt_shape - shifts)
-    slices_src = tuple([slice(x, y) for x, y in zip(src_starts, src_bounds)])
-
-    tgt_starts = [0 if x < 0 else min(x, y) for x, y in zip(shifts, tgt_shape)]
-    tgt_bounds = np.minimum(src_shape + shifts, tgt_shape)
-    slices_tgt = tuple([slice(x, y) for x, y in zip(tgt_starts, tgt_bounds)])
-
-    return [slices_src, slices_tgt]
 
 dtype_to_ometype = {
     np.dtype(np.int8): PixelType.INT8,
@@ -129,7 +87,7 @@ class Stack:
                 raise
 
     def reset_stack (self):
-        self.pixel_um = None
+        self.voxel_um = None
         self.finterval_sec = None
         self.z_count = None
         self.t_count = None
@@ -159,6 +117,7 @@ class Stack:
 
             image_array = image_array.swapaxes(1, 2)
             if ('S' in axes) and (keep_s_axis == False):
+                logger.info("The S axis is converted to the C axis.")
                 image_array = self.__concat_s_channel(image_array)
 
             self.image_array = image_array
@@ -178,8 +137,8 @@ class Stack:
 
     def save_imagej_tiff (self, filename):
         logger.debug("Saving ImageJ. Shape: {0}. Type: {1}".format(self.image_array.shape, self.image_array.dtype))
-        resolution = (1 / self.pixel_um[2], 1 / self.pixel_um[1])
-        z_step_um = self.pixel_um[0]
+        resolution = (1 / self.voxel_um[2], 1 / self.voxel_um[1])
+        z_step_um = self.voxel_um[0]
         metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
         tifffile.imwrite(filename, self.image_array.swapaxes(1, 2), imagej = True, \
                          resolution = resolution, metadata = metadata)
@@ -201,9 +160,9 @@ class Stack:
                            size_z = self.z_count, size_y = self.height, size_x = self.width, \
                            interleaved = True if self.has_s_axis else None)
 
-        ome_pixels.physical_size_x = self.pixel_um[2]
-        ome_pixels.physical_size_y = self.pixel_um[1]
-        ome_pixels.physical_size_z = self.pixel_um[0]
+        ome_pixels.physical_size_x = self.voxel_um[2]
+        ome_pixels.physical_size_y = self.voxel_um[1]
+        ome_pixels.physical_size_z = self.voxel_um[0]
         ome_pixels.physical_size_x_unit = UnitsLength.MICROMETER
         ome_pixels.physical_size_y_unit = UnitsLength.MICROMETER
         ome_pixels.physical_size_z_unit = UnitsLength.MICROMETER
@@ -244,65 +203,90 @@ class Stack:
     def __read_metadata (self, tiff, series = 0):
         metadata = {}
 
-        if tiff.ome_metadata is not None:
-            logger.debug('Reading ome metadata: {0}'.format(str(metadata)))
+        if tiff.is_micromanager:
+            try:
+                summary = tiff.micromanager_metadata['Summary']
+                logger.debug('Reading micromanager metadata: {0}'.format(summary))
+                metadata['x_pixel_um'] = summary.get('PixelSize_um', default_pixel_um)
+                metadata['y_pixel_um'] = summary.get('PixelSize_um', default_pixel_um)
+                metadata['z_step_um'] = summary.get('z-step_um', default_z_step_um)
 
-            ome = from_xml(tiff.ome_metadata)
-            if hasattr(ome.images[series].pixels, "physical_size_x"):
-                ratio = ome_ratio_to_um.get(ome.images[series].pixels.physical_size_x_unit, 1.0)
-                metadata['x_pixel_um'] = ome.images[series].pixels.physical_size_x * ratio
-            else:
-                metadata['x_pixel_um'] = default_pixel_um
-
-            if hasattr(ome.images[series].pixels, "physical_size_y"):
-                ratio = ome_ratio_to_um.get(ome.images[series].pixels.physical_size_y_unit, 1.0)
-                metadata['y_pixel_um'] = ome.images[series].pixels.physical_size_y * ratio
-            else:
-                metadata['y_pixel_um'] = default_pixel_um
-
-            if hasattr(ome.images[series].pixels, "physical_size_z"):
-                ratio = ome_ratio_to_um.get(ome.images[series].pixels.physical_size_z_unit, 1.0)
-                metadata['z_step_um'] = ome.images[series].pixels.physical_size_z * ratio
-            else:
-                metadata['z_step_um'] = default_z_step_um
-
-            if hasattr(ome.images[series].pixels, "time_increment"):
-                ratio = ome_ratio_to_sec.get(ome.images[series].pixels.time_increment_unit, 1.0)
-                metadata['finterval_sec'] = ome.images[series].pixels.time_increment * ratio
-            else:
-                metadata['finterval_sec'] = default_finterval_sec
-
-        else:
-            if tiff.imagej_metadata is not None:
-                logger.debug('Reading imagej metadata: {0}'.format(str(metadata)))
-                ratio = imagej_ratio_to_um.get(tiff.imagej_metadata.get('unit', 'um'), 1.0)
-                metadata['z_step_um'] = tiff.imagej_metadata.get('spacing', default_z_step_um) * ratio
-                metadata['finterval_sec'] = tiff.imagej_metadata.get('finterval_sec', default_finterval_sec)
-            else:
-                logger.debug('No imagej metadata found')
-                metadata['z_step_um'] = default_z_step_um
-                metadata['finterval_sec'] = default_finterval_sec
-                if 'ResolutionUnit' in tiff.pages[series].tags:
-                    ratio = resunit_ratio_to_um.get(tiff.pages[series].tags['ResolutionUnit'].value, 1.0)
+                settings = json.loads(summary.get('SPIMAcqSettings', ''))
+                if settings.get('useTimePoints', False) == True:
+                    metadata['finterval_sec'] = settings.get('timePointInterval', default_finterval_sec)
                 else:
-                    ratio = 1.0
+                    metadata['finterval_sec'] = settings.get('sliceDuration', default_finterval_sec)
+            
+                return metadata
 
-            if 'XResolution' in tiff.pages[series].tags:
-                values = tiff.pages[series].tags['XResolution'].value
-                metadata['x_pixel_um'] = float(values[1]) / float(values[0]) * ratio
-            else:
-                metadata['x_pixel_um'] = default_pixel_um
+            except Exception as e:
+                logger.warning("Failed to load micromanager metadata. Try loading OME metadata.")
+                logger.debug(e)
 
-            if 'YResolution' in tiff.pages[series].tags:
-                values = tiff.pages[series].tags['YResolution'].value
-                metadata['y_pixel_um'] = float(values[1]) / float(values[0]) * ratio
+        if tiff.ome_metadata is not None:
+            try:
+                ome = from_xml(tiff.ome_metadata)
+                logger.debug('Reading ome metadata: {0}'.format(ome.images[series]))
+                if hasattr(ome.images[series].pixels, "physical_size_x"):
+                    ratio = ome_ratio_to_um.get(ome.images[series].pixels.physical_size_x_unit, 1.0)
+                    metadata['x_pixel_um'] = ome.images[series].pixels.physical_size_x * ratio
+                else:
+                    metadata['x_pixel_um'] = default_pixel_um
+
+                if hasattr(ome.images[series].pixels, "physical_size_y"):
+                    ratio = ome_ratio_to_um.get(ome.images[series].pixels.physical_size_y_unit, 1.0)
+                    metadata['y_pixel_um'] = ome.images[series].pixels.physical_size_y * ratio
+                else:
+                    metadata['y_pixel_um'] = default_pixel_um
+
+                if hasattr(ome.images[series].pixels, "physical_size_z"):
+                    ratio = ome_ratio_to_um.get(ome.images[series].pixels.physical_size_z_unit, 1.0)
+                    metadata['z_step_um'] = ome.images[series].pixels.physical_size_z * ratio
+                else:
+                    metadata['z_step_um'] = default_z_step_um
+
+                if hasattr(ome.images[series].pixels, "time_increment"):
+                    ratio = ome_ratio_to_sec.get(ome.images[series].pixels.time_increment_unit, 1.0)
+                    metadata['finterval_sec'] = ome.images[series].pixels.time_increment * ratio
+                else:
+                    metadata['finterval_sec'] = default_finterval_sec
+
+                return metadata
+
+            except Exception as e:
+                logger.warning("Failed to load ome-tiff metadata. Try loading ImageJ metadata.")
+                logger.debug(e)
+
+        if tiff.imagej_metadata is not None:
+            logger.debug('Reading imagej metadata: {0}'.format(tiff.imagej_metadata))
+            ratio = imagej_ratio_to_um.get(tiff.imagej_metadata.get('unit', 'um'), 1.0)
+            metadata['z_step_um'] = tiff.imagej_metadata.get('spacing', default_z_step_um / ratio) * ratio
+            metadata['finterval_sec'] = tiff.imagej_metadata.get('finterval_sec', default_finterval_sec)
+        else:
+            logger.debug('No imagej metadata found')
+            metadata['z_step_um'] = default_z_step_um
+            metadata['finterval_sec'] = default_finterval_sec
+            if 'ResolutionUnit' in tiff.pages[series].tags:
+                ratio = resunit_ratio_to_um.get(tiff.pages[series].tags['ResolutionUnit'].value, 1.0)
             else:
-                metadata['y_pixel_um'] = default_pixel_um
+                ratio = 1.0
+
+        if 'XResolution' in tiff.pages[series].tags:
+            values = tiff.pages[series].tags['XResolution'].value
+            metadata['x_pixel_um'] = float(values[1]) / float(values[0]) * ratio
+        else:
+            metadata['x_pixel_um'] = default_pixel_um
+
+        if 'YResolution' in tiff.pages[series].tags:
+            values = tiff.pages[series].tags['YResolution'].value
+            metadata['y_pixel_um'] = float(values[1]) / float(values[0]) * ratio
+        else:
+            metadata['y_pixel_um'] = default_pixel_um
 
         return metadata
 
     def __set_metadata (self, metadata):
-        self.pixel_um = [metadata['z_step_um'], metadata['y_pixel_um'], metadata['x_pixel_um']]
+        self.voxel_um = [metadata['z_step_um'], metadata['y_pixel_um'], metadata['x_pixel_um']]
         self.finterval_sec = metadata['finterval_sec']
 
     def resize_image (self, shape, centering = False, offset = None):
@@ -316,7 +300,7 @@ class Stack:
         if offset is not None:
             offset = list(offset) + [0] * (len(self.image_array) - len(offset))
 
-        slices_src, slices_tgt = __pasting_slices(self.image_array.shape, shape, centering = centering, offset = offset)
+        slices_src, slices_tgt = gpuimage.pasting_slices(self.image_array.shape, shape, centering = centering, offset = offset)
         new_array = np.zeros(shape, dtype = self.image_array.dtype)
         new_array[tuple(slices_tgt)] = self.image_array[tuple(slices_src)].copy()
 
@@ -345,12 +329,12 @@ class Stack:
                     output_images = []
                     for s_index in range(self.s_count):
                         image = self.image_array[t_index, c_index, ..., s_index]
-                        image = image_func(image)
+                        image = image_func(image, t_index, c_index)
                         output_images.append(image)
                     output_channels.append(output_images)
                 else:
                     image = self.image_array[t_index, c_index]
-                    image = image_func(image)
+                    image = image_func(image, t_index, c_index)
                     output_channels.append(image)
             output_frames.append(output_channels)
             yield t_index
@@ -360,86 +344,44 @@ class Stack:
 
     def apply_all (self, image_func, progress = False):
         if progress:
-            with tqdm(total = self.t_count - 1) as pbar:
+            with tqdm(total = self.t_count) as pbar:
                 for index in self.__apply_all(image_func):
-                    pbar.n = index
+                    pbar.n = index + 1
                     pbar.refresh()
         else:
             self.__apply_all(image_func)
 
     def scale_by_ratio (self, ratio = 1.0, gpu_id = None):
-        if isinstance(ratio, (list, tuple, np.ndarray)):
-            if len(ratio) == 0:
-                ratio = [1.0, 1.0, 1.0]
-            elif len(ratio) == 1:
-                ratio = [ratio[0], ratio[0], ratio[0]]
-            elif len(ratio) == 2:
-                ratio = [ratio[0], ratio[1], ratio[1]]
-        else:
-            ratio = [ratio, ratio, ratio]
-
-        if np.allclose(ratio, 1.0) == False:
-            def zoom_func (image):
-                if gpu_id is None:
-                    image = ndimage.zoom(image, ratio)
-                else:
-                    image = cp.asnumpy(cpimage.zoom(image, ratio))
-                return image
-
-            self.apply_all(zoom_func)
-            self.pixel_um = [self.pixel_um[i] / ratio[i] for i in range(len(self.pixel_um))]
+        ratio = gpuimage.expand_ratio(ratio)
+        def scale_func (image, t_index, c_index):
+            return gpuimage.scale(image, ratio, gpu_id = gpu_id)
+        self.apply_all(scale_func)
+        self.voxel_um = [self.voxel_um[i] / ratio[i] for i in range(len(self.voxel_um))]
 
     def scale_by_pixelsize (self, pixel_um, gpu_id = None):
-        if isinstance(pixel_um, (list, tuple, np.ndarray)):
-            if len(pixel_um) == 0:
-                pixel_um = self.pixel_um
-            elif len(pixel_um) == 1:
-                pixel_um = [pixel_um[0], pixel_um[0], pixel_um[0]]
-            elif len(pixel_um) == 2:
-                pixel_um = [pixel_um[0], pixel_um[1], pixel_um[1]]
-        else:
-            pixel_um = [pixel_um, pixel_um, pixel_um]
-
-        ratio = [self.pixel_um[i] / pixel_um[i] for i in range(len(self.pixel_um))]
+        pixel_um = gpuimage.expand_ratio(pixel_um)
+        ratio = [self.voxel_um[i] / pixel_um[i] for i in range(len(self.voxel_um))]
         self.scale_by_ratio(ratio = ratio, gpu_id = gpu_id)
 
+    def scale_isometric (self, gpu_id = None):
+        if np.isclose(self.voxel_um[0], self.voxel_um[1]) == False:
+            logger.warning()
+
+        pixel_um = min(self.voxel_um)
+        self.scale_by_pixelsize(pixel_um, gpu_id = gpu_id)
+
     def rotate (self, angle = 0.0, axis = 0, gpu_id = None):
-        if axis == 0 or axis == 'z' or axis == 'Z':
-            rotate_tuple = (1, 2)
-        elif axis == 1 or axis == 'y' or axis == 'Y':
-            rotate_tuple = (0, 2)
-        elif axis == 2 or axis == 'x' or axis == 'X':
-            rotate_tuple = (0, 1)
-        else:
-            raise Exception('Invalid axis was specified.')
-
-        def rotate_func (image):
-            if gpu_id is None:
-                image = ndimage.rotate(image, angle, axes = rotate_tuple, reshape = False)
-            else:
-                image = cpimage.rotate(cp.asarray(image), angle, axes = rotate_tuple, order = 1, reshape = False)
-                image = cp.asnumpy(image)
-            return image
-
+        rotate_tuple = gpuimage.axis_to_tuple(axis)
+        def rotate_func (image, t_index, c_index):
+            return gpuimage.rotate(image, angle, rotate_tuple, gpu_id = gpu_id)
         self.apply_all(rotate_func)
 
     def affine_transform (self, matrix, gpu_id = None):
-        def affine_func (image):
-            if gpu_id is None:
-                image = ndimage.affine_transform(image, matrix, mode = 'grid-constant')
-            else:
-                image = cpimage.affine_transform(cp.array(image), cp.array(matrix), mode = 'grid-constant')
-                image = cp.asnumpy(image)
-            return image
-
+        def affine_func (image, t_index, c_index):
+            return gpuimage.affine_transform(image, matrix, gpu_id = gpu_id)
         self.apply_all(affine_func)
 
     def shift (self, offset, gpu_id = None):
-        def shift_func (image):
-            if gpu_id is None:
-                image = ndimage.interpolation.shift(image, offset)
-            else:
-                image = cp.asnumpy(cpimage.interpolation.shift(cp.array(image), offset))
-            return image
-
+        def shift_func (image, t_index, c_index):
+            return gpuimage.shift(image, offset, gpu_id = gpu_id)
         self.apply_all(shift_func)
