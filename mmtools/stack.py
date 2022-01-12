@@ -4,7 +4,7 @@ import tifffile, json
 import numpy as np
 from pathlib import Path
 from logging import getLogger
-from tqdm import tqdm
+from progressbar import ProgressBar
 from ome_types import to_xml, from_xml, OME
 from ome_types.model import Image, Pixels, TiffData, Channel
 from ome_types.model.simple_types import PixelType, ChannelID, UnitsLength, UnitsTime, Color
@@ -344,10 +344,9 @@ class Stack:
 
     def apply_all (self, image_func, progress = False):
         if progress:
-            with tqdm(total = self.t_count) as pbar:
+            with ProgressBar(max_value = self.t_count) as bar:
                 for index in self.__apply_all(image_func):
-                    pbar.n = index + 1
-                    pbar.refresh()
+                    bar.update(index + 1)
         else:
             self.__apply_all(image_func)
 

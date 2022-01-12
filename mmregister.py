@@ -4,7 +4,7 @@ import argparse, json
 import numpy as np
 from datetime import datetime
 from pathlib import Path
-from tqdm import tqdm
+from progressbar import progressbar
 from numpyencoder import NumpyEncoder
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from mmtools import gpuimage, stack, register, log
@@ -140,7 +140,7 @@ poc_result_list = []
 logger.info("Pre-registrating using subpixel phase-only-correlation.")
 
 poc_register = register.Poc(ref_image[z_slice, reg_slice_y, reg_slice_x], gpu_id = gpu_id)
-for index in tqdm(range(input_stack.t_count)):
+for index in progressbar(range(input_stack.t_count)):
     poc_result = poc_register.register_subpixel(input_stack.image_array[index, input_channel, z_slice, reg_slice_y, reg_slice_x])
     poc_result_list.append(poc_result)
 
@@ -166,7 +166,7 @@ output_image_list = []
 affine_register = register.Affine(ref_image[z_slice, reg_slice_y, reg_slice_x], gpu_id = gpu_id)
 
 logger.info("Optimization started. Reg: {0}. Opt: {1}.".format(reg_method, opt_method))
-for index in tqdm(range(input_stack.t_count)):
+for index in progressbar(range(input_stack.t_count)):
     init_shift = poc_result_list[index]['poc_shift']
     input_image = input_stack.image_array[index, input_channel, z_slice, reg_slice_y, reg_slice_x]
     affine_result = affine_register.register(input_image, init_shift = init_shift, \
