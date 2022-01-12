@@ -102,7 +102,7 @@ else:
 
 # turn on GPU device
 if gpu_id is not None:
-    stack.turn_on_gpu(gpu_id)
+    gpuimage.turn_on_gpu(gpu_id)
 
 # read input image
 input_stack = stack.Stack(input_filename, keep_s_axis = False)
@@ -113,8 +113,10 @@ if scale_isometric:
 # setting the z slice to switch between the 3D and 2D modes
 if input_stack.z_count > 1:
     z_slice = slice(0, input_stack.z_count, 1)
+    image_dim = 3
 else:
     z_slice = 0
+    image_dim = 2
 
 # read reference image
 if ref_filename is None:
@@ -147,7 +149,7 @@ poc_register = None
 # lowess filter to exclude outliers
 logger.info("Applying a lowess filter to the POC results.")
 lowess_list = []
-for index in range(len(ref_image.shape)):
+for index in range(image_dim):
     values = np.array([result['shift'][index] for result in poc_result_list])
     values = lowess(values, np.arange(input_stack.t_count), frac = 0.1, return_sorted = False)
     values = values - values[0]
@@ -210,7 +212,7 @@ if output_aligned_image:
     else:
         def affine_transform (image, t_index, c_index):
             matrix = affine_result_list[t_index]['matrix']
-            return gpuimage.affine_transform(image[0], matrix, gpu_id = gpu_id)
+            return gpuimage.affine_transform(image[0], matrix, gpu_id = gpu_id)[np.newaxis]
 
     input_stack.apply_all(affine_transform, progress = True)
 

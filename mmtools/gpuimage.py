@@ -12,14 +12,10 @@ except ImportError:
 logger = getLogger(__name__)
 
 def turn_on_gpu (gpu_id):
-    if gpu_id is None:
-        logger.warning("GPU ID not specified. Continuing with CPU.")
-        return None
-
     device = cp.cuda.Device(gpu_id)
     device.use()
     logger.info("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
-    logger.info("Free memory:", device.mem_info)
+    logger.info("Free memory: {0}".format(device.mem_info))
     return device
 
 def pasting_slices (src_shape, tgt_shape, centering = False, offset = None):

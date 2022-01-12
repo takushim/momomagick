@@ -4,7 +4,11 @@ import logging
 from pathlib import Path
 
 def get_logger (filename, level = 'INFO'):
-    logging.basicConfig(format = '%(asctime)s %(name)s %(levelname)s: %(message)s')
     logger = logging.getLogger(Path(filename).name)
-    logger.setLevel(level)
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s %(name)s %(levelname)s: %(message)s'))
+    logging.getLogger().addHandler(handler)
+    logging.getLogger().setLevel(level)
+
     return logger
