@@ -39,11 +39,26 @@ do
         echo "Not an image file: ${file}"
         continue
     fi
-	output_deconv="${stem}_deconv.tif"
+
     output_log="${stem}_deconv.log"
-
     echo "Deconvolution:" $(date) > $output_log
-    echo "Iteration: ${iter}" >> $output_log
 
-    mmdeconv.py -g 0 -i "$iter" -o "$output_deconv" "$file"
+    scaling_option=""
+	output_deconv="${stem}_deconv.tif"
+    echo "Iteration: ${iter}" >> $output_log
+    echo "Scaling: ${scaling_option}" >> $output_log
+    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" "$file"
+
+    scaling_option="-s"
+	output_deconv="${stem}_deconv_iso.tif"
+    echo "Iteration: ${iter}" >> $output_log
+    echo "Scaling: ${scaling_option}" >> $output_log
+    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" "$file"
+
+    scaling_option="-s -r"
+	output_deconv="${stem}_deconv_res.tif"
+    echo "Iteration: ${iter}" >> $output_log
+    echo "Scaling: ${scaling_option}" >> $output_log
+    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" "$file"
+
 done

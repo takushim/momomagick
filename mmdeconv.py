@@ -113,4 +113,4 @@ if restore_scale:
 
 # output in the ImageJ format, dimensions should be in TZCYX order
 logger.info("Saving image: {0}.".format(output_filename))
-input_stack.save_ome_tiff(output_filename)
+input_stack.save_ome_tiff(output_filename, dtype = np.float32)

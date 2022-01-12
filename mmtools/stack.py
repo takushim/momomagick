@@ -25,6 +25,8 @@ def with_suffix (filename, suffix):
         filename = filename.with_suffix('')
     return str(filename) + suffix
 
+ome_size_limit = int(0.9 * (2 ** 31))
+
 dtype_to_ometype = {
     np.dtype(np.int8): PixelType.INT8,
     np.dtype(np.int16): PixelType.INT16,
@@ -135,27 +137,45 @@ class Stack:
         image_array = np.concatenate(image_list, axis = 1)
         return image_array
 
-    def save_imagej_tiff (self, filename):
+    def save_imagej_tiff (self, filename, dtype = None):
         logger.debug("Saving ImageJ. Shape: {0}. Type: {1}".format(self.image_array.shape, self.image_array.dtype))
+        if dtype is None:
+            output_array = self.image_array
+        else:
+            logger.info("Changing dtype: {0}".format(dtype))
+            output_array = self.image_array.astype(dtype)
+
         resolution = (1 / self.voxel_um[2], 1 / self.voxel_um[1])
         z_step_um = self.voxel_um[0]
         metadata = {'spacing': z_step_um, 'unit': 'um', 'Composite mode': 'composite', 'finterval': self.finterval_sec}
-        tifffile.imwrite(filename, self.image_array.swapaxes(1, 2), imagej = True, \
+        tifffile.imwrite(filename, output_array.swapaxes(1, 2), imagej = True, \
                          resolution = resolution, metadata = metadata)
 
-    def save_ome_tiff (self, filename, bigtiff = False):
+    def save_ome_tiff (self, filename, dtype = None, bigtiff = None):
         logger.debug("Saving OME. Shape: {0}. Type: {1}".format(self.image_array.shape, self.image_array.dtype))
+        if dtype is None:
+            output_array = self.image_array
+        else:
+            logger.info("Changing dtype: {0}".format(dtype))
+            output_array = self.image_array.astype(dtype)
+
+        if bigtiff is None:
+            if output_array.nbytes > ome_size_limit:
+                logger.info("Saving in a BigTiff format. Size: {0}.".format(output_array.nbytes))
+                bigtiff = True
+            else:
+                bigtiff = False
+
         if self.has_s_axis:
-            image_array = self.__concat_s_channel(self.image_array)
-            c_count = image_array.shape[1]
+            output_array = self.__concat_s_channel(output_array)
+            c_count = output_array.shape[1]
             samples_per_pixel = self.has_s_axis
         else:
-            image_array = self.image_array
             c_count = self.c_count
             samples_per_pixel = 1
 
         ome_pixels = Pixels(id = "Pixels:0", dimension_order = 'XYZCT', \
-                           type = dtype_to_ometype[self.image_array.dtype], \
+                           type = dtype_to_ometype[output_array.dtype], \
                            size_t = self.t_count, size_c = c_count, \
                            size_z = self.z_count, size_y = self.height, size_x = self.width, \
                            interleaved = True if self.has_s_axis else None)
@@ -183,7 +203,7 @@ class Stack:
 
         with open(filename, "wb") as fileio:
             with tifffile.TiffWriter(fileio, bigtiff = bigtiff) as tiff:
-                tiff.write(image_array, description = ome_xml, metadata = None)
+                tiff.write(output_array, description = ome_xml, metadata = None)
 
     def update_dimensions (self):
         self.t_count = self.image_array.shape[0]
@@ -348,7 +368,8 @@ class Stack:
                 for index in self.__apply_all(image_func):
                     bar.update(index + 1)
         else:
-            self.__apply_all(image_func)
+            for index in self.__apply_all(image_func):
+                pass
 
     def scale_by_ratio (self, ratio = 1.0, gpu_id = None):
         ratio = gpuimage.expand_ratio(ratio)
@@ -363,8 +384,8 @@ class Stack:
         self.scale_by_ratio(ratio = ratio, gpu_id = gpu_id)
 
     def scale_isometric (self, gpu_id = None):
-        if np.isclose(self.voxel_um[0], self.voxel_um[1]) == False:
-            logger.warning()
+        if np.isclose(self.voxel_um[1], self.voxel_um[2]) == False:
+            logger.warning("X and Y pixel size are different: {0}".format(self.voxel_um))
 
         pixel_um = min(self.voxel_um)
         self.scale_by_pixelsize(pixel_um, gpu_id = gpu_id)
