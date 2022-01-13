@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import tifffile, json
+import io, tifffile, json
 import numpy as np
 from pathlib import Path
 from logging import getLogger
@@ -101,6 +101,25 @@ class Stack:
         self.has_s_axis = False
         self.image_array = None
 
+    def alloc_zero_image (self, shape = (1, 1, 1, 256, 256), dtype = np.uint16):
+        self.image_array = np.zeros(shape, dtype = dtype)
+        self.reset_stack()
+        self.update_dimensions()
+
+    def archive_properties (self):
+        settings = {'voxel_um': self.voxel_um,
+                    'finterval_sec': self.finterval_sec,
+                    'z_count': self.z_count,
+                    't_count': self.t_count,
+                    'c_count': self.c_count,
+                    'height': self.height,
+                    'width': self.width,
+                    'has_s_axis': self.has_x_axis,
+                    's_count': self.s_count,
+                    'colored': self.colored,
+                    'axes': self.axes}
+        return settings
+
     def read_image (self, fileio, series = 0, keep_s_axis = False):
         try:
             self.reset_stack()
@@ -130,6 +149,20 @@ class Stack:
 
         except OSError:
             self.reset_stack()
+            raise
+
+    def read_image_by_chunk (self, fileio, series = 0, keep_s_axis = False, chunk_size = 1024 * 1024):
+        try:
+            byte_data = bytearray()
+            with open(fileio, 'rb') as file:
+                while len(chunk := file.read(chunk_size)) > 0:
+                    byte_data.extend(chunk)
+                    yield len(byte_data)
+
+            with io.BytesIO(byte_data) as bytes_io:
+                self.read_image(bytes_io, series = series, keep_s_axis = keep_s_axis)
+
+        except OSError:
             raise
 
     def __concat_s_channel (self, image_array):
