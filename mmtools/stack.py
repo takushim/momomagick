@@ -103,7 +103,6 @@ class Stack:
 
     def alloc_zero_image (self, shape = (1, 1, 1, 256, 256), dtype = np.uint16):
         self.image_array = np.zeros(shape, dtype = dtype)
-        self.reset_stack()
         self.update_dimensions()
 
     def archive_properties (self):
