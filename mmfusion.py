@@ -22,8 +22,6 @@ opt_method = "Powell"
 opt_method_list = register.optimizing_methods
 psf_folder = Path(__file__).parent.joinpath('psf')
 psf_filename = 'dispim_iso.tif'
-log_level = 'INFO'
-
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Fusion diSPIM images from two paths and deconvolve them.', \
@@ -58,7 +56,7 @@ parser.add_argument('-p', '--psf-image', default = psf_filename, \
 parser.add_argument('-i', '--iterations', type = int, default = iterations, \
                     help='number of iterations')
 
-log.add_argument(parser, default_level = log_level)
+log.add_argument(parser)
 
 parser.add_argument('input_file', default = input_filename, \
                     help='Input dual-view TIFF file')
@@ -131,25 +129,10 @@ for index in progressbar(range(input_stack.t_count)):
     sub_image = input_stack.image_array[index, sub_channel].astype(float)
 
     if sub_rotation != 0:
-<<<<<<< HEAD
-        print("Rotating sub-channel by:", sub_rotation)
-        sub_image_reg = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
-    else:
-        sub_image_reg = sub_image
-
-    sub_image_reg = gpuimage.resize(sub_image_reg, main_image.shape, centering = True)
-
-    print("Registering Method:", registering_method)
-    print("Optimizing Method:", optimizing_method)
-    affine_result = register.register(main_image, sub_image_reg, gpu_id = gpu_id, \
-             opt_method = optimizing_method, reg_method = registering_method)
-    affine_matrix = affine_result['matrix']
-=======
         sub_image_rot = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
         sub_image_rot = gpuimage.resize(sub_image_rot, main_image.shape, centering = True)
     else:
         sub_image_rot = sub_image
->>>>>>> fusion
 
     affine_result = register.register(main_image, sub_image_rot, gpu_id = gpu_id, \
                                       opt_method = opt_method, reg_method = reg_method)
@@ -158,19 +141,6 @@ for index in progressbar(range(input_stack.t_count)):
 
     # deconvolution
     if iterations > 0:
-<<<<<<< HEAD
-        print("Deconvoluting channels seapeartely. Iterations:", iterations)
-        main_image_dec = deconvolve.deconvolve(main_image, psf_image, iterations = iterations, gpu_id = gpu_id)
-        sub_image_dec = deconvolve.deconvolve(sub_image, psf_image, iterations = iterations, gpu_id = gpu_id)
-        # registration and fusion
-        if sub_rotation != 0:
-            print("Rotating sub-channel by:", sub_rotation)
-            sub_image_dec = gpuimage.rotate_by_axis(sub_image_dec, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
-        else:
-            sub_image_dec = sub_image_dec
-        sub_image_dec = gpuimage.resize(sub_image_dec, main_image.shape, centering = True)
-        sub_image_dec = gpuimage.affine_transform(sub_image_dec, affine_matrix, gpu_id = gpu_id)
-=======
         main_image = deconvolve.deconvolve(main_image, psf_image, iterations = iterations, gpu_id = gpu_id)
         sub_image = deconvolve.deconvolve(sub_image, psf_image, iterations = iterations, gpu_id = gpu_id)
 
@@ -178,7 +148,6 @@ for index in progressbar(range(input_stack.t_count)):
     if sub_rotation != 0:
         sub_image_rot = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
         sub_image_rot = gpuimage.resize(sub_image_rot, main_image.shape, centering = True)
->>>>>>> fusion
     else:
         sub_image_rot = sub_image
 

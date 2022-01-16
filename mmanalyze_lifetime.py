@@ -20,7 +20,6 @@ analysis = analysis_list[0]
 time_scale = 1.0
 opt_method = lifetime.default_method
 opt_method_list = lifetime.optimizing_methods
-log_level = 'INFO'
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Calculate lifetime and regression curves', \
@@ -44,7 +43,7 @@ parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start
 parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choices = opt_method_list, \
                     help='Method to optimize the one-phase-decay model')
 
-log.add_argument(parser, default_level = log_level)
+log.add_argument(parser)
 
 parser.add_argument('input_files', nargs = '+', default = input_filenames, \
                     help='input JSON file of tracking data. Results from multiple files are merged.')

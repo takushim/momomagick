@@ -16,7 +16,6 @@ psf_noniso = 'dispim_0.5um_bw.tif'
 psf_2d = 'dispim_2d_bw.tif'
 iterations = 10
 gpu_id = None
-log_level = 'INFO'
 
 parser = argparse.ArgumentParser(description = 'Deconvolve images using the Richardson-Lucy algorhythm', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -38,7 +37,7 @@ parser.add_argument('-r', '--restore-scale', action = 'store_true', \
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='Turn on GPU use with the specified ID')
 
-log.add_argument(parser, default_level = log_level)
+log.add_argument(parser)
 
 parser.add_argument('input_file', default = input_filename, \
                     help='Image file to deconvolve')

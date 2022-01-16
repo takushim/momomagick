@@ -12,7 +12,6 @@ reverse_channel = False
 crop_area = None
 z_range = None
 t_range = None
-log_level = 'INFO'
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Crop a multi-page TIFF image.', \
@@ -38,7 +37,7 @@ parser.add_argument('-t', '--t-range', type = int, nargs = 2, default = t_range,
                     metavar = ('START', 'END'),
                     help='Specify the range of time frames to output')
 
-log.add_argument(parser, default_level = log_level)
+log.add_argument(parser)
 
 parser.add_argument('input_file', default = input_filename, \
                     help='input (multipage) TIFF file')
