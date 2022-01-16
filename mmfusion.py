@@ -120,11 +120,11 @@ for index in range(input_tiff.total_time):
     sub_image = gpuimage.z_zoom(sub_image, ratio = z_ratio, gpu_id = gpu_id)
     if sub_rotation != 0:
         print("Rotating sub-channel by:", sub_rotation)
-        sub_image_reg = gpuimage.rotate(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
+        sub_image_reg = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
     else:
         sub_image_reg = sub_image
 
-    sub_image_reg = gpuimage.resize(sub_image_reg, main_image.shape, center = True)
+    sub_image_reg = gpuimage.resize(sub_image_reg, main_image.shape, centering = True)
 
     print("Registering Method:", registering_method)
     print("Optimizing Method:", optimizing_method)
@@ -155,10 +155,10 @@ for index in range(input_tiff.total_time):
         # registration and fusion
         if sub_rotation != 0:
             print("Rotating sub-channel by:", sub_rotation)
-            sub_image_dec = gpuimage.rotate(sub_image_dec, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
+            sub_image_dec = gpuimage.rotate_by_axis(sub_image_dec, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
         else:
             sub_image_dec = sub_image_dec
-        sub_image_dec = gpuimage.resize(sub_image_dec, main_image.shape, center = True)
+        sub_image_dec = gpuimage.resize(sub_image_dec, main_image.shape, centering = True)
         sub_image_dec = gpuimage.affine_transform(sub_image_dec, affine_matrix, gpu_id = gpu_id)
     else:
         print("Skipping deconvolution.")
