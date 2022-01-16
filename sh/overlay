@@ -16,15 +16,16 @@ option_trunc=""
 crop_final=0
 reverse_over=""
 use_deconv=0
+log_level='INFO'
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x/X X] [-y/Y Y] [-z/Z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] [-r] [-d] FILE_BACK"
+    echo "$(basename "$0") [-x/X X] [-y/Y Y] [-z/Z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] [-r] [-d] [-L LOG] FILE_BACK"
     exit 1
 }
 
 # parse options
-while getopts "x:y:z:X:Y:Z:m:f:s:nacrd" OPT;
+while getopts "x:y:z:X:Y:Z:m:f:s:nacrdL:" OPT;
 do
     case "$OPT" in
     x) shift_x="$OPTARG" ;;
@@ -41,6 +42,7 @@ do
     c) crop_final=1 ;;
     d) use_deconv=1 ;;
     r) reverse_over="-r" ;;
+    L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -119,28 +121,24 @@ output_log="${stem_back}_log.txt"
 
 echo "Overlay:" $(date) > $output_log
 echo "Dropping unused channels from the EGFP file" >> $output_log
-mmcrop.py -o "$output_temp" $reverse_over -c 0 "$file_over"
+mmcrop.py -o "$output_temp" $reverse_over -c 0 -L "$log_level" "$file_over"
 
-echo "----------"
 echo "Overlaying EGFP on crop_0, method: ${reg_method,,}" >> $output_log
-mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -e "${reg_method}" $option_trunc "$output_temp" "$file_sweep"
+mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -e "${reg_method}" $option_trunc -L "$log_level" "$output_temp" "$file_sweep"
 
-echo "----------"
 if [[ $auto_sweep == 1 ]]; then
     echo "Overlaying crop_1 on crop_0 using automatic XY registration" >> $output_log
-    mmoverlay.py -g 0 -o "$output_over" -e XY $option_trunc -c 1 0 $offset_post "$output_sweep" "$file_back"
+    mmoverlay.py -g 0 -o "$output_over" -e XY $option_trunc -c 1 0 $offset_post -L "$log_level" "$output_sweep" "$file_back"
 else
     echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
-    mmoverlay.py -g 0 -o "$output_over" -S "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc $offset_post "$output_sweep" "$file_back"
+    mmoverlay.py -g 0 -o "$output_over" -S "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc $offset_post -L "$log_level" "$output_sweep" "$file_back"
 fi
 
-echo "----------"
 echo "Dropping the channel used for registration" >> $output_log
-mmcrop.py -o "$output_final" -c -1 "$output_over"
+mmcrop.py -o "$output_final" -c -1 -L "$log_level" "$output_over"
 
 if [[ $crop_final == 1 ]]; then
-    echo "----------"
     echo "Output a mini-size version" >> $output_log
-    mmcrop.py -o "$output_mini" -R 0 64 256 128 "$output_final"
+    mmcrop.py -o "$output_mini" -R 0 64 256 128 -L "$log_level" "$output_final"
 fi
 

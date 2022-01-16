@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import argparse, datetime, json, copy
+import argparse, json, copy
 import numpy as np
+from datetime import datetime
 from pathlib import Path
 from numpyencoder import NumpyEncoder
 from progressbar import progressbar
@@ -118,16 +119,14 @@ input_stacks = [stack.Stack(file) for file in input_filenames]
 
 # scale images
 scale_ratio = np.array(input_stacks[0].voxel_um) / np.array(input_stacks[1].voxel_um)
-logger.ingo("Scaling factor for the first image: {0}.".format(scale_ratio))
-
+logger.info("Scaling factor for the first image: {0}.".format(scale_ratio))
 input_stacks[0].scale_by_pixelsize(scale_ratio, gpu_id = gpu_id)
-logger.ingo("The first image was shaped into: {0}.".format(input_stacks.image_array.shape))
-
+logger.info("The first image was shaped into: {0}.".format(input_stacks[0].image_array.shape))
 init_shift = init_shift * scale_ratio
-logger.ingo("Initial shift was scaled: {0}.".format(init_shift))
+logger.info("Initial shift was scaled: {0}.".format(init_shift))
 
 # pre-process the first image
-logger.ingo("Pre-prosessing the first image, flip: {0}, rotation: {1}, shift {2}.".format(init_flip, init_rot, init_shift))
+logger.info("Pre-prosessing the first image, flip: {0}, rotation: {1}, shift {2}.".format(init_flip, init_rot, init_shift))
 flip_x, flip_y, flip_z = [-1 if axis in init_flip else 1 for axis in 'xyz']
 def preprocess (image, t_index, c_index):
     image = image[::flip_z, ::flip_y, ::flip_x]
@@ -145,9 +144,9 @@ else:
     max_frames = max(input_stacks[0].t_count, input_stacks[1].t_count)
 
 # registration and preparing affine matrices
-logger.info("Optimization started. Reg: {0}. Opt: {1}.".format(reg_method, opt_method))
+logger.info("Registration started. Reg: {0}. Opt: {1}.".format(reg_method, opt_method))
 logger.info("Channels: {0}".format(channels))
-logger.info("Scaling factor at registration".format(scale_image))
+logger.info("Scaling at registration: {0}.".format(scale_image))
 affine_result_list = []
 for index in progressbar(range(max_frames)):
     # handle broadcasting
@@ -173,9 +172,13 @@ for index in progressbar(range(max_frames)):
         affine_result['pre_flip'] = init_flip
         affine_result['pre_rotation'] = init_rot
         affine_result['pre_shift'] = init_shift
+        affine_result['post_shift'] = post_shift
 
-    # save result
-    affine_result_list.append(copy.deepcopy(affine_result))
+        # save result
+        affine_result_list.append(copy.deepcopy(affine_result))
+
+    else:
+        affine_result_list.append(copy.deepcopy(affine_result_list[0]))
 
 # summarize the registration results and output
 params_dict = {'image_filenames': [Path(input_filename).name for input_filename in input_filenames],
@@ -207,7 +210,7 @@ output_stack.alloc_zero_image(output_shape, dtype = np.float, \
 
 logger.info("Overlay started.")
 logger.info("Post-processing shift: {0}".format(post_shift))
-for index in progressbar(max_frames):
+for index in progressbar(range(max_frames)):
     # handle broadcasting
     t_indexes = [index % stack.t_count for stack in input_stacks]
 
