@@ -38,7 +38,7 @@ def window_mat (shape, window_func = None):
         matrix = reduce(lambda x, y: x * y, mesh_list)
     return matrix
 
-def normalize (input_image, p_min = 1, p_max = 99):
+def normalize (input_image, p_min = 0.1, p_max = 99.9):
     clip_min = np.percentile(input_image, p_min)
     clip_max = np.percentile(input_image, p_max)
     return (input_image.clip(clip_min, clip_max).astype(float) - clip_min) / (clip_max - clip_min)
