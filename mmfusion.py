@@ -139,6 +139,7 @@ for index in progressbar(range(input_stack.t_count)):
     affine_result = register.register(main_image, sub_image_rot, gpu_id = gpu_id, \
                                       opt_method = opt_method, reg_method = reg_method)
     affine_result_list.append(affine_result)
+    print(affine_result['matrix'])
 
     # deconvolution
     if iterations > 0:
@@ -147,9 +148,12 @@ for index in progressbar(range(input_stack.t_count)):
 
     # affine transformation
     if sub_rotation != 0:
-        sub_image = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
-        sub_image = gpuimage.resize(sub_image, main_image.shape, centering = True)
-    sub_image = gpuimage.affine_transform(sub_image, affine_result['matrix'], gpu_id = gpu_id)
+        sub_image_rot = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
+        sub_image_rot = gpuimage.resize(sub_image, main_image.shape, centering = True)
+    else:
+        sub_image_rot = sub_image
+
+    sub_image = gpuimage.affine_transform(sub_image_rot, affine_result['matrix'], gpu_id = gpu_id)
 
     # fuse channels or just store them
     if keep_channels == False:
