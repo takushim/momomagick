@@ -1,43 +1,45 @@
 #!/usr/bin/env python
 
-import sys, argparse, time, json, copy
+import argparse, datetime, json, copy
 import numpy as np
+from pathlib import Path
 from numpyencoder import NumpyEncoder
-from mmtools import gpuimage, mmtiff, register
+from progressbar import progressbar
+from mmtools import stack, gpuimage, register, log
 
 # default values
+gpu_id = None
 input_filenames = None
-use_channels = None
-init_flip = None
+channels = [0, 0]
+init_flip = ''
 init_rotation = [0.0, 0.0, 0.0]
 init_shift = [0.0, 0.0, 0.0]
 post_shift = [0.0, 0.0, 0.0]
-output_filename = None
-output_suffix = '_over_{0}.tif' # overwritten by the registration method
+output_image_filename = None
+output_image_suffix = '_over_{0}.tif' # overwritten by the registration method
 output_json_filename = None
-output_json_suffix = '.json' # overwritten by the registration method
+output_json_suffix = '_over_{0}.json' # overwritten by the registration method
 truncate_frames = False
-gpu_id = None
-scaling = None
+scale_image = None
 register_all = False
-registering_method = 'Full'
-registering_method_list = register.registering_methods
-optimizing_method = "Powell"
-optimizing_method_list = register.optimizing_methods
+reg_method = 'Full'
+reg_method_list = register.registering_methods
+opt_method = "Powell"
+opt_method_list = register.optimizing_methods
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Overlay two time-lapse images after registration', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-o', '--output-file', default=output_filename, \
-                    help='output TIFF file ([basename]{0} by default)'.format(output_suffix.format('[regmethod]')))
+parser.add_argument('-o', '--output-image-file', default=output_image_filename, \
+                    help='output TIFF file ([basename]{0} by default)'.format(output_image_suffix.format('[reg]')))
 
 parser.add_argument('-j', '--output-json-file', default = output_json_filename, \
-                    help='output JSON file name ([output_basename]{0} by default)'.format(output_json_suffix))
+                    help='output JSON file name ([basename]{0} by default)'.format(output_json_suffix.format('[reg]')))
 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
 
-parser.add_argument('-c', '--use-channels', nargs = 2, type = int, default = use_channels, \
+parser.add_argument('-c', '--channels', nargs = 2, type = int, default = channels, \
                     help='specify two channels used for registration')
 
 parser.add_argument('-a', '--register-all', action = 'store_true', \
@@ -46,18 +48,16 @@ parser.add_argument('-a', '--register-all', action = 'store_true', \
 parser.add_argument('-n', '--truncate-frames', action = 'store_true', \
                     help='Disable broadcasting and truncate frames')
 
-parser.add_argument('-e', '--registering-method', type = str, default = registering_method, \
-                    choices = registering_method_list, \
+parser.add_argument('-e', '--reg-method', type = str, default = reg_method, choices = reg_method_list, \
                     help='Method used for registration')
 
-parser.add_argument('-t', '--optimizing-method', type = str, default = optimizing_method, \
-                    choices = optimizing_method_list, \
+parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choices = opt_method_list, \
                     help='Method to optimize the affine matrices')
 
 parser.add_argument('-F', '--init-flip', type = str, default = init_flip, \
                     help='Initial flipping of the overlay image (e.g., X, XZ, XYZ)')
 
-parser.add_argument('-R', '--init-rotation', nargs = 3, type = float, default = init_rotation, \
+parser.add_argument('-R', '--init-rot', nargs = 3, type = float, default = init_rotation, \
                     metavar = ('X', 'Y', 'Z'), \
                     help='Initial rotation of the overlay image. Applied after flip.')
 
@@ -69,42 +69,43 @@ parser.add_argument('-P', '--post-shift', nargs = 3, type = float, default = pos
                     metavar = ('X', 'Y', 'Z'), \
                     help='Post-registration shift of the overlay image (for adjustment")')
 
-parser.add_argument('-x', '--scaling', type = float, default = scaling, \
-                    help='Scaling factor on registration.')
+parser.add_argument('-x', '--scale-image', type = float, default = scale_image, \
+                    help='Scaling factor applied at registration. Used for large images.')
+
+log.add_argument(parser)
 
 parser.add_argument('input_files', nargs = 2, default = input_filenames, \
                     help='TIFF image files. The first image is affine transformed.')
 args = parser.parse_args()
 
+# logging
+logger = log.get_logger(__file__, level = args.log_level)
+
 # set arguments
-input_filenames = args.input_files
 gpu_id = args.gpu_id
+input_filenames = args.input_files
 register_all = args.register_all
-registering_method = args.registering_method
-optimizing_method = args.optimizing_method
+reg_method = args.reg_method
+opt_method = args.opt_method
 truncate_frames = args.truncate_frames
-scaling = args.scaling
+scale_image = args.scale_image
+channels = args.channels
 
-init_flip = args.init_flip
-if init_flip is not None:
-    init_flip = init_flip.lower()
-init_rotation = np.array(args.init_rotation[::-1])
+init_flip = args.init_flip.lower()
+init_rot = np.array(args.init_rot[::-1])
 init_shift = np.array(args.init_shift[::-1])
+post_shift = np.array(args.post_shift[::-1])
 
-if args.post_shift is not None:
-    post_shift = np.array(args.post_shift[::-1])
+output_image_suffix = output_image_suffix.format(reg_method.lower())
+output_json_suffix = output_json_suffix.format(reg_method.lower())
 
-use_channels = args.use_channels
-if use_channels is None:
-    use_channels = [0, 0]
-
-if args.output_file is None:
-    output_filename = mmtiff.with_suffix(input_filenames[-1], output_suffix.format(registering_method.lower()))
+if args.output_image_file is None:
+    output_image_filename = stack.with_suffix(input_filenames[1], output_image_suffix)
 else:
-    output_filename = args.output_file
+    output_image_filename = args.output_image_file
 
 if args.output_json_file is None:
-    output_json_filename = mmtiff.with_suffix(output_filename, output_json_suffix)
+    output_json_filename = stack.with_suffix(input_filenames[1], output_json_suffix)
 else:
     output_json_filename = args.output_json_file
 
@@ -113,162 +114,74 @@ if gpu_id is not None:
     register.turn_on_gpu(gpu_id)
 
 # read input TIFF
-input_tiffs = [mmtiff.MMTiff(file) for file in input_filenames]
-input_images = [tiff.as_list(list_channel = True) for tiff in input_tiffs]
+input_stacks = [stack.Stack(file) for file in input_filenames]
 
 # scale images
-pixelsize_list = [tiff.pixelsize_um for tiff in input_tiffs]
-z_step_list = [tiff.z_step_um for tiff in input_tiffs]
-voxelsize_um = np.min(pixelsize_list + z_step_list)
+scale_ratio = np.array(input_stacks[0].voxel_um) / np.array(input_stacks[1].voxel_um)
+logger.ingo("Scaling factor for the first image: {0}.".format(scale_ratio))
 
-for file_index in range(len(input_images)):
-    xy_ratio = input_tiffs[file_index].pixelsize_um / voxelsize_um
-    z_ratio = input_tiffs[file_index].z_step_um / voxelsize_um
-    ratio = [z_ratio, xy_ratio, xy_ratio]
+input_stacks[0].scale_by_pixelsize(scale_ratio, gpu_id = gpu_id)
+logger.ingo("The first image was shaped into: {0}.".format(input_stacks.image_array.shape))
 
-    if np.allclose([xy_ratio, z_ratio], 1.0) == False:
-        print("Scaling image {0} at ratio:".format(file_index), ratio)
-        for index in range(input_tiffs[file_index].total_time):
-            for channel in range(input_tiffs[file_index].total_channel):
-                input_images[file_index][index][channel] = gpuimage.zoom(input_images[file_index][index][channel], \
-                                                                         ratio = ratio, gpu_id = gpu_id)
+init_shift = init_shift * scale_ratio
+logger.ingo("Initial shift was scaled: {0}.".format(init_shift))
 
-# rescale initial offsets
-if np.isclose(input_tiffs[0].pixelsize_um, voxelsize_um) == False:
-    print("Rescaling the xy overlay offset:", init_shift)
-    init_shift[1:] = init_shift[1:] * input_tiffs[0].pixelsize_um / voxelsize_um
-
-if np.isclose(input_tiffs[0].z_step_um, voxelsize_um) == False:
-    print("Rescaling the z overlay offset:", init_shift)
-    init_shift[0] = init_shift[0] * input_tiffs[0].z_step_um / voxelsize_um
-
-# registration and preparing affine matrices
-print("Start registration:", time.ctime())
-print("Registering Method:", registering_method)
-print("Optimizing Method:", optimizing_method)
-print("Scaling:", scaling)
-print("Channels:", use_channels)
-for index in range(len(input_images)):
-    print("Image:", index, ", shape:", input_images[index][0][0].shape)
+# pre-process the first image
+logger.ingo("Pre-prosessing the first image, flip: {0}, rotation: {1}, shift {2}.".format(init_flip, init_rot, init_shift))
+flip_x, flip_y, flip_z = [-1 if axis in init_flip else 1 for axis in 'xyz']
+def preprocess (image, t_index, c_index):
+    image = image[::flip_z, ::flip_y, ::flip_x]
+    for axis, angle in zip(['x', 'y', 'z'], init_rot):
+        if np.isclose(angle, 0.0) == False:
+            image = gpuimage.rotate_by_axis(image, angle = angle, axis = axis, gpu_id = gpu_id)
+    image = gpuimage.shift(image, init_shift, gpu_id = gpu_id)
+    return image
+input_stacks[0].apply_all(preprocess)
 
 # max frames to be processed
 if truncate_frames:
-    max_frames = min([tiff.total_time for tiff in input_tiffs])
+    max_frames = min(input_stacks[0].t_count, input_stacks[1].t_count)
 else:
-    max_frames = max([tiff.total_time for tiff in input_tiffs])
+    max_frames = max(input_stacks[0].t_count, input_stacks[1].t_count)
 
-# pre-process images
-print("Initial flip:", init_flip)
-print("Initial rotation:", init_rotation)
-print("Initial shift:", init_shift)
-if init_flip is not None:
-    flip_x = -1 if 'x' in init_flip else 1
-    flip_y = -1 if 'y' in init_flip else 1
-    flip_z = -1 if 'z' in init_flip else 1
-else:
-    flip_x = 1
-    flip_y = 1
-    flip_z = 1
-
-for index in range(input_tiffs[0].total_time):
-    for channel in range(input_tiffs[0].total_channel):
-        image = input_images[0][index][channel][::flip_z, ::flip_y, ::flip_x]
-        for axis, angle in zip(['x', 'y', 'z'], init_rotation):
-            if np.isclose(angle, 0.0) == False:
-                image = gpuimage.rotate(image, angle = angle, axis = axis, gpu_id = gpu_id)
-        image = gpuimage.shift(image, init_shift, gpu_id = gpu_id)
-        input_images[0][index][channel] = image
-
-# registration
+# registration and preparing affine matrices
+logger.info("Optimization started. Reg: {0}. Opt: {1}.".format(reg_method, opt_method))
+logger.info("Channels: {0}".format(channels))
+logger.info("Scaling factor at registration".format(scale_image))
 affine_result_list = []
-for index in range(max_frames):
+for index in progressbar(range(max_frames)):
     # handle broadcasting
-    over_index = index % input_tiffs[0].total_time
-    ref_index = index % input_tiffs[1].total_time
+    t_indexes = [index % stack.t_count for stack in input_stacks]
 
     # registration
     if register_all or index == 0:
-        print("Frame:", index)
-        over_image = input_images[0][over_index][use_channels[0]].copy()
-        ref_image = input_images[1][ref_index][use_channels[1]].copy()
+        images = [input_stacks[i].image_array[t_indexes[i], channels[i]] for i in range(len(input_stacks))]
+        images[0] = gpuimage.resize(images[0], images[1].shape, centering = True)
 
-        # resize the overlaying image
-        if over_image.shape != ref_image.shape:
-            over_image = gpuimage.resize(over_image, ref_image.shape, center = True)
+        # scale image for registration
+        if scale_image is not None:
+            images = [gpuimage.scale_by_ratio(image, scale_image, gpu_id = gpu_id) for image in images]
 
-        # scaling
-        if scaling is not None:
-            over_image = gpuimage.zoom(over_image, ratio = scaling, gpu_id = gpu_id)
-            ref_image = gpuimage.zoom(ref_image, ratio = scaling, gpu_id = gpu_id)
-
-        affine_result = register.register(ref_image, over_image, init_shift = None, gpu_id = gpu_id, \
-                                          reg_method = registering_method, \
-                                          opt_method = optimizing_method)
-        print(affine_result['results'].message)
+        affine_result = register.register(images[1], images[0], init_shift = None, gpu_id = gpu_id, \
+                                          reg_method = reg_method, opt_method = opt_method)
 
         # rescaling
-        if scaling is not None:
-            affine_result['scaling'] = scaling
-            affine_result['matrix'][0:3, 3] = affine_result['matrix'][0:3, 3] / scaling
+        if scale_image is not None:
+            affine_result['scale_image'] = scale_image
+            affine_result['matrix'][0:3, 3] = affine_result['matrix'][0:3, 3] / scale_image
 
         affine_result['pre_flip'] = init_flip
-        affine_result['pre_rotation'] = init_rotation
+        affine_result['pre_rotation'] = init_rot
         affine_result['pre_shift'] = init_shift
-
-        affine_matrix = affine_result['matrix']
-
-        print("Matrix:")
-        print(affine_matrix)
-
-        # interpret the affine matrix
-        decomposed_matrix = register.decompose_matrix(affine_matrix)
-        print("Shift:", decomposed_matrix['shift'])
-        print("Rotation:", decomposed_matrix['rotation_angles'])
-        print("Zoom:", decomposed_matrix['zoom'])
-        print("Shear:", decomposed_matrix['shear'])
 
     # save result
     affine_result_list.append(copy.deepcopy(affine_result))
 
-print("End registration:", time.ctime())
-print(".")
-
-# affine transformation and overlay
-print("Start overlay:", time.ctime())
-print("Post-processing shift:", post_shift)
-print("Frame:", end = ' ')
-output_image_list = []
-ref_shape = input_images[1][0][0].shape
-for index in range(len(affine_result_list)):
-    # handle broadcasting
-    over_index = index % input_tiffs[0].total_time
-    ref_index = index % input_tiffs[1].total_time
-
-    # prepare output images
-    image_list = []
-
-    # overlay images
-    for channel in range(input_tiffs[0].total_channel):
-        image = input_images[0][over_index][channel]
-        if image.shape != ref_shape:
-            image = gpuimage.resize(image, ref_shape, center = True)
-        image = gpuimage.affine_transform(image, affine_matrix, gpu_id = gpu_id)
-        image_list.append(image)
-
-    # reference images
-    for channel in range(input_tiffs[1].total_channel):
-        image = input_images[1][ref_index][channel]
-        image_list.append(image)
-
-    print(index, end = ' ', flush = True)
-    output_image_list.append(image_list)
-
-print(".")
-print("End overlay:", time.ctime())
-
 # summarize the registration results and output
-params_dict = {'image_filename': input_filenames,
-               'time_stamp': time.strftime("%a %d %b %H:%M:%S %Z %Y")}
+params_dict = {'image_filenames': [Path(input_filename).name for input_filename in input_filenames],
+               'time_stamp': datetime.now().astimezone().isoformat(),
+               'voxelsize': input_stacks[1].voxel_um,
+               'channels': channels}
 summary_list = []
 for index in range(len(affine_result_list)):
     summary = {}
@@ -278,15 +191,36 @@ for index in range(len(affine_result_list)):
 
 output_dict = {'parameters': params_dict, 'summary_list': summary_list}
 
-print("Output JSON file:", output_json_filename)
+logger.info("Output JSON file: {0}".format(output_json_filename))
 with open(output_json_filename, 'w') as f:
-    json.dump(output_dict, f, \
-              ensure_ascii = False, indent = 4, sort_keys = False, \
+    json.dump(output_dict, f, ensure_ascii = False, indent = 4, sort_keys = False, \
               separators = (',', ': '), cls = NumpyEncoder)
 
+# affine transformation and overlay
+output_stack = stack.Stack()
+output_shape = list(input_stacks[1].image_array.shape)
+output_shape[0] = max_frames
+output_shape[1] = input_stacks[0].c_count + input_stacks[1].c_count
+output_stack.alloc_zero_image(output_shape, dtype = np.float, \
+                              voxel_um = input_stacks[1].voxel_um, \
+                              finterval_sec = input_stacks[1].finterval_sec)
+
+logger.info("Overlay started.")
+logger.info("Post-processing shift: {0}".format(post_shift))
+for index in progressbar(max_frames):
+    # handle broadcasting
+    t_indexes = [index % stack.t_count for stack in input_stacks]
+
+    for c_index in range(input_stacks[0].c_count):
+        image = input_stacks[0].image_array[t_indexes[0], c_index].astype(float)
+        image = gpuimage.resize(image, output_shape[2:], centering = True)
+        image = gpuimage.affine_transform(image, affine_result_list[index]['matrix'], gpu_id = gpu_id)
+        output_stack.image_array[index, c_index] = image
+
+    for c_index in range(input_stacks[1].c_count):
+        image = input_stacks[1].image_array[t_indexes[1], c_index].astype(float)
+        output_stack.image_array[index, c_index + input_stacks[0].c_count] = image
+
 # output image
-print("Output image:", output_filename)
-output_image = np.array(output_image_list).swapaxes(1, 2)
-mmtiff.save_image(output_filename, output_image, imagej = True, \
-                  xy_pixel_um = voxelsize_um, z_step_um = voxelsize_um, \
-                  finterval_sec = input_tiffs[-1].finterval_sec)
+logger.info("Saving image: {0}.".format(output_image_filename))
+output_stack.save_ome_tiff(output_image_filename, dtype = np.float32)

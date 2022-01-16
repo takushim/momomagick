@@ -213,5 +213,4 @@ if output_aligned_image:
             return gpuimage.affine_transform(image[0], matrix, gpu_id = gpu_id)[np.newaxis]
 
     input_stack.apply_all(affine_transform, progress = True)
-
     input_stack.save_ome_tiff(output_image_filename)

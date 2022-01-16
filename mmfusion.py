@@ -119,7 +119,9 @@ if keep_channels:
     output_shape[1] = 2
 else:
     output_shape[1] = 1
-output_stack.alloc_zero_image(output_shape, dtype = np.float)
+output_stack.alloc_zero_image(output_shape, dtype = np.float, \
+                              voxel_um = input_stack.voxel_um, \
+                              finterval_sec = input_stack.finterval_sec)
 
 affine_result_list = []
 logger.info("Registration and deconvolution started.")
@@ -160,6 +162,6 @@ for index in progressbar(range(input_stack.t_count)):
         output_stack.image_array[index, 0] = main_image
         output_stack.image_array[index, 1] = sub_image
 
-# output in the ImageJ format, dimensions should be in TZCYX order
+# output image
 logger.info("Saving image: {0}.".format(output_filename))
 output_stack.save_ome_tiff(output_filename, dtype = np.float32)

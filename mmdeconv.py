@@ -109,6 +109,6 @@ if restore_scale:
     logger.info("Restoring scale: {0}.".format(pixel_orig))
     input_stack.scale_by_pixelsize(pixel_orig, gpu_id = gpu_id)
 
-# output in the ImageJ format, dimensions should be in TZCYX order
+# output image
 logger.info("Saving image: {0}.".format(output_filename))
 input_stack.save_ome_tiff(output_filename, dtype = np.float32)
