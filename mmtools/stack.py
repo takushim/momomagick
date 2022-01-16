@@ -266,6 +266,8 @@ class Stack:
         else:
             ome_pixels.channels[0].color = ome_grayscale
 
+        logger.debug("OME pixel data: {0}".format(ome_pixels))
+
         ome_image = Image(name = filename, id = "Image:0", pixels = ome_pixels)
         ome_xml = to_xml(OME(images = [ome_image])).encode()
 
