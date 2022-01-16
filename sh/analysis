@@ -6,20 +6,22 @@ output_folder="analysis"
 time_scale='1.0'
 fit_start='0'
 analyses=("lifetime" "regression" "cumulative" "counting")
+log_level='INFO'
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] [-s FIT_START] file [file ...]"
+    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] [-s FIT_START] [-L LOG] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "o:x:s:" OPT;
+while getopts "o:x:s:L:" OPT;
 do
     case "$OPT" in
     o) output_folder="$OPTARG" ;;
     x) time_scale="$OPTARG" ;;
     s) fit_start="$OPTARG" ;;
+    L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -41,6 +43,6 @@ for analysis in "${analyses[@]}"; do
     output_txt="${output_folder}/${stem}_${analysis}.txt"
     output_graph="${output_folder}/${stem}_${analysis}.png"
 
-    mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" -x "$time_scale" -s "$fit_start" "${files[@]}"
+    mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" -x "$time_scale" -s "$fit_start" -L "$log_level" "${files[@]}"
     echo "."
 done
