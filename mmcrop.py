@@ -38,8 +38,7 @@ parser.add_argument('-t', '--t-range', type = int, nargs = 2, default = t_range,
                     metavar = ('START', 'END'),
                     help='Specify the range of time frames to output')
 
-parser.add_argument('-L', '--log-level', default = log_level, \
-                    help='Log level: DEBUG, INFO, WARNING, ERROR or CRITICAL')
+log.add_argument(parser, default_level = log_level)
 
 parser.add_argument('input_file', default = input_filename, \
                     help='input (multipage) TIFF file')

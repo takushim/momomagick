@@ -15,6 +15,9 @@ logger = getLogger(__name__)
 default_pixel_um = 0.1625
 default_z_step_um = 0.5
 default_finterval_sec = 1
+default_voxel = [default_z_step_um, default_pixel_um, default_pixel_um]
+default_shape = (1, 1, 1, 256, 256)
+default_dtype = np.uint16
 
 def turn_on_gpu (gpu_id):
     return gpuimage.turn_on_gpu(gpu_id)
@@ -60,7 +63,23 @@ ome_ratio_to_sec = {
     UnitsTime.PICOSECOND: 1.0e-12,
 }
 
-ome_colors = [Color(0xFF000000), Color(0x00FF0000), Color(0x0000FF00), Color(0x000000FF)]
+ome_grayscale = Color(0xFFFFFF00)
+
+ome_rgb_colors = [
+    Color(0xFF000000), # Red
+    Color(0x00FF0000), # Green
+    Color(0x0000FF00), # Blue
+    ] #
+
+ome_multi_colors = [
+    Color(0xFF000000), # Red
+    Color(0x00FF0000), # Green
+    Color(0x0000FF00), # Blue
+    Color(0x00FFFF00), # Cyan
+    Color(0xFF00FF00), # Magenta
+    Color(0xFFFF0000), # Yellow
+    Color(0xFFFFFF00), # Gray
+    ]
 
 imagej_ratio_to_um = {
     'm': 1.0e6,
@@ -101,8 +120,11 @@ class Stack:
         self.has_s_axis = False
         self.image_array = None
 
-    def alloc_zero_image (self, shape = (1, 1, 1, 256, 256), dtype = np.uint16):
+    def alloc_zero_image (self, shape = default_shape, dtype = default_dtype, \
+                          voxel_um = default_voxel, finterval_sec = default_finterval_sec):
         self.image_array = np.zeros(shape, dtype = dtype)
+        self.voxel_um = voxel_um
+        self.finterval_sec = finterval_sec
         self.update_dimensions()
 
     def archive_properties (self):
@@ -124,18 +146,26 @@ class Stack:
             self.reset_stack()
 
             with tifffile.TiffFile(fileio) as tiff:
-                axes = tiff.series[series].axes
+                axes = tiff.series[series].axes.upper()
                 image_array = tiff.asarray(series = series)
                 metadata = self.__read_metadata(tiff, series = series)
 
-            if 'T' not in axes:
-                image_array = image_array[np.newaxis]
-            if 'Z' not in axes:
-                image_array = image_array[:, np.newaxis]
-            if 'C' not in axes:
-                image_array = image_array[:, :, np.newaxis]
+            if (set(axes) <= {'T', 'C', 'Z', 'Y', 'X', 'S'}) == False:
+                raise Exception('Unknown axis format: {0}'.format(axes))
 
-            image_array = image_array.swapaxes(1, 2)
+            for axis in 'ZCTYX':
+                if axis not in axes:
+                    image_array = image_array[np.newaxis]
+                    axes = axis + axes
+
+            if 'S' in axes:
+                axis_order = [axes.find(axis) for axis in 'TCZYXS']
+            else:
+                axis_order = [axes.find(axis) for axis in 'TCZYX']
+
+            logger.debug("Current axis: {0}. Order: {1}.".format(axes, axis_order))
+            image_array = image_array.transpose(axis_order)
+
             if ('S' in axes) and (keep_s_axis == False):
                 logger.info("The S axis is converted to the C axis.")
                 image_array = self.__concat_s_channel(image_array)
@@ -226,9 +256,17 @@ class Stack:
                                        id = ChannelID("Channel:0:{0}".format(index))) \
                                for index in range(c_count)]
 
-        if self.has_s_axis:
-            for index in range(c_count):
-                ome_pixels.channels[index].color = ome_colors[index % 4]
+        if c_count > 1:
+            if self.has_s_axis:
+                for index in range(c_count):
+                    ome_pixels.channels[index].color = ome_rgb_colors[index % len(ome_rgb_colors)]
+            else:
+                for index in range(c_count):
+                    ome_pixels.channels[index].color = ome_multi_colors[index % len(ome_multi_colors)]
+        else:
+            ome_pixels.channels[0].color = ome_grayscale
+
+        logger.debug("OME pixel data: {0}".format(ome_pixels))
 
         ome_image = Image(name = filename, id = "Image:0", pixels = ome_pixels)
         ome_xml = to_xml(OME(images = [ome_image])).encode()
@@ -423,9 +461,9 @@ class Stack:
         self.scale_by_pixelsize(pixel_um, gpu_id = gpu_id)
 
     def rotate (self, angle = 0.0, axis = 0, gpu_id = None):
-        rotate_tuple = gpuimage.axis_to_tuple(axis)
+        rot_tuple = gpuimage.axis_to_tuple(axis)
         def rotate_func (image, t_index, c_index):
-            return gpuimage.rotate(image, angle, rotate_tuple, gpu_id = gpu_id)
+            return gpuimage.rotate(image, angle, rot_tuple, gpu_id = gpu_id)
         self.apply_all(rotate_func)
 
     def affine_transform (self, matrix, gpu_id = None):
