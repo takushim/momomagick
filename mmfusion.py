@@ -132,7 +132,7 @@ for index in progressbar(range(input_stack.t_count)):
 
     if sub_rotation != 0:
         sub_image_rot = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
-        sub_image_rot = gpuimage.resize(sub_image, main_image.shape, centering = True)
+        sub_image_rot = gpuimage.resize(sub_image_rot, main_image.shape, centering = True)
     else:
         sub_image_rot = sub_image
 
@@ -149,7 +149,7 @@ for index in progressbar(range(input_stack.t_count)):
     # affine transformation
     if sub_rotation != 0:
         sub_image_rot = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
-        sub_image_rot = gpuimage.resize(sub_image, main_image.shape, centering = True)
+        sub_image_rot = gpuimage.resize(sub_image_rot, main_image.shape, centering = True)
     else:
         sub_image_rot = sub_image
 
