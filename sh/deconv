@@ -3,18 +3,20 @@ set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
 iter=10
+log_level='INFO'
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-i ITERATION] file [file ...]"
+    echo "$(basename "$0") [-i ITERATION] [-L LOG] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "i:" OPT;
+while getopts "i:L:" OPT;
 do
     case "$OPT" in
     i) iter="$OPTARG" ;;
+    L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -47,18 +49,18 @@ do
 	output_deconv="${stem}_deconv.tif"
     echo "Iteration: ${iter}" >> $output_log
     echo "Scaling: ${scaling_option}" >> $output_log
-    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" "$file"
+    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
 
     scaling_option="-s"
 	output_deconv="${stem}_deconv_iso.tif"
     echo "Iteration: ${iter}" >> $output_log
     echo "Scaling: ${scaling_option}" >> $output_log
-    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" "$file"
+    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
 
     scaling_option="-s -r"
 	output_deconv="${stem}_deconv_res.tif"
     echo "Iteration: ${iter}" >> $output_log
     echo "Scaling: ${scaling_option}" >> $output_log
-    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" "$file"
+    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
 
 done

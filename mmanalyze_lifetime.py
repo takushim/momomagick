@@ -44,8 +44,7 @@ parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start
 parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choices = opt_method_list, \
                     help='Method to optimize the one-phase-decay model')
 
-parser.add_argument('-L', '--log-level', default = log_level, \
-                    help='Log level: DEBUG, INFO, WARNING, ERROR or CRITICAL')
+log.add_argument(parser, default_level = log_level)
 
 parser.add_argument('input_files', nargs = '+', default = input_filenames, \
                     help='input JSON file of tracking data. Results from multiple files are merged.')

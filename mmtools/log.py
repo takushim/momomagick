@@ -12,3 +12,8 @@ def get_logger (filename, level = 'INFO'):
     logging.getLogger().setLevel(level)
 
     return logger
+
+def add_argument (parser, short_option = '-L', long_option = '--log-level', default_level = 'INFO'):
+    parser.add_argument('-L', '--log-level', default = default_level, \
+                        help='Log level: DEBUG, INFO, WARNING, ERROR or CRITICAL')
+

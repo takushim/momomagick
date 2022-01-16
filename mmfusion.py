@@ -1,29 +1,32 @@
 #!/usr/bin/env python
 
-import sys, argparse, tifffile
+import argparse
 import numpy as np
 from pathlib import Path
-from mmtools import mmtiff, register, deconvolve, gpuimage
+from progressbar import progressbar
+from mmtools import stack, register, deconvolve, gpuimage, log
 
 # default values
+gpu_id = None
 input_filename = None
 output_filename = None
 output_suffix = '_fusion.tif'
 main_channel = 0
-sub_channel = 1
+sub_channel = None
 sub_rotation = 0
 keep_channels = False
-gpu_id = None
-registering_method = 'Full'
-registering_method_list = register.registering_methods
-optimizing_method = "Powell"
-optimizing_method_list = register.optimizing_methods
+iterations = 0
+reg_method = 'Full'
+reg_method_list = register.registering_methods
+opt_method = "Powell"
+opt_method_list = register.optimizing_methods
 psf_folder = Path(__file__).parent.joinpath('psf')
 psf_filename = 'dispim_iso.tif'
-iterations = 0
+log_level = 'INFO'
+
 
 # parse arguments
-parser = argparse.ArgumentParser(description='Fusion two diSPIM images and deconvolve them.', \
+parser = argparse.ArgumentParser(description='Fusion diSPIM images from two paths and deconvolve them.', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default=output_filename, \
                     help='Output TIFF file ([basename0]{0} by default)'.format(output_suffix))
@@ -43,12 +46,10 @@ parser.add_argument('-k', '--keep-channels', action = 'store_true',
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
 
-parser.add_argument('-e', '--registering-method', type = str, default = registering_method, \
-                    choices = registering_method_list, \
+parser.add_argument('-e', '--reg-method', type = str, default = reg_method, choices = reg_method_list, \
                     help='Method used for image registration')
 
-parser.add_argument('-t', '--optimizing-method', type = str, default = optimizing_method, \
-                    choices = optimizing_method_list, \
+parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choices = opt_method_list, \
                     help='Method to optimize the affine matrices')
 
 parser.add_argument('-p', '--psf-image', default = psf_filename, \
@@ -57,127 +58,106 @@ parser.add_argument('-p', '--psf-image', default = psf_filename, \
 parser.add_argument('-i', '--iterations', type = int, default = iterations, \
                     help='number of iterations')
 
+log.add_argument(parser, default_level = log_level)
+
 parser.add_argument('input_file', default = input_filename, \
                     help='Input dual-view TIFF file')
 args = parser.parse_args()
 
+# logging
+logger = log.get_logger(__file__, level = args.log_level)
+
 # set arguments
+gpu_id = args.gpu_id
 input_filename = args.input_file
 main_channel = args.main_channel
 sub_channel = args.sub_channel
 sub_rotation = args.sub_rotation
 keep_channels = args.keep_channels
-gpu_id = args.gpu_id
-registering_method = args.registering_method
-optimizing_method = args.optimizing_method
+reg_method = args.reg_method
+opt_method = args.opt_method
 psf_filename = args.psf_image
 iterations = args.iterations
 
 if args.output_file is None:
-    output_filename = mmtiff.with_suffix(input_filename, output_suffix)
+    output_filename = stack.with_suffix(input_filename, output_suffix)
 else:
     output_filename = args.output_file
 
 # turn on GPU device
-register.turn_on_gpu(gpu_id)
+stack.turn_on_gpu(gpu_id)
 
-# read input TIFF
-input_tiff = mmtiff.MMTiff(input_filename)
-input_image_list = input_tiff.as_list(list_channel = True)
+# load input image
+logger.info("Loading image: {0}.".format(input_filename))
+input_stack = stack.Stack(input_filename)
 
-# load psf image
-if Path(psf_filename).exists():
-    print("Read PSF image in the current folder:", psf_filename)
-    psf_image = tifffile.imread(psf_filename)
-else:
+if psf_filename is None:
     psf_path = Path(psf_folder).joinpath(psf_filename)
-    if psf_path.exists():
-        print("Read PSF image in the system folder:", str(psf_path))
-        psf_image = tifffile.imread(str(psf_path))
+else:
+    if Path(psf_filename).exists():
+        psf_path = Path(psf_filename)
     else:
-        raise Exception('PSF file {0} not found'.format(psf_filename))
+        psf_path = Path(psf_folder).joinpath(psf_filename)
+
+logger.info("PSF image: {0}.".format(psf_path))
+psf_stack = stack.Stack(psf_path)
+psf_image = psf_stack.image_array[0, 0]
 
 # finding the other channel
-channel_set = set(np.arange(input_tiff.total_channel)) - {main_channel}
-if sub_channel not in channel_set:
+channel_set = set(np.arange(input_stack.c_count)) - {main_channel}
+if sub_channel is None:
     sub_channel = min(channel_set)
-    print("Automatically selecting the sub-channel:", sub_channel)
+logger.info("Selecting channels, main : {0}, sub: {1}.".format(main_channel, sub_channel))
 
 # scaling along the z-axis to achieve isometric voxels
-z_ratio = input_tiff.z_step_um / input_tiff.pixelsize_um
-print("Z scaling ratio:", z_ratio)
+logger.info("Scaling image to be isometric. Pixel-size: {0}.".format(min(input_stack.voxel_um)))
+input_stack.scale_isometric(gpu_id = gpu_id)
+logger.debug("Image shaped into: {0}".format(input_stack.image_array.shape))
 
 # rotate, register and deconvolve
-output_image_list = []
+output_stack = stack.Stack()
+output_shape = list(input_stack.image_array.shape)
+if keep_channels:
+    output_shape[1] = 2
+else:
+    output_shape[1] = 1
+output_stack.alloc_zero_image(output_shape, dtype = np.float)
+
 affine_result_list = []
-print("Main channel: {0}, Sub channel: {1}.".format(main_channel, sub_channel))
-for index in range(input_tiff.total_time):
-    # images
-    main_image = input_image_list[index][main_channel]
-    sub_image = input_image_list[index][sub_channel]
+logger.info("Registration and deconvolution started.")
+for index in progressbar(range(input_stack.t_count)):
+    # registration
+    main_image = input_stack.image_array[index, main_channel].astype(float)
+    sub_image = input_stack.image_array[index, sub_channel].astype(float)
 
-    main_image = gpuimage.z_zoom(main_image, ratio = z_ratio, gpu_id = gpu_id)
-    sub_image = gpuimage.z_zoom(sub_image, ratio = z_ratio, gpu_id = gpu_id)
     if sub_rotation != 0:
-        print("Rotating sub-channel by:", sub_rotation)
-        sub_image_reg = gpuimage.rotate(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
+        sub_image_rot = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
+        sub_image_rot = gpuimage.resize(sub_image, main_image.shape, centering = True)
     else:
-        sub_image_reg = sub_image
+        sub_image_rot = sub_image
 
-    sub_image_reg = gpuimage.resize(sub_image_reg, main_image.shape, center = True)
-
-    print("Registering Method:", registering_method)
-    print("Optimizing Method:", optimizing_method)
-    affine_result = register.register(main_image, sub_image_reg, gpu_id = gpu_id, \
-             opt_method = optimizing_method, reg_method = registering_method)
-    affine_matrix = affine_result['matrix']
-
-    print(affine_result['results'].message)
-    print("Matrix:")
-    print(affine_matrix)
-
-    # interpret the affine matrix
-    decomposed_matrix = register.decompose_matrix(affine_matrix)
-    print("Shift:", decomposed_matrix['shift'])
-    print("Rotation:", decomposed_matrix['rotation_angles'])
-    print("Zoom:", decomposed_matrix['zoom'])
-    print("Shear:", decomposed_matrix['shear'])
-    print(".")
-
-    # save result
+    affine_result = register.register(main_image, sub_image_rot, gpu_id = gpu_id, \
+                                      opt_method = opt_method, reg_method = reg_method)
     affine_result_list.append(affine_result)
 
     # deconvolution
     if iterations > 0:
-        print("Deconvoluting channels seapeartely. Iterations:", iterations)
-        main_image_dec = deconvolve.deconvolve(main_image, psf_image, iterations = iterations, gpu_id = gpu_id)
-        sub_image_dec = deconvolve.deconvolve(sub_image, psf_image, iterations = iterations, gpu_id = gpu_id)
-        # registration and fusion
-        if sub_rotation != 0:
-            print("Rotating sub-channel by:", sub_rotation)
-            sub_image_dec = gpuimage.rotate(sub_image_dec, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
-        else:
-            sub_image_dec = sub_image_dec
-        sub_image_dec = gpuimage.resize(sub_image_dec, main_image.shape, center = True)
-        sub_image_dec = gpuimage.affine_transform(sub_image_dec, affine_matrix, gpu_id = gpu_id)
-    else:
-        print("Skipping deconvolution.")
-        main_image_dec = main_image
-        sub_image_dec = gpuimage.affine_transform(sub_image_reg, affine_matrix, gpu_id = gpu_id)
+        main_image = deconvolve.deconvolve(main_image, psf_image, iterations = iterations, gpu_id = gpu_id)
+        sub_image = deconvolve.deconvolve(sub_image, psf_image, iterations = iterations, gpu_id = gpu_id)
 
-    if keep_channels:
-        print("Keeping channels for the output image.")
-        output_image = [main_image_dec, sub_image_dec]
+    # affine transformation
+    if sub_rotation != 0:
+        sub_image = gpuimage.rotate_by_axis(sub_image, angle = sub_rotation, axis = 'y', gpu_id = gpu_id)
+        sub_image = gpuimage.resize(sub_image, main_image.shape, centering = True)
+    sub_image = gpuimage.affine_transform(sub_image, affine_result['matrix'], gpu_id = gpu_id)
+
+    # fuse channels or just store them
+    if keep_channels == False:
+        output_stack.image_array[index, 0] = (main_image + sub_image) / 2
     else:
-        print("Merging channels for the output image.")
-        output_image = [(main_image_dec.astype(float) + sub_image_dec.astype(float)) / 2]
-        
-    # store the image to the list
-    output_image_list.append(output_image)
+        output_stack.image_array[index, 0] = main_image
+        output_stack.image_array[index, 1] = sub_image
 
 # output in the ImageJ format, dimensions should be in TZCYX order
-print("Output image:", output_filename)
-output_image = np.array(output_image_list).swapaxes(1, 2).astype(np.float32)
-mmtiff.save_image(output_filename, output_image, \
-                  xy_res = 1 / input_tiff.pixelsize_um, z_step_um = input_tiff.pixelsize_um, \
-                  finterval_sec = input_tiff.finterval_sec)
+logger.info("Saving image: {0}.".format(output_filename))
+output_stack.save_ome_tiff(output_filename, dtype = np.float32)

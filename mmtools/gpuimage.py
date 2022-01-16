@@ -105,15 +105,19 @@ def expand_ratio (ratio):
 
     return ratio
 
-def rotate (input_image, angle, rotate_tuple, gpu_id = None):
+def rotate (input_image, angle, rot_tuple, gpu_id = None):
     if gpu_id is None:
-        image = ndimage.rotate(input_image, angle, axes = rotate_tuple, reshape = False)
+        image = ndimage.rotate(input_image, angle, axes = rot_tuple, reshape = False)
     else:
         image = cp.asarray(input_image)
-        image = cpimage.rotate(image, angle, axes = rotate_tuple, order = 1, reshape = False)
+        image = cpimage.rotate(image, angle, axes = rot_tuple, order = 1, reshape = False)
         image = cp.asnumpy(image)
 
     return image
+
+def rotate_by_axis (input_image, angle, axis, gpu_id = None):
+    rot_tuple = axis_to_tuple(axis)
+    return rotate(input_image, angle, rot_tuple, gpu_id = gpu_id)
 
 def axis_to_tuple (axis):
     if axis == 0 or axis == 'z' or axis == 'Z':

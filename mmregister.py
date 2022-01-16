@@ -65,8 +65,7 @@ parser.add_argument('-A', '--output-aligned-image', action = 'store_true', \
 parser.add_argument('-a', '--output-image-file', default = output_image_filename, \
                     help='filename to output images ([basename]{0} if not specified)'.format(output_image_suffix.format('[reg]')))
 
-parser.add_argument('-L', '--log-level', default = log_level, \
-                    help='Log level: DEBUG, INFO, WARNING, ERROR or CRITICAL')
+log.add_argument(parser, default_level = log_level)
 
 parser.add_argument('input_file', default = input_filename, \
                     help='a multipage TIFF file to align')

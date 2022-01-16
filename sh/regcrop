@@ -11,10 +11,11 @@ second_view_x=1400
 scale_iso=0
 output_mini=0
 psf_file=""
+log_level='INFO'
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-f X1] [-s X2] [-p PSF] [-e REG] [-t OPT] [-z] [-d] [-i ITER] [-n] file [file ...]"
+    echo "$(basename "$0") [-f X1] [-s X2] [-p PSF] [-e REG] [-t OPT] [-z] [-d] [-i ITER] [-n] [-L LOG] file [file ...]"
     echo "Default settings:"
     echo "- psf_file: ${psf_file} (None for default)"
     echo "- reg_method: ${reg_method}"
@@ -28,7 +29,7 @@ function show_usage () {
 }
 
 # parse options
-while getopts "f:s:p:e:di:znt:" OPT;
+while getopts "f:s:p:e:di:znt:L:" OPT;
 do
     case "$OPT" in
     f) first_view_x="$OPTARG" ;;
@@ -40,6 +41,7 @@ do
     i) iter="$OPTARG" ;;
     z) scale_iso=1 ;;
     n) output_mini=1 ;;
+    L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
     esac
@@ -91,23 +93,22 @@ do
         scale_option=""
     fi
 
-    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -A -a "$output_reg" "$file"
-    mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" "$output_reg"
+    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -A -a "$output_reg" -L "$log_level" "$file"
+    mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" -L "$log_level" "$output_reg"
     echo "First view: ${first_view_x}" >> $output_log
     
-    mmcrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" "$output_reg"
+    mmcrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" -L "$log_level" "$output_reg"
     echo "Second view: ${second_view_x}" >> $output_log
 
     if [[ $deconv == 1 ]]; then
         echo "Deconvolution iterating: ${iter}" >> $output_log
-        mmdeconv.py -g 0 -i "$iter" $psf_option1 $psf_option2 $scale_option -o "$output_deconv" "$output_crop_1"
+        mmdeconv.py -g 0 -i "$iter" $psf_option1 $psf_option2 $scale_option -o "$output_deconv" -L "$log_level" "$output_crop_1"
     fi
 
     if [[ $output_mini == 1 ]]; then
-        echo "----------"
         echo "Output mini-size versions" >> $output_log
-        mmcrop.py -o "$output_crop_1_mini" -R 0 64 256 128 "$output_crop_1"
-        mmcrop.py -o "$output_deconv_mini" -R 0 64 256 128 "$output_deconv"
+        mmcrop.py -o "$output_crop_1_mini" -R 0 64 256 128 -L "$log_level" "$output_crop_1"
+        mmcrop.py -o "$output_deconv_mini" -R 0 64 256 128 -L "$log_level" "$output_deconv"
     fi
 
 done

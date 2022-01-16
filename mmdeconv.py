@@ -38,8 +38,7 @@ parser.add_argument('-r', '--restore-scale', action = 'store_true', \
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='Turn on GPU use with the specified ID')
 
-parser.add_argument('-L', '--log-level', default = log_level, \
-                    help='Log level: DEBUG, INFO, WARNING, ERROR or CRITICAL')
+log.add_argument(parser, default_level = log_level)
 
 parser.add_argument('input_file', default = input_filename, \
                     help='Image file to deconvolve')
