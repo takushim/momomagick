@@ -36,7 +36,7 @@ $date = ((get-item $folder).Parent.Parent.Name -split "_")[0]
 $suffix = ((get-item $folder).Parent.Name -split "_")[-1]
 $record = [IO.Path]::Combine($folder, ("{0}_track.json" -f (get-item $image).basename))
 
-if (((get-item $folder).Name -split "_")[-1] -match "[0-9]") {
+if (((get-item $folder).Name -split "_")[-1] -match "^[0-9]+$") {
       $counter = "_{0}" -f ((get-item $folder).Name -split "_")[-1]
 }
 
