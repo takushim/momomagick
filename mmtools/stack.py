@@ -135,9 +135,8 @@ class Stack:
                     'c_count': self.c_count,
                     'height': self.height,
                     'width': self.width,
-                    'has_s_axis': self.has_x_axis,
+                    'has_s_axis': self.has_s_axis,
                     's_count': self.s_count,
-                    'colored': self.colored,
                     'axes': self.axes}
         return settings
 
