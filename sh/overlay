@@ -42,7 +42,7 @@ fi
 
 # find the background image 
 if [[ "$#" == 0 ]]; then
-    file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_*_crop_1_deconv_iso.tif' | head -n 1)"
+    file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_*_crop_1_deconv_res.tif' | head -n 1)"
 elif [[ "$#" == 1 ]]; then
     file_back="$@"
 else
@@ -83,7 +83,7 @@ echo "Dropping unused channels from the EGFP file: ${file_egfp}" >> $output_log
 mmcrop.py -o "$output_egfp_single" $rev_egfp -c 0 -L "$log_level" "$file_egfp"
 
 echo "Overlaying EGFP (${output_egfp_single}) on the bridging file (${file_bridge}), method: ${reg_method,,}" >> $output_log
-mmoverlay.py -g 0 -o "$output_egfp_double" -c 0 0 -e "${reg_method}" -L "$log_level" "$output_egfp_single" "$file_bridge"
+mmoverlay.py -g 0 -o "$output_egfp_double" -c 0 0 -a -e "${reg_method}" -L "$log_level" "$output_egfp_single" "$file_bridge"
 
 echo "Overlaying the combined file (${output_egfp_double}) on the background (${file_back}) using XY registration" >> $output_log
 mmoverlay.py -g 0 -o "$output_fitting" -c 1 0 -e XY -L "$log_level" "$output_egfp_double" "$file_back"
