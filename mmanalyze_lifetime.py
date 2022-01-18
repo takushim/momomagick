@@ -40,6 +40,9 @@ parser.add_argument('-x', '--time-scale', type = float, default = time_scale, \
 parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start, \
                     help='starting point of fitting')
 
+parser.add_argument('-p', '--separate-graph', action = 'store_true', \
+                    help='plot bar graphs separately.')
+
 parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choices = opt_method_list, \
                     help='Method to optimize the one-phase-decay model')
 
@@ -58,6 +61,7 @@ input_filenames = args.input_files
 fitting_start = args.fitting_start
 opt_method = args.opt_method
 analysis = args.analysis
+separate_graph = args.separate_graph
 
 output_suffix = output_suffix.format(analysis)
 graph_suffix = graph_suffix.format(analysis)
@@ -143,11 +147,26 @@ if analysis != 'counting':
     figure = pyplot.figure(figsize = (12, 8), dpi = 300)
     axes = figure.add_subplot(111)
     axes.set_title(graph_title, size = 'xx-large')
-    offset = np.zeros_like(times, dtype = float)
-    for index in range(len(results)):
+
+    if separate_graph:
+        bar_w = times[0]
+        offset = np.zeros_like(times, dtype = float)
         counts = np.array(result_dict['Result_{0}'.format(index)])
-        axes.bar(times, counts, bottom = offset, width = times[0] / 2, label = Path(input_filenames[index]).name)
-        offset += np.array(counts)
+        axes.bar(times, counts_sum, width = bar_w, label = "Sum", color = 'lightgray')
+
+        for index in range(len(results)):
+            counts = np.array(result_dict['Result_{0}'.format(index)])
+            delta = times[0] * 0.05
+            each_w = (times[0] - delta * 2) / (len(results))
+            each_x = np.array(times) + delta * 2 + each_w * index - times[0] / 2
+            axes.bar(each_x, counts, width = each_w, label = Path(input_filenames[index]).name)
+    else:
+        offset = np.zeros_like(times, dtype = float)
+        for index in range(len(results)):
+            bar_w = times[0] * 0.8
+            counts = np.array(result_dict['Result_{0}'.format(index)])
+            axes.bar(times, counts, bottom = offset, width = bar_w, label = Path(input_filenames[index]).name)
+            offset += np.array(counts)
 
     curve_x = np.arange(times[0], np.max(times), times[0] / 10)
     axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')

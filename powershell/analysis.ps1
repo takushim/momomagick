@@ -3,10 +3,11 @@ Param([Switch]$help = $false,
       [String]$folder = 'analysis',
       [Float]$timescale = 1.0,
       [Int]$fitstart = 0,
+      [Switch]$separate = $false,
       [String[]]$files = @())
 
 if ($help -eq $true) {
-      Write-Host ("Example: {0} -timescale 10.0 -fitstart 0 -folder temp -files A, B, C" -f $MyInvocation.MyCommand.Name)
+      Write-Host ("Example: {0} -timescale 10.0 -fitstart 0 -folder temp -separate -files A, B, C" -f $MyInvocation.MyCommand.Name)
       return 0
 }
 
@@ -26,9 +27,17 @@ mkdir -Force $folder | Out-Null
 foreach ($analysis in $analyses){
       $text = [IO.Path]::Combine($folder, ("{0}_{1}.txt" -f $stem, $analysis))
       $graph = [IO.Path]::Combine($folder, ("{0}_{1}.png" -f $stem, $analysis))
-      $parameters = @{
-            FilePath = (Get-command "py.exe")
-            ArgumentList = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis, "-s", $fitstart) + $files
+      if ($separate -eq $true) {
+            $parameters = @{
+                  FilePath = (Get-command "py.exe")
+                  ArgumentList = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis, "-s", $fitstart, "-p") + $files
+            }
+      }
+      else {
+            $parameters = @{
+                  FilePath = (Get-command "py.exe")
+                  ArgumentList = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis, "-s", $fitstart) + $files
+            }
       }
       Start-Process -NoNewWindow -Wait @parameters
 }
