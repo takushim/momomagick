@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 . $HOME\.venv\gpu\Scripts\Activate.ps1
 $scriptpath = "$HOME\bin\dispim"
 $script = [IO.Path]::Combine($scriptpath, "mmanalyze_lifetime.py")
-$analyses = @("lifetime", "regression", "cumulative", "counting")
+$analyses = @("cumulative", "lifetime", "regression", "counting")
 if ($files.count -eq 0){
       $files = (get-item "*track.json")
 }

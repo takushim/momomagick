@@ -172,6 +172,9 @@ if analysis != 'counting':
     axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
     axes.set_ylim(bottom = 0)
 
+    bleach_y = fitting_func(curve_x)[0] * np.exp(-(curve_x - curve_x[0]) / (12 * time_scale))
+    axes.plot(curve_x, bleach_y, color = 'black', linestyle = '-')
+
     koff = fitting['koff']
     halflife = fitting['halflife']
     start = fitting['start']
