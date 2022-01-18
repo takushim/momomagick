@@ -2,46 +2,27 @@
 set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
-shift_x=0
-shift_y=0
-shift_z=0
-post_x=0
-post_y=0
-post_z=0
-auto_sweep=0
-file_over=""
-file_sweep=""
+file_egfp=""
+file_back=""
+file_bridge=""
 reg_method="Rigid"
-option_trunc=""
-crop_final=0
-reverse_over=""
-use_deconv=0
+rev_egfp=""
 log_level='INFO'
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-x/X X] [-y/Y Y] [-z/Z Z] [-a] [-m REG] [-f crop|fusion|(FILE)] [-s FILE_SWEEP] [-n] [-c] [-r] [-d] [-L LOG] FILE_BACK"
+    echo "$(basename "$0") [-m REG][-e FILE_EGFP] [-b FILE_BRIDGE] [-r] [-L LOG] FILE_BACK"
     exit 1
 }
 
 # parse options
-while getopts "x:y:z:X:Y:Z:m:f:s:nacrdL:" OPT;
+while getopts "m:e:b:rL:" OPT;
 do
     case "$OPT" in
-    x) shift_x="$OPTARG" ;;
-    y) shift_y="$OPTARG" ;;
-    z) shift_z="$OPTARG" ;;
-    X) post_x="$OPTARG" ;;
-    Y) post_y="$OPTARG" ;;
-    Z) post_z="$OPTARG" ;;
-    a) auto_sweep=1 ;;
     m) reg_method="$OPTARG" ;;
-    f) file_over="$OPTARG" ;;
-    s) file_sweep="$OPTARG" ;;
-    n) option_trunc="-n" ;;
-    c) crop_final=1 ;;
-    d) use_deconv=1 ;;
-    r) reverse_over="-r" ;;
+    e) file_egfp="$OPTARG" ;;
+    b) file_bridge="$OPTARG" ;;
+    r) rev_egfp="-r" ;;
     L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
@@ -49,30 +30,19 @@ do
 done
 shift $((OPTIND - 1))
 
-# find the overlay image if not specified
-if [[ "$file_over" == "" ]]; then
-    file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_crop_0.tif' | head -n 1)"
-    if [[ "$file_over" == "" ]]; then
-        file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_fusion_?.tif' | head -n 1)"
-    fi
-elif [[ "${file_over,,}" == "fusion" ]]; then
-    file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_fusion_?.tif' | head -n 1)"
-elif [[ "${file_over,,}" == "crop" ]]; then
-    file_over="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_crop_0.tif' | head -n 1)"
+# find the overlay image
+if [[ "$file_egfp" == "" ]]; then
+    file_egfp="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_crop_0.tif' | head -n 1)"
 fi
 
-# find the overlay (sweeping) image if not specified
-if [[ "$file_sweep" == "" ]]; then
-    file_sweep="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_0.tif' | head -n 1)"
+# find the fitting (bridging) image
+if [[ "$file_bridge" == "" ]]; then
+    file_bridge="$(find . -maxdepth 1 -iname '*MMStack_Pos0_*_crop_0.tif' | head -n 1)"
 fi
 
-# find the background image if not specified
+# find the background image 
 if [[ "$#" == 0 ]]; then
-    if [[ $use_deconv == 1 ]]; then
-        file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_1_deconv.tif' | head -n 1)"
-    else
-        file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_1.tif' | head -n 1)"
-    fi
+    file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_*_crop_1_deconv_iso.tif' | head -n 1)"
 elif [[ "$#" == 1 ]]; then
     file_back="$@"
 else
@@ -87,58 +57,37 @@ elif [[ "$file_back" =~ '.tif' ]]; then
     stem_back="$(echo ${file_back} | sed 's/\.tif$//')"
 else
     echo "Not an image file: ${file_back}"
+    exit 1
 fi
 
-if [[ "$file_over" =~ '.ome.tif' ]]; then
-    stem_over="$(echo ${file_over} | sed 's/\.ome\.tif$//')"
-elif [[ "$file_over" =~ '.tif' ]]; then
-    stem_over="$(echo ${file_over} | sed 's/\.tif$//')"
+if [[ "$file_egfp" =~ '.ome.tif' ]]; then
+    stem_egfp="$(echo ${file_egfp} | sed 's/\.ome\.tif$//')"
+elif [[ "$file_egfp" =~ '.tif' ]]; then
+    stem_egfp="$(echo ${file_egfp} | sed 's/\.tif$//')"
 else
-    echo "Not an image file: ${file_over}"
+    echo "Not an image file: ${file_egfp}"
+    exit 1
 fi
 
-if [[ "$file_sweep" =~ '.ome.tif' ]]; then
-    stem_sweep="$(echo ${file_sweep} | sed 's/\.ome\.tif$//')"
-elif [[ "$file_over" =~ '.tif' ]]; then
-    stem_sweep="$(echo ${file_sweep} | sed 's/\.tif$//')"
-else
-    echo "Not an image file: ${file_sweep}"
-fi
-
-# post processing offset (moves EGFP part!!)
-offset_post=""
-if [[ "$post_x" != 0 ]] || [[ "$post_y" != 0 ]] || [[ "$post_z" != 0 ]]; then
-    offset_post="-P ${post_x} ${post_y} ${post_z}"
-fi
+# log
+output_log="${stem_back}_overlay.log"
+echo "Overlay:" $(date) > $output_log
 
 # process!
-output_temp="${stem_over}_temp.tif"
-output_sweep="${stem_sweep}_${reg_method,,}_sweep.tif"
-output_over="${stem_back}_${reg_method,,}_over.tif"
-output_final="${stem_back}_${reg_method,,}_over_final.tif"
-output_mini="${stem_back}_${reg_method,,}_over_mini.tif"
-output_log="${stem_back}_log.txt"
+output_egfp_single="${stem_egfp}_single.tif"
+output_egfp_double="${stem_egfp}_double.tif"
+output_fitting="${stem_back}_fitting.tif"
+output_overlay="${stem_back}_overlay.tif"
 
-echo "Overlay:" $(date) > $output_log
-echo "Dropping unused channels from the EGFP file" >> $output_log
-mmcrop.py -o "$output_temp" $reverse_over -c 0 -L "$log_level" "$file_over"
+echo "Dropping unused channels from the EGFP file: ${file_egfp}" >> $output_log
+mmcrop.py -o "$output_egfp_single" $rev_egfp -c 0 -L "$log_level" "$file_egfp"
 
-echo "Overlaying EGFP on crop_0, method: ${reg_method,,}" >> $output_log
-mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -e "${reg_method}" $option_trunc -L "$log_level" "$output_temp" "$file_sweep"
+echo "Overlaying EGFP (${output_egfp_single}) on the bridging file (${file_bridge}), method: ${reg_method,,}" >> $output_log
+mmoverlay.py -g 0 -o "$output_egfp_double" -c 0 0 -e "${reg_method}" -L "$log_level" "$output_egfp_single" "$file_bridge"
 
-if [[ $auto_sweep == 1 ]]; then
-    echo "Overlaying crop_1 on crop_0 using automatic XY registration" >> $output_log
-    mmoverlay.py -g 0 -o "$output_over" -e XY $option_trunc -c 1 0 $offset_post -L "$log_level" "$output_sweep" "$file_back"
-else
-    echo "Overlaying crop_1 on crop_0, Shift X-Y-Z: $shift_x $shift_y $shift_z" >> $output_log
-    mmoverlay.py -g 0 -o "$output_over" -S "$shift_x" "$shift_y" "$shift_z" -e None $option_trunc $offset_post -L "$log_level" "$output_sweep" "$file_back"
-fi
+echo "Overlaying the combined file (${output_egfp_double}) on the background (${file_back}) using XY registration" >> $output_log
+mmoverlay.py -g 0 -o "$output_fitting" -c 1 0 -e XY -L "$log_level" "$output_egfp_double" "$file_back"
 
-echo "Dropping the channel used for registration" >> $output_log
-mmcrop.py -o "$output_final" -c -1 -L "$log_level" "$output_over"
-
-if [[ $crop_final == 1 ]]; then
-    echo "Output a mini-size version" >> $output_log
-    mmcrop.py -o "$output_mini" -R 0 64 256 128 -L "$log_level" "$output_final"
-fi
+echo "Dropping unused channels from the output file: ${output_overlay}" >> $output_log
+mmcrop.py -o "$output_overlay" -c -1 -L "$log_level" "$output_fitting"
 

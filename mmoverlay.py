@@ -17,9 +17,9 @@ init_rotation = [0.0, 0.0, 0.0]
 init_shift = [0.0, 0.0, 0.0]
 post_shift = [0.0, 0.0, 0.0]
 output_image_filename = None
-output_image_suffix = '_over_{0}.tif' # overwritten by the registration method
+output_image_suffix = '_overlay.tif' # overwritten by the registration method
 output_json_filename = None
-output_json_suffix = '_over_{0}.json' # overwritten by the registration method
+output_json_suffix = '_overlay.json' # overwritten by the registration method
 truncate_frames = False
 scale_image = None
 register_all = False
@@ -32,10 +32,13 @@ opt_method_list = register.optimizing_methods
 parser = argparse.ArgumentParser(description='Overlay two time-lapse images after registration', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-image-file', default=output_image_filename, \
-                    help='output TIFF file ([basename]{0} by default)'.format(output_image_suffix.format('[reg]')))
+                    help='output TIFF file ([basename]{0} by default)'.format(output_image_suffix))
+
+parser.add_argument('-J', '--output-json', action = 'store_true', \
+                    help='Enable output of the json file')
 
 parser.add_argument('-j', '--output-json-file', default = output_json_filename, \
-                    help='output JSON file name ([basename]{0} by default)'.format(output_json_suffix.format('[reg]')))
+                    help='output JSON file name ([basename]{0} by default)'.format(output_json_suffix))
 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
@@ -91,6 +94,7 @@ opt_method = args.opt_method
 truncate_frames = args.truncate_frames
 scale_image = args.scale_image
 channels = args.channels
+output_json = args.output_json
 
 init_flip = args.init_flip.lower()
 init_rot = np.array(args.init_rot[::-1])
@@ -116,11 +120,15 @@ if gpu_id is not None:
 
 # read input TIFF
 input_stacks = [stack.Stack(file) for file in input_filenames]
+logger.info("Overlay image: {0}".format(input_filenames[0]))
+logger.info("Overlay shape: {0}".format(input_stacks[0].image_array.shape))
+logger.info("Background image: {0}".format(input_filenames[1]))
+logger.info("Background shape: {0}".format(input_stacks[1].image_array.shape))
 
 # scale images
 scale_ratio = np.array(input_stacks[0].voxel_um) / np.array(input_stacks[1].voxel_um)
 logger.info("Scaling factor for the first image: {0}.".format(scale_ratio))
-input_stacks[0].scale_by_pixelsize(scale_ratio, gpu_id = gpu_id)
+input_stacks[0].scale_by_ratio(scale_ratio, gpu_id = gpu_id)
 logger.info("The first image was shaped into: {0}.".format(input_stacks[0].image_array.shape))
 init_shift = init_shift * scale_ratio
 logger.info("Initial shift was scaled: {0}.".format(init_shift))
@@ -180,25 +188,6 @@ for index in progressbar(range(max_frames)):
     else:
         affine_result_list.append(copy.deepcopy(affine_result_list[0]))
 
-# summarize the registration results and output
-params_dict = {'image_filenames': [Path(input_filename).name for input_filename in input_filenames],
-               'time_stamp': datetime.now().astimezone().isoformat(),
-               'voxelsize': input_stacks[1].voxel_um,
-               'channels': channels}
-summary_list = []
-for index in range(len(affine_result_list)):
-    summary = {}
-    summary['index'] = index
-    summary['affine'] = affine_result_list[index]
-    summary_list.append(summary)
-
-output_dict = {'parameters': params_dict, 'summary_list': summary_list}
-
-logger.info("Output JSON file: {0}".format(output_json_filename))
-with open(output_json_filename, 'w') as f:
-    json.dump(output_dict, f, ensure_ascii = False, indent = 4, sort_keys = False, \
-              separators = (',', ': '), cls = NumpyEncoder)
-
 # affine transformation and overlay
 output_stack = stack.Stack()
 output_shape = list(input_stacks[1].image_array.shape)
@@ -227,3 +216,24 @@ for index in progressbar(range(max_frames)):
 # output image
 logger.info("Saving image: {0}.".format(output_image_filename))
 output_stack.save_ome_tiff(output_image_filename, dtype = np.float32)
+
+# summarize the registration results and output
+if output_json:
+    params_dict = {'image_filenames': [Path(input_filename).name for input_filename in input_filenames],
+                   'time_stamp': datetime.now().astimezone().isoformat(),
+                   'voxelsize': input_stacks[1].voxel_um,
+                   'channels': channels}
+    summary_list = []
+    for index in range(len(affine_result_list)):
+        summary = {}
+        summary['index'] = index
+        summary['affine'] = affine_result_list[index]
+        summary_list.append(summary)
+
+    output_dict = {'parameters': params_dict, 'summary_list': summary_list}
+
+    logger.info("Output JSON file: {0}".format(output_json_filename))
+    with open(output_json_filename, 'w') as f:
+        json.dump(output_dict, f, ensure_ascii = False, indent = 4, sort_keys = False, \
+                  separators = (',', ': '), cls = NumpyEncoder)
+
