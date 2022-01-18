@@ -14,9 +14,9 @@ gpu_id = None
 input_filename = None
 input_channel = 0
 output_json_filename = None
-output_json_suffix = '_{0}.json' # overwritten
+output_json_suffix = '_reg.json' # overwritten
 output_image_filename = None
-output_image_suffix = '_{0}.tif' # overwritten
+output_image_suffix = '_reg.tif' # overwritten
 ref_filename = None
 ref_channel = 0
 reg_method = 'Full'
@@ -28,11 +28,17 @@ reg_area = None
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('-o', '--output-json-file', default = output_json_filename, \
-                    help='output JSON file name ([basename]{0} if not specified)'.format(output_json_suffix.format('[reg]')))
+parser.add_argument('-o', '--output-image-file', default = output_json_filename, \
+                    help='output image file name ([basename]{0} if not specified)'.format(output_image_suffix))
 
 parser.add_argument('-g', '--gpu-id', default = gpu_id, \
                     help='GPU ID')
+
+parser.add_argument('-J', '--output-json', action = 'store_true', \
+                    help='Enable output of the json file')
+
+parser.add_argument('-j', '--output-json-file', default = output_json_filename, \
+                    help='filename of output json ([basename]{0} if not specified)'.format(output_json_suffix))
 
 parser.add_argument('-r', '--ref-image', default = ref_filename, \
                     help='specify a reference image')
@@ -58,12 +64,6 @@ parser.add_argument('-t', '--opt-method', type = str, default = opt_method, \
 parser.add_argument('-s', '--scale-isometric', action = 'store_true', \
                     help='Scale Z-axis to achieve isotrophic voxels')
 
-parser.add_argument('-A', '--output-aligned-image', action = 'store_true', \
-                    help='output aligned images')
-
-parser.add_argument('-a', '--output-image-file', default = output_image_filename, \
-                    help='filename to output images ([basename]{0} if not specified)'.format(output_image_suffix.format('[reg]')))
-
 log.add_argument(parser)
 
 parser.add_argument('input_file', default = input_filename, \
@@ -79,24 +79,21 @@ input_filename = args.input_file
 input_channel = args.input_channel
 ref_filename = args.ref_image
 ref_channel = args.ref_channel
-output_aligned_image = args.output_aligned_image
+output_json = args.output_json
 reg_method = args.reg_method
 opt_method = args.opt_method
 reg_area = args.reg_area
 scale_isometric = args.scale_isometric
 
-output_json_suffix = output_json_suffix.format(reg_method.lower())
-output_image_suffix = output_image_suffix.format(reg_method.lower())
+if args.output_image_file is None:
+    output_image_filename = stack.with_suffix(input_filename, output_image_suffix)
+else:
+    output_image_filename = args.output_image_file
 
 if args.output_json_file is None:
     output_json_filename = stack.with_suffix(input_filename, output_json_suffix)
 else:
     output_json_filename = args.output_json_file
-
-if args.output_image_file is None:
-    output_image_filename = stack.with_suffix(input_filename, output_image_suffix)
-else:
-    output_image_filename = args.output_image_file
 
 # turn on GPU device
 if gpu_id is not None:
@@ -173,44 +170,44 @@ for index in progressbar(range(input_stack.t_count)):
 
 affine_register = None
 
-# summarize and output the results
-params_dict = {'image_filename': Path(input_filename).name,
-               'time_stamp': datetime.now().astimezone().isoformat(),
-               'voxelsize': input_stack.voxel_um,
-               'input_channel': input_channel,
-               'reg_area': reg_area}
-
-if ref_filename is not None:
-    params_dict['ref_filename'] = ref_filename
-    params_dict['ref_channel'] = ref_channel
-
-summary_list = []
-for index in range(input_stack.t_count):
-    summary = {}
-    summary['index'] = index
-    summary['poc'] = poc_result_list[index]
-    summary['affine'] = affine_result_list[index]
-    summary_list.append(summary)
-
-output_dict = {'parameters': params_dict, 'summary_list': summary_list}
-
-logger.info("Output JSON file: {0}.".format(output_json_filename))
-with open(output_json_filename, 'w') as file:
-    json.dump(output_dict, file, \
-              ensure_ascii = False, indent = 4, sort_keys = False, \
-              separators = (', ', ': '), cls = NumpyEncoder)
-
 # output the aligned image.
-if output_aligned_image:
-    logger.info("Preparing aligned image: {0}.".format(output_image_filename))
-    if input_stack.z_count > 1:
-        def affine_transform (image, t_index, c_index):
-            matrix = affine_result_list[t_index]['matrix']
-            return gpuimage.affine_transform(image, matrix, gpu_id = gpu_id)
-    else:
-        def affine_transform (image, t_index, c_index):
-            matrix = affine_result_list[t_index]['matrix']
-            return gpuimage.affine_transform(image[0], matrix, gpu_id = gpu_id)[np.newaxis]
+logger.info("Preparing aligned image: {0}.".format(output_image_filename))
+if input_stack.z_count > 1:
+    def affine_transform (image, t_index, c_index):
+        matrix = affine_result_list[t_index]['matrix']
+        return gpuimage.affine_transform(image, matrix, gpu_id = gpu_id)
+else:
+    def affine_transform (image, t_index, c_index):
+        matrix = affine_result_list[t_index]['matrix']
+        return gpuimage.affine_transform(image[0], matrix, gpu_id = gpu_id)[np.newaxis]
 
-    input_stack.apply_all(affine_transform, progress = True)
-    input_stack.save_ome_tiff(output_image_filename)
+input_stack.apply_all(affine_transform, progress = True)
+input_stack.save_ome_tiff(output_image_filename)
+
+# summarize and output the results
+if output_json:
+    params_dict = {'image_filename': Path(input_filename).name,
+                  'time_stamp': datetime.now().astimezone().isoformat(),
+                  'voxelsize': input_stack.voxel_um,
+                  'input_channel': input_channel,
+                  'reg_area': reg_area}
+
+    if ref_filename is not None:
+        params_dict['ref_filename'] = ref_filename
+        params_dict['ref_channel'] = ref_channel
+
+    summary_list = []
+    for index in range(input_stack.t_count):
+        summary = {}
+        summary['index'] = index
+        summary['poc'] = poc_result_list[index]
+        summary['affine'] = affine_result_list[index]
+        summary_list.append(summary)
+
+    output_dict = {'parameters': params_dict, 'summary_list': summary_list}
+
+    logger.info("Output JSON file: {0}.".format(output_json_filename))
+    with open(output_json_filename, 'w') as file:
+        json.dump(output_dict, file, ensure_ascii = False, indent = 4, sort_keys = False, \
+                  separators = (', ', ': '), cls = NumpyEncoder)
+
