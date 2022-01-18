@@ -72,7 +72,7 @@ if channel is None:
     c_slice = [i for i in range(input_stack.c_count)]
 else:
     if channel >= 0:
-        c_slice = [i for i in range(input_stack.c_count)]
+        c_slice = [channel]
     else:
         c_slice = [i for i in range(input_stack.c_count) if i != channel]
 
@@ -93,6 +93,7 @@ else:
 
 # crop TIFF
 logger.info("Cropping using area: {0}".format(crop_area))
+logger.info("Slices: {0}".format([t_slice, c_slice, z_slice, y_slice, x_slice]))
 input_stack.crop_by_slice([t_slice, c_slice, z_slice, y_slice, x_slice])
 
 # output TIFF
