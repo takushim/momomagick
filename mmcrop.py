@@ -74,7 +74,7 @@ else:
     if channel >= 0:
         c_slice = [channel]
     else:
-        c_slice = [i for i in range(input_stack.c_count) if i != channel]
+        c_slice = [i for i in range(input_stack.c_count) if i != abs(channel)]
 
 if reverse_channel:
     c_slice = c_slice[::-1]
