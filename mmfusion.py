@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
-import argparse
+import argparse, json
 import numpy as np
+from datetime import datetime
+from numpyencoder import NumpyEncoder
 from pathlib import Path
 from progressbar import progressbar
 from mmtools import stack, register, deconvolve, gpuimage, log
@@ -9,8 +11,10 @@ from mmtools import stack, register, deconvolve, gpuimage, log
 # default values
 gpu_id = None
 input_filename = None
-output_filename = None
-output_suffix = '_fusion.tif'
+output_image_filename = None
+output_image_suffix = '_fusion.tif'
+output_json_filename = None
+output_json_suffix = '_reg.json' # overwritten
 main_channel = 0
 sub_channel = None
 sub_rotation = 0
@@ -26,8 +30,14 @@ psf_filename = 'dispim_iso.tif'
 # parse arguments
 parser = argparse.ArgumentParser(description='Fusion diSPIM images from two paths and deconvolve them.', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-o', '--output-file', default=output_filename, \
-                    help='Output TIFF file ([basename0]{0} by default)'.format(output_suffix))
+parser.add_argument('-o', '--output-image-file', default=output_image_filename, \
+                    help='Output TIFF file ([basename0]{0} by default)'.format(output_image_suffix))
+
+parser.add_argument('-J', '--output-json', action = 'store_true', \
+                    help='Enable output of the json file')
+
+parser.add_argument('-j', '--output-json-file', default = output_json_filename, \
+                    help='filename of output json ([basename]{0} if not specified)'.format(output_json_suffix))
 
 parser.add_argument('-m', '--main-channel', type = int, default = main_channel, \
                     help='Channel to map the XY plane of output')
@@ -76,11 +86,17 @@ reg_method = args.reg_method
 opt_method = args.opt_method
 psf_filename = args.psf_image
 iterations = args.iterations
+output_json = args.output_json
 
-if args.output_file is None:
-    output_filename = stack.with_suffix(input_filename, output_suffix)
+if args.output_image_file is None:
+    output_image_filename = stack.with_suffix(input_filename, output_image_suffix)
 else:
-    output_filename = args.output_file
+    output_image_filename = args.output_file
+
+if args.output_json_file is None:
+    output_json_filename = stack.with_suffix(input_filename, output_json_suffix)
+else:
+    output_json_filename = args.output_json_file
 
 # turn on GPU device
 stack.turn_on_gpu(gpu_id)
@@ -139,7 +155,6 @@ for index in progressbar(range(input_stack.t_count)):
     affine_result = register.register(main_image, sub_image_rot, gpu_id = gpu_id, \
                                       opt_method = opt_method, reg_method = reg_method)
     affine_result_list.append(affine_result)
-    print(affine_result['matrix'])
 
     # deconvolution
     if iterations > 0:
@@ -163,5 +178,27 @@ for index in progressbar(range(input_stack.t_count)):
         output_stack.image_array[index, 1] = sub_image
 
 # output image
-logger.info("Saving image: {0}.".format(output_filename))
-output_stack.save_ome_tiff(output_filename, dtype = np.float32)
+logger.info("Saving image: {0}.".format(output_image_filename))
+output_stack.save_ome_tiff(output_image_filename, dtype = np.float32)
+
+# summarize and output the results
+if output_json:
+    params_dict = {'image_filename': Path(input_filename).name,
+                   'time_stamp': datetime.now().astimezone().isoformat(),
+                   'voxelsize': input_stack.voxel_um,
+                   'main_channel': main_channel,
+                   'sub_area': sub_channel}
+
+    summary_list = []
+    for index in range(input_stack.t_count):
+        summary = {}
+        summary['index'] = index
+        summary['affine'] = affine_result_list[index]
+        summary_list.append(summary)
+
+    output_dict = {'parameters': params_dict, 'summary_list': summary_list}
+
+    logger.info("Output JSON file: {0}.".format(output_json_filename))
+    with open(output_json_filename, 'w') as file:
+        json.dump(output_dict, file, ensure_ascii = False, indent = 4, sort_keys = False, \
+                  separators = (', ', ': '), cls = NumpyEncoder)
