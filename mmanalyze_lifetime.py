@@ -20,6 +20,7 @@ analysis = analysis_list[0]
 time_scale = 1.0
 opt_method = lifetime.default_method
 opt_method_list = lifetime.optimizing_methods
+bleach_rate = np.log(2) / 11.95
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Calculate lifetime and regression curves', \
@@ -43,6 +44,9 @@ parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start
 parser.add_argument('-p', '--separate-graph', action = 'store_true', \
                     help='plot bar graphs separately.')
 
+parser.add_argument('-b', '--bleach-rate', type = float, default = bleach_rate, \
+                    help='bleaching rate of the dye')
+
 parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choices = opt_method_list, \
                     help='Method to optimize the one-phase-decay model')
 
@@ -62,6 +66,7 @@ fitting_start = args.fitting_start
 opt_method = args.opt_method
 analysis = args.analysis
 separate_graph = args.separate_graph
+bleach_rate = args.bleach_rate
 
 output_suffix = output_suffix.format(analysis)
 graph_suffix = graph_suffix.format(analysis)
@@ -172,7 +177,7 @@ if analysis != 'counting':
     axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
     axes.set_ylim(bottom = 0)
 
-    bleach_y = fitting_func(curve_x)[0] * np.exp(-(curve_x - curve_x[0]) / (12 * time_scale))
+    bleach_y = fitting_func(curve_x)[0] * np.exp(-(curve_x - curve_x[0]) * bleach_rate / time_scale)
     axes.plot(curve_x, bleach_y, color = 'black', linestyle = '-')
 
     koff = fitting['koff']

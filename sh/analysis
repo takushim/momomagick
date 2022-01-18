@@ -5,7 +5,7 @@ source $HOME/.venv/gpu/bin/activate
 output_folder="analysis"
 time_scale='1.0'
 fit_start='0'
-analyses=("lifetime" "regression" "cumulative" "counting")
+analyses=("cumulative" "lifetime" "regression" "counting")
 separate=0
 log_level='INFO'
 
@@ -38,9 +38,9 @@ else
 fi
 
 if [[ $separate == 1 ]]; then
-    $sep_option="-p"
+    sep_option="-p"
 else
-    $sep_option=""
+    sep_option=""
 fi
 
 # process!
