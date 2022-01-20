@@ -5,24 +5,30 @@ source $HOME/.venv/gpu/bin/activate
 output_folder="analysis"
 time_scale='1.0'
 fit_start='0'
-analyses=("cumulative" "lifetime" "regression" "counting")
+fit_end=''
+start_plane=0
+analyses=("cumulative" "lifetime" "regression")
 separate=0
 log_level='INFO'
+scatter=0
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] [-s FIT_START] [-p] [-L LOG] file [file ...]"
+    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] [-s FIT_START] [-e FIT_END] [-l P_START] [-p] [-S] [-L LOG] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "o:x:s:L:p" OPT;
+while getopts "o:x:s:e:L:pl:S" OPT;
 do
     case "$OPT" in
     o) output_folder="$OPTARG" ;;
     x) time_scale="$OPTARG" ;;
     s) fit_start="$OPTARG" ;;
+    e) fit_end="$OPTARG" ;;
+    l) start_plane="$OPTARG" ;;
     p) separate=1 ;;
+    S) scatter=1 ;;
     L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
@@ -43,6 +49,16 @@ else
     sep_option=""
 fi
 
+if [[ $fit_end == '' ]]; then
+    end_option=''
+else
+    end_option="-e ${fit_end}"
+fi
+
+if [[ $scatter == 1 ]]; then
+    analyses=("${analyses[@]}" 'scatter')
+fi
+
 # process!
 mkdir -p "$output_folder"
 for analysis in "${analyses[@]}"; do
@@ -51,6 +67,13 @@ for analysis in "${analyses[@]}"; do
     output_txt="${output_folder}/${stem}_${analysis}.txt"
     output_graph="${output_folder}/${stem}_${analysis}.png"
 
-    mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" -x "$time_scale" -s "$fit_start" $sep_option -L "$log_level" "${files[@]}"
+    if [[ "$analysis" == 'lifetime' || "$analysis" == 'cumulative' ]]; then
+        plane_option="-s ${fit_start} ${end_option} ${sep_option} -l ${start_plane}"
+    else
+        plane_option=""
+    fi
+
+    mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" \
+            -x "$time_scale" $plane_option -L "$log_level" "${files[@]}"
     echo "."
 done

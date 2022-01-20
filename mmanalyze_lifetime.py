@@ -11,11 +11,13 @@ from mmtools import stack, trackj, lifetime, particles, log
 input_filenames = None
 time_scale = None
 fitting_start = 0
+fitting_end = None
 output_filename = None
 output_suffix = "_{0}.txt"
+start_plane = 0
 graph_filename = None
 graph_suffix = "_{0}.png"
-analysis_list = ['lifetime', 'regression', 'cumulative', 'counting']
+analysis_list = ['lifetime', 'regression', 'cumulative', 'scatter']
 analysis = analysis_list[0]
 time_scale = 1.0
 opt_method = lifetime.default_method
@@ -38,8 +40,14 @@ parser.add_argument('-a', '--analysis', type = str, default = analysis, choices 
 parser.add_argument('-x', '--time-scale', type = float, default = time_scale, \
                     help='interval of time-lapse (in seconds)')
 
+parser.add_argument('-l', '--start-plane', type = int, default = start_plane, \
+                    help='starting plane')
+
 parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start, \
                     help='starting point of fitting')
+
+parser.add_argument('-e', '--fitting-end', type = int, default = fitting_end, \
+                    help='end point of fitting. None for all.')
 
 parser.add_argument('-p', '--separate-graph', action = 'store_true', \
                     help='plot bar graphs separately.')
@@ -63,10 +71,12 @@ logger = log.get_logger(__file__, level = args.log_level)
 time_scale = args.time_scale
 input_filenames = args.input_files
 fitting_start = args.fitting_start
+fitting_end = args.fitting_end
 opt_method = args.opt_method
 analysis = args.analysis
 separate_graph = args.separate_graph
 bleach_rate = args.bleach_rate
+start_plane = args.start_plane
 
 output_suffix = output_suffix.format(analysis)
 graph_suffix = graph_suffix.format(analysis)
@@ -104,10 +114,10 @@ for input_filename in input_filenames:
 if analysis == 'regression':
     results = [lifetime.regression(table, time_scale = time_scale) for table in spot_tables]
 elif analysis == 'lifetime':
-    results = [lifetime.lifetime(table, time_scale = time_scale) for table in spot_tables]
+    results = [lifetime.lifetime(table, time_scale = time_scale, start_plane = start_plane) for table in spot_tables]
 elif analysis == 'cumulative':
-    results = [lifetime.cumulative(table, time_scale = time_scale) for table in spot_tables]
-elif analysis == 'counting':
+    results = [lifetime.cumulative(table, time_scale = time_scale, start_plane = start_plane) for table in spot_tables]
+elif analysis == 'scatter':
     results = [lifetime.new_bindings(table, time_scale = time_scale) for table in spot_tables]
 else:
     raise Exception('Unknown analysis method: {0}'.format(analysis))
@@ -130,7 +140,8 @@ if analysis != 'counting':
     result_table['sum'] = counts_sum
 
     # fitting
-    fitting = lifetime.fit_one_phase_decay(times, counts_sum, start = fitting_start, method = opt_method)
+    fitting = lifetime.fit_one_phase_decay(times, counts_sum, start = fitting_start, \
+                                           end = fitting_end, method = opt_method)
     fitting_func = fitting['func']
     logger.info("Fitting: {0}".format(fitting['message']))
 

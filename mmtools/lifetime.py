@@ -34,27 +34,39 @@ def binding_table (plane_list, count_list, time_scale = 1.0):
 def life_count (spot_table):
     return spot_table.groupby('total_index').cumcount().to_list()
 
-def fit_one_phase_decay (time_list, count_list, start = 0, method = default_method):
-    if start > 0:
-        logger.info("Start fitting from: {0}".format(start))
-        time_list = time_list[start:]
-        count_list = count_list[start:]
+def fit_one_phase_decay (time_list, count_list, start = 0, end = None, method = default_method):
+    if end is None:
+        end = len(count_list)
+
+    logger.info("Fitting from {0} to {1}.".format(start, end))
+    time_list = time_list[start:end]
+    count_list = count_list[start:end]
 
     times = np.array(time_list)
     counts = np.array(count_list)
 
-    def one_phase_decay (params):
-        a, b, c = params
-        return np.sum(((a * np.exp(- b * times) + c) - counts) * ((a * np.exp(- b * times) + c) - counts))
-    
-    max_index = np.argmax(count_list)
-    init_decay = float(count_list[max_index])
-    init_params = [init_decay, 0.0, 0.0]
-    #init_params = [1.0, 1.0, 0.0]
+    if end is None:
+        def one_phase_decay (params):
+            a, b = params
+            return np.sum(((a * np.exp(- b * times)) - counts) * ((a * np.exp(- b * times)) - counts))
+
+        max_index = np.argmax(count_list)
+        init_decay = float(count_list[max_index])
+        init_params = [init_decay, 0.0]
+        result_func = lambda x: params[0] * np.exp (- params[1] * x)
+    else:
+        def one_phase_decay (params):
+            a, b, c = params
+            return np.sum(((a * np.exp(- b * times) + c) - counts) * ((a * np.exp(- b * times) + c) - counts))
+
+        max_index = np.argmax(count_list)
+        init_decay = float(count_list[max_index])
+        init_params = [init_decay, 0.0, 0.0]
+        result_func = lambda x: params[0] * np.exp (- params[1] * x) + params[2]
 
     opt = optimize.minimize(one_phase_decay, init_params, method = method)
     params = opt['x']
-    result = {'func': lambda x: params[0] * np.exp (- params[1] * x) + params[2],
+    result = {'func': result_func,
               'params': params,
               'halflife': np.log(2) / params[1],
               'koff': params[1],
@@ -84,14 +96,13 @@ def regression (spot_table, time_scale = 1.0):
 
     return life_table(output_counts, time_scale = time_scale)
 
-def lifetime (spot_table, time_scale = 1.0):
+def lifetime (spot_table, time_scale = 1.0, start_plane = 0):
     # add lifetime
     work_table = spot_table.copy()
     work_table['life_count'] = life_count(work_table)
 
     # drop plane starting from the time-lapse image
-    start_plane = np.min(work_table.plane)
-    index_set = set(work_table[work_table.plane == start_plane].total_index.tolist())
+    index_set = set(work_table[work_table.plane <= start_plane].total_index.tolist())
     logger.info("Dropping spots that start from plane {0}: {1}".format(start_plane, index_set))
     work_table = work_table[work_table.total_index.isin(index_set) == False]
 
@@ -102,14 +113,12 @@ def lifetime (spot_table, time_scale = 1.0):
 
     return life_table(output_counts, time_scale = time_scale)
 
-def cumulative (spot_table, time_scale = 1.0):
+def cumulative (spot_table, time_scale = 1.0, start_plane = 0):
     # add lifetime columns
     work_table = spot_table.copy()
     work_table['life_count'] = life_count(work_table)
 
-    # drop plane starting from the time-lapse image
-    start_plane = np.min(work_table.plane)
-    index_set = set(work_table[work_table.plane == start_plane].total_index.tolist())
+    index_set = set(work_table[work_table.plane <= start_plane].total_index.tolist())
     logger.info("Dropping spots that start from plane {0}:".format(start_plane, index_set))
     work_table = work_table[work_table.total_index.isin(index_set) == False]
 
