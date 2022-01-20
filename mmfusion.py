@@ -91,7 +91,7 @@ output_json = args.output_json
 if args.output_image_file is None:
     output_image_filename = stack.with_suffix(input_filename, output_image_suffix)
 else:
-    output_image_filename = args.output_file
+    output_image_filename = args.output_image_file
 
 if args.output_json_file is None:
     output_json_filename = stack.with_suffix(input_filename, output_json_suffix)
