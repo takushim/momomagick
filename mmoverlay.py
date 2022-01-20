@@ -13,7 +13,7 @@ gpu_id = None
 input_filenames = None
 channels = [0, 0]
 init_flip = ''
-init_rotation = [0.0, 0.0, 0.0]
+init_rot = [0.0, 0.0, 0.0]
 init_shift = [0.0, 0.0, 0.0]
 post_shift = [0.0, 0.0, 0.0]
 output_image_filename = None
@@ -59,19 +59,22 @@ parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choi
                     help='Method to optimize the affine matrices')
 
 parser.add_argument('-F', '--init-flip', type = str, default = init_flip, \
-                    help='Initial flipping of the overlay image (e.g., X, XZ, XYZ)')
+                    help='Flip the overlay image (e.g., X, XZ, XYZ)')
 
-parser.add_argument('-R', '--init-rot', nargs = 3, type = float, default = init_rotation, \
+parser.add_argument('-R', '--init-rot', nargs = 3, type = float, default = init_rot, \
                     metavar = ('X', 'Y', 'Z'), \
-                    help='Initial rotation of the overlay image. Applied after flip.')
+                    help='Rotate the overlay image. Applied after flip. Consider isometric scaling.')
 
 parser.add_argument('-S', '--init-shift', nargs = 3, type = float, default = init_shift, \
                     metavar = ('X', 'Y', 'Z'), \
-                    help='Initial shift of the overlay image. Applied after rotation.')
+                    help='Shift the overlay image. Applied after rotation.')
 
 parser.add_argument('-P', '--post-shift', nargs = 3, type = float, default = post_shift, \
                     metavar = ('X', 'Y', 'Z'), \
                     help='Post-registration shift of the overlay image (for adjustment")')
+
+parser.add_argument('-s', '--scale-isometric', action = 'store_true', \
+                    help='Scale images to achieve isotrophic voxels')
 
 parser.add_argument('-x', '--scale-image', type = float, default = scale_image, \
                     help='Scaling factor applied at registration. Used for large images.')
@@ -95,6 +98,7 @@ truncate_frames = args.truncate_frames
 scale_image = args.scale_image
 channels = args.channels
 output_json = args.output_json
+scale_isometric = args.scale_isometric
 
 init_flip = args.init_flip.lower()
 init_rot = np.array(args.init_rot[::-1])
@@ -122,16 +126,10 @@ if gpu_id is not None:
 input_stacks = [stack.Stack(file) for file in input_filenames]
 logger.info("Overlay image: {0}".format(input_filenames[0]))
 logger.info("Overlay shape: {0}".format(input_stacks[0].image_array.shape))
+logger.info("Overlay voxel: {0}".format(input_stacks[0].voxel_um))
 logger.info("Background image: {0}".format(input_filenames[1]))
 logger.info("Background shape: {0}".format(input_stacks[1].image_array.shape))
-
-# scale images
-scale_ratio = np.array(input_stacks[0].voxel_um) / np.array(input_stacks[1].voxel_um)
-logger.info("Scaling factor for the first image: {0}.".format(scale_ratio))
-input_stacks[0].scale_by_ratio(scale_ratio, gpu_id = gpu_id)
-logger.info("The first image was shaped into: {0}.".format(input_stacks[0].image_array.shape))
-init_shift = init_shift * scale_ratio
-logger.info("Initial shift was scaled: {0}.".format(init_shift))
+logger.info("Background voxel: {0}".format(input_stacks[1].voxel_um))
 
 # pre-process the first image
 logger.info("Pre-prosessing the first image, flip: {0}, rotation: {1}, shift {2}.".format(init_flip, init_rot, init_shift))
@@ -144,6 +142,20 @@ def preprocess (image, t_index, c_index):
     image = gpuimage.shift(image, init_shift, gpu_id = gpu_id)
     return image
 input_stacks[0].apply_all(preprocess)
+
+# scale images
+if scale_isometric:
+    pixel_um = min(input_stacks[0].voxel_um + input_stacks[1].voxel_um)
+    logger.info("Scaling to achieve isometric pixelsize: {0}.".format(pixel_um))
+    input_stacks[0].scale_by_pixelsize(pixel_um, gpu_id = gpu_id)
+    input_stacks[1].scale_by_pixelsize(pixel_um, gpu_id = gpu_id)
+else:
+    scale_ratio = np.array(input_stacks[0].voxel_um) / np.array(input_stacks[1].voxel_um)
+    logger.info("Scaling factor for the first image: {0}.".format(scale_ratio))
+    input_stacks[0].scale_by_ratio(scale_ratio, gpu_id = gpu_id)
+
+logger.info("The first image was shaped into: {0}.".format(input_stacks[0].image_array.shape))
+logger.info("The second image was shaped into: {0}.".format(input_stacks[1].image_array.shape))
 
 # max frames to be processed
 if truncate_frames:
@@ -167,7 +179,7 @@ for index in progressbar(range(max_frames)):
 
         # scale image for registration
         if scale_image is not None:
-            images = [gpuimage.scale_by_ratio(image, scale_image, gpu_id = gpu_id) for image in images]
+            images = [gpuimage.scale(image, scale_image, gpu_id = gpu_id) for image in images]
 
         affine_result = register.register(images[1], images[0], init_shift = None, gpu_id = gpu_id, \
                                           reg_method = reg_method, opt_method = opt_method)
