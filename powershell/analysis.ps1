@@ -3,6 +3,7 @@ Param([Switch]$help = $false,
       [String]$folder = 'analysis',
       [Float]$timescale = 1.0,
       [Int]$fitstart = 0,
+      [Float]$bleach_frame = 11.95,
       [Switch]$separate = $false,
       [String[]]$files = @())
 
@@ -16,7 +17,7 @@ $ErrorActionPreference = 'Stop'
 . $HOME\.venv\gpu\Scripts\Activate.ps1
 $scriptpath = "$HOME\bin\dispim"
 $script = [IO.Path]::Combine($scriptpath, "mmanalyze_lifetime.py")
-$analyses = @("cumulative", "lifetime", "regression", "counting")
+$analyses = @("cumulative", "lifetime", "regression", "scatter")
 if ($files.count -eq 0){
       $files = (get-item "*track.json")
 }
@@ -25,19 +26,22 @@ $stem = "{0}" -f (get-item $files[0]).basename
 # mkdir and loop!
 mkdir -Force $folder | Out-Null
 foreach ($analysis in $analyses){
+      Write-Host ("***** {0} *****" -f $analysis)
+
       $text = [IO.Path]::Combine($folder, ("{0}_{1}.txt" -f $stem, $analysis))
       $graph = [IO.Path]::Combine($folder, ("{0}_{1}.png" -f $stem, $analysis))
+      $arglist = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis, "-s", $fitstart, "-b", $bleach_frame)
+
       if ($separate -eq $true) {
-            $parameters = @{
-                  FilePath = (Get-command "py.exe")
-                  ArgumentList = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis, "-s", $fitstart, "-p") + $files
-            }
+            $arglist = $arglist + @("-p")
       }
-      else {
-            $parameters = @{
-                  FilePath = (Get-command "py.exe")
-                  ArgumentList = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis, "-s", $fitstart) + $files
-            }
+
+      $parameters = @{
+            FilePath = (Get-command "py.exe")
+            ArgumentList = $arglist + $files
       }
+
       Start-Process -NoNewWindow -Wait @parameters
+
+      Write-Host "."
 }

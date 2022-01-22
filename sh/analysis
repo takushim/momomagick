@@ -11,15 +11,16 @@ analyses=("cumulative" "lifetime" "regression")
 separate=0
 log_level='INFO'
 scatter=0
+bl_frame=11.95
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] [-s FIT_START] [-e FIT_END] [-l P_START] [-p] [-S] [-L LOG] file [file ...]"
+    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] [-s FIT_START] [-e FIT_END] [-l P_START] [-p] [-S] [-B BL_FRAME] [-L LOG] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "o:x:s:e:L:pl:S" OPT;
+while getopts "o:x:s:e:L:pl:Sb:" OPT;
 do
     case "$OPT" in
     o) output_folder="$OPTARG" ;;
@@ -27,6 +28,7 @@ do
     s) fit_start="$OPTARG" ;;
     e) fit_end="$OPTARG" ;;
     l) start_plane="$OPTARG" ;;
+    b) bl_frame="$OPTARG" ;;
     p) separate=1 ;;
     S) scatter=1 ;;
     L) log_level="$OPTARG" ;;
@@ -74,6 +76,6 @@ for analysis in "${analyses[@]}"; do
     fi
 
     mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" \
-            -x "$time_scale" $plane_option -L "$log_level" "${files[@]}"
+            -x "$time_scale" $plane_option -b "$bl_frame" -L "$log_level" "${files[@]}"
     echo "."
 done

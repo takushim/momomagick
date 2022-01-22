@@ -22,7 +22,7 @@ analysis = analysis_list[0]
 time_scale = 1.0
 opt_method = lifetime.default_method
 opt_method_list = lifetime.optimizing_methods
-bleach_rate = np.log(2) / 11.95
+bleach_frame = 11.95
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Calculate lifetime and regression curves', \
@@ -52,8 +52,8 @@ parser.add_argument('-e', '--fitting-end', type = int, default = fitting_end, \
 parser.add_argument('-p', '--separate-graph', action = 'store_true', \
                     help='plot bar graphs separately.')
 
-parser.add_argument('-b', '--bleach-rate', type = float, default = bleach_rate, \
-                    help='bleaching rate of the dye')
+parser.add_argument('-b', '--bleach-frame', type = float, default = bleach_frame, \
+                    help='bleaching rate of the dye (specify by a frame count)')
 
 parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choices = opt_method_list, \
                     help='Method to optimize the one-phase-decay model')
@@ -75,7 +75,7 @@ fitting_end = args.fitting_end
 opt_method = args.opt_method
 analysis = args.analysis
 separate_graph = args.separate_graph
-bleach_rate = args.bleach_rate
+bleach_frame = args.bleach_frame
 start_plane = args.start_plane
 
 output_suffix = output_suffix.format(analysis)
@@ -122,7 +122,7 @@ elif analysis == 'scatter':
 else:
     raise Exception('Unknown analysis method: {0}'.format(analysis))
 
-if analysis != 'counting':
+if analysis != 'scatter':
     max_index = np.argmax([len(result.frame) for result in results])
     frames = results[max_index].frame.to_list()
     times = results[max_index].time.to_list()
@@ -188,7 +188,7 @@ if analysis != 'counting':
     axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
     axes.set_ylim(bottom = 0)
 
-    bleach_y = fitting_func(curve_x)[0] * np.exp(-(curve_x - curve_x[0]) * bleach_rate / time_scale)
+    bleach_y = fitting_func(curve_x)[0] * np.exp(-(curve_x - curve_x[0]) * np.log(2) / (bleach_frame * time_scale))
     axes.plot(curve_x, bleach_y, color = 'black', linestyle = '-')
 
     koff = fitting['koff']
