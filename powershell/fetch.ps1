@@ -33,27 +33,26 @@ if ((get-item $file) -is [System.IO.DirectoryInfo]) {
 $image = $file
 $folder = (get-item $image).DirectoryName
 $date = ((get-item $folder).Parent.Parent.Name -split "_")[0]
-$suffix = ((get-item $folder).Parent.Name -split "_")[-1]
-$record = [IO.Path]::Combine($folder, ("{0}_track.json" -f (get-item $image).basename))
+$cellid = ((get-item $folder).Parent.Name -split "_")[-1]
+$image_name = (get-item $image).Name
+$image_ext = (get-item $image).Extension
+#$record = [IO.Path]::Combine($folder, ("{0}_track.json" -f (get-item $image).basename))
 
 if (((get-item $folder).Name -split "_")[-1] -match "^[0-9]+$") {
-      $counter = "_{0}" -f ((get-item $folder).Name -split "_")[-1]
+      $counter = ((get-item $folder).Name -split "_")[-1]
+}
+else{
+      $counter = 0
 }
 
 # start logging
 Write-Output ("* {0}: {1}" -f (get-date), $folder) | Tee-object -Append -FilePath $logfile
 
 # copy image
-$output_image = "{0}_{1}{2}_{3}" -f $date, $suffix, $counter, (get-item $image).Name
+$output_image = "{0}_{1}_{2}_{3}.{4}" -f $date, $cellid, $image_name, $counter, $image_ext
 Write-Output ("-- {0}" -f $image) | Tee-object -Append -FilePath $logfile
 Copy-Item $image $output_image
 
-# copy record
-if (Test-Path $record) {
-      $output_record = "{0}_{1}" -f $date, (get-item $record).Name
-      Write-Output ("-- {0}" -f $record) | Tee-object -Append -FilePath $logfile
-      Copy-Item $record $output_record
-}
-
+# end logging
 Write-Output (".") | Tee-object -Append -FilePath $logfile
 
