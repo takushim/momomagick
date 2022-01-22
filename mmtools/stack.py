@@ -440,37 +440,37 @@ class Stack:
             for index in self.__apply_all(image_func):
                 pass
 
-    def scale_by_ratio (self, ratio = 1.0, gpu_id = None):
+    def scale_by_ratio (self, ratio = 1.0, gpu_id = None, progress = False):
         ratio = gpuimage.expand_ratio(ratio)
         def scale_func (image, t_index, c_index):
             return gpuimage.scale(image, ratio, gpu_id = gpu_id)
-        self.apply_all(scale_func)
+        self.apply_all(scale_func, progress = progress)
         self.voxel_um = [self.voxel_um[i] / ratio[i] for i in range(len(self.voxel_um))]
 
-    def scale_by_pixelsize (self, pixel_um, gpu_id = None):
+    def scale_by_pixelsize (self, pixel_um, gpu_id = None, progress = False):
         pixel_um = gpuimage.expand_ratio(pixel_um)
         ratio = [self.voxel_um[i] / pixel_um[i] for i in range(len(self.voxel_um))]
-        self.scale_by_ratio(ratio = ratio, gpu_id = gpu_id)
+        self.scale_by_ratio(ratio = ratio, gpu_id = gpu_id, progress = progress)
 
-    def scale_isometric (self, gpu_id = None):
+    def scale_isometric (self, gpu_id = None, progress = False):
         if np.isclose(self.voxel_um[1], self.voxel_um[2]) == False:
             logger.warning("X and Y pixel size are different: {0}".format(self.voxel_um))
 
         pixel_um = min(self.voxel_um)
-        self.scale_by_pixelsize(pixel_um, gpu_id = gpu_id)
+        self.scale_by_pixelsize(pixel_um, gpu_id = gpu_id, progress = progress)
 
-    def rotate (self, angle = 0.0, axis = 0, gpu_id = None):
+    def rotate (self, angle = 0.0, axis = 0, gpu_id = None, progress = False):
         rot_tuple = gpuimage.axis_to_tuple(axis)
         def rotate_func (image, t_index, c_index):
             return gpuimage.rotate(image, angle, rot_tuple, gpu_id = gpu_id)
-        self.apply_all(rotate_func)
+        self.apply_all(rotate_func, progress = progress)
 
-    def affine_transform (self, matrix, gpu_id = None):
+    def affine_transform (self, matrix, gpu_id = None, progress = False):
         def affine_func (image, t_index, c_index):
             return gpuimage.affine_transform(image, matrix, gpu_id = gpu_id)
-        self.apply_all(affine_func)
+        self.apply_all(affine_func, progress = progress)
 
-    def shift (self, offset, gpu_id = None):
+    def shift (self, offset, gpu_id = None, progress = False):
         def shift_func (image, t_index, c_index):
             return gpuimage.shift(image, offset, gpu_id = gpu_id)
-        self.apply_all(shift_func)
+        self.apply_all(shift_func, progress = progress)
