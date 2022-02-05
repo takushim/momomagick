@@ -34,9 +34,9 @@ def binding_table (plane_list, count_list, time_scale = 1.0):
 def life_count (spot_table):
     return spot_table.groupby('total_index').cumcount().to_list()
 
-def fit_one_phase_decay (time_list, count_list, start = 0, end = None, method = default_method):
+def fit_one_phase_decay (time_list, count_list, start = 0, end = 0, method = default_method):
     fit_start = start
-    if end is None:
+    if end == 0:
         fit_end = len(count_list)
     else:
         fit_end = end
@@ -48,7 +48,7 @@ def fit_one_phase_decay (time_list, count_list, start = 0, end = None, method = 
     times = np.array(time_list)
     counts = np.array(count_list)
 
-    if end is None:
+    if end == 0:
         def one_phase_decay (params):
             a, b, c = params
             return np.sum(((a * np.exp(- b * times) + c) - counts) * ((a * np.exp(- b * times) + c) - counts))
@@ -122,13 +122,14 @@ def cumulative (spot_table, time_scale = 1.0, start_plane = 0):
     work_table = spot_table.copy()
     work_table['life_count'] = life_count(work_table)
 
+    # drop plane starting from the time-lapse image
     index_set = set(work_table[work_table.plane <= start_plane].total_index.tolist())
-    logger.info("Dropping spots that start from plane {0}:".format(start_plane, index_set))
+    logger.info("Dropping spots that start from plane {0}: {1}".format(start_plane, index_set))
     work_table = work_table[work_table.total_index.isin(index_set) == False]
 
     # prepare data (life_count starts from 0)
-    life_max = work_table.life_count.max() + 1
     work_table = work_table.drop_duplicates(subset = 'total_index', keep = 'last').reset_index(drop = True)
+    life_max = work_table.life_count.max() + 1
     output_counts = [len(work_table[work_table.life_count >= i]) for i in range(life_max)]
 
     return life_table(output_counts, time_scale = time_scale)

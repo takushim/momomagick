@@ -11,7 +11,7 @@ from mmtools import stack, trackj, lifetime, particles, log
 input_filenames = None
 time_scale = None
 fitting_start = 0
-fitting_end = None
+fitting_end = 0
 output_filename = None
 output_suffix = "_{0}.txt"
 start_plane = 0
@@ -47,7 +47,7 @@ parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start
                     help='starting point of fitting')
 
 parser.add_argument('-e', '--fitting-end', type = int, default = fitting_end, \
-                    help='end point of fitting. None for all.')
+                    help='end point of fitting. Zero = +Inf.')
 
 parser.add_argument('-p', '--separate-graph', action = 'store_true', \
                     help='plot bar graphs separately.')
