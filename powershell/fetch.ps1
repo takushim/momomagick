@@ -41,7 +41,7 @@ $image_name = (get-item $image).BaseName
 $image_ext = (get-item $image).Extension
 #$record = [IO.Path]::Combine($folder, ("{0}_track.json" -f (get-item $image).basename))
 
-if (((get-item $folder).Name -split "_")[-1] -match "^[0-9]+$") {
+if (((get-item $folder).Name -split "_")[-1] -match "^[0-9]+\w?$") {
       $counter = ((get-item $folder).Name -split "_")[-1]
 }
 else{
