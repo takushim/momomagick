@@ -35,26 +35,20 @@ def life_count (spot_table):
     return spot_table.groupby('total_index').cumcount().to_list()
 
 def fit_one_phase_decay (time_list, count_list, start = 0, end = None, method = default_method):
+    fit_start = start
     if end is None:
-        end = len(count_list)
+        fit_end = len(count_list)
+    else:
+        fit_end = end
 
     logger.info("Fitting from {0} to {1}.".format(start, end))
-    time_list = time_list[start:end]
-    count_list = count_list[start:end]
+    time_list = time_list[fit_start:fit_end]
+    count_list = count_list[fit_start:fit_end]
 
     times = np.array(time_list)
     counts = np.array(count_list)
 
     if end is None:
-        def one_phase_decay (params):
-            a, b = params
-            return np.sum(((a * np.exp(- b * times)) - counts) * ((a * np.exp(- b * times)) - counts))
-
-        max_index = np.argmax(count_list)
-        init_decay = float(count_list[max_index])
-        init_params = [init_decay, 0.0]
-        result_func = lambda x: params[0] * np.exp (- params[1] * x)
-    else:
         def one_phase_decay (params):
             a, b, c = params
             return np.sum(((a * np.exp(- b * times) + c) - counts) * ((a * np.exp(- b * times) + c) - counts))
@@ -63,6 +57,15 @@ def fit_one_phase_decay (time_list, count_list, start = 0, end = None, method = 
         init_decay = float(count_list[max_index])
         init_params = [init_decay, 0.0, 0.0]
         result_func = lambda x: params[0] * np.exp (- params[1] * x) + params[2]
+    else:
+        def one_phase_decay (params):
+            a, b = params
+            return np.sum(((a * np.exp(- b * times)) - counts) * ((a * np.exp(- b * times)) - counts))
+
+        max_index = np.argmax(count_list)
+        init_decay = float(count_list[max_index])
+        init_params = [init_decay, 0.0]
+        result_func = lambda x: params[0] * np.exp (- params[1] * x)
 
     opt = optimize.minimize(one_phase_decay, init_params, method = method)
     params = opt['x']
@@ -71,7 +74,8 @@ def fit_one_phase_decay (time_list, count_list, start = 0, end = None, method = 
               'halflife': np.log(2) / params[1],
               'koff': params[1],
               'status': opt['status'],
-              'start': start,
+              'start': fit_start,
+              'end': fit_end,
               'message': opt['message'],
     }
     return result

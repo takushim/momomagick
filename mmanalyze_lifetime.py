@@ -188,18 +188,27 @@ if analysis != 'scatter':
     axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
     axes.set_ylim(bottom = 0)
 
-    bleach_y = fitting_func(curve_x)[0] * np.exp(-(curve_x - curve_x[0]) * np.log(2) / (bleach_frame * time_scale))
+    bleach_rate = np.log(2) / (bleach_frame * time_scale)
+    bleach_y = fitting_func(curve_x)[0] * np.exp(-(curve_x - curve_x[0]) * bleach_rate)
     axes.plot(curve_x, bleach_y, color = 'black', linestyle = '-')
+    bleach_text = "Bleach = {0:.3e} /sec, Half-life = {1:.3f} sec ({2:.3f} frames)".\
+                  format(bleach_rate, bleach_frame * time_scale, bleach_frame)
+    logger.info(bleach_text)
 
     koff = fitting['koff']
     halflife = fitting['halflife']
-    start = fitting['start']
-    fitting_text = "Off-rate = {0:.3e} /sec, Half-life = {1:.3f} sec ({2:.3f} frames), fit using t >= {3}".\
-                   format(koff, halflife, halflife / time_scale, start)
+    fitting_text = "Off-rate = {0:.3e} /sec, Half-life = {1:.3f} sec ({2:.3f} frames)".\
+                   format(koff, halflife, halflife / time_scale)
+    condition_text = "Fit using {0} <= t <= {1}. Using Plane >= {2}".format(fitting['start'], fitting['end'], start_plane)
     logger.info(fitting_text)
+    logger.info(condition_text)
 
-    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
+    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.55, \
               fitting_text, size = 'large', ha = 'right', va = 'top')
+    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.5, \
+              bleach_text, size = 'large', ha = 'right', va = 'top')
+    axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.45, \
+              condition_text, size = 'large', ha = 'right', va = 'top')
 
     axes.legend()
 
