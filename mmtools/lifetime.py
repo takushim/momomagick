@@ -41,7 +41,7 @@ def fit_one_phase_decay (time_list, count_list, start = 0, end = 0, method = def
     else:
         fit_end = end
 
-    logger.info("Fitting from {0} to {1}.".format(start, end))
+    logger.info("Fitting from {0} to {1}.".format(fit_start, fit_end))
     time_list = time_list[fit_start:fit_end]
     count_list = count_list[fit_start:fit_end]
 
