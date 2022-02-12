@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source $HOME/.venv/gpu/bin/activate
+
+first_view_x=370
+second_view_x=1400
+log_level='INFO'
+keyword='fix100ms'
+regmethod='POC'
+
+# show usage and exit
+function show_usage () {
+    echo "$(basename "$0") [-f X1] [-s X2] keyword"
+    echo "Default settings:"
+    echo "- first_view_x: ${first_view_x}"
+    echo "- second_view_x: ${second_view_x}"
+    exit 1
+}
+
+# parse options
+while getopts "f:s:L:" OPT;
+do
+    case "$OPT" in
+    f) first_view_x="$OPTARG" ;;
+    s) second_view_x="$OPTARG" ;;
+    L) log_level="$OPTARG" ;;
+    :) show_usage ;;
+    \?) show_usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# find folders using the keyword
+if [[ $# > 0 ]]; then
+    keyword="$1"
+fi
+glob="*${keyword}*"
+readarray -t folders < <(find . -type d -iname "$glob")
+current="$(pwd)"
+
+for folder in "${folders[@]}"
+do
+    echo "***** ${folder} *****"
+    cd "$current"
+    cd "$folder"
+    regcrop -e "${regmethod}" -f "${first_view_x}" -s "${second_view_x}" -L "${log_level}"
+    echo "."
+done
