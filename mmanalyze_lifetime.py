@@ -23,6 +23,7 @@ time_scale = 1.0
 opt_method = lifetime.default_method
 opt_method_list = lifetime.optimizing_methods
 bleach_frame = 11.95
+mean_width = None
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Calculate lifetime and regression curves', \
@@ -49,8 +50,8 @@ parser.add_argument('-s', '--fitting-start', type = int, default = fitting_start
 parser.add_argument('-e', '--fitting-end', type = int, default = fitting_end, \
                     help='end point of fitting. Zero = +Inf.')
 
-parser.add_argument('-p', '--separate-graph', action = 'store_true', \
-                    help='plot bar graphs separately.')
+parser.add_argument('-m', '--mean-width', type = int, default = mean_width, \
+                    help='the width of averaging in the scatter graph (None for auto)')
 
 parser.add_argument('-b', '--bleach-frame', type = float, default = bleach_frame, \
                     help='bleaching rate of the dye (specify by a frame count)')
@@ -74,9 +75,9 @@ fitting_start = args.fitting_start
 fitting_end = args.fitting_end
 opt_method = args.opt_method
 analysis = args.analysis
-separate_graph = args.separate_graph
 bleach_frame = args.bleach_frame
 start_plane = args.start_plane
+mean_width = args.mean_width
 
 output_suffix = output_suffix.format(analysis)
 graph_suffix = graph_suffix.format(analysis)
@@ -125,9 +126,6 @@ elif analysis == 'cumulative':
     results = [lifetime.cumulative(table, time_scale = time_scale, start_plane = start_plane) for table in spot_tables]
 elif analysis == 'scatter':
     results = [lifetime.new_bindings(table, time_scale = time_scale) for table in spot_tables]
-    for index in range(len(results)):
-        offset = sum(plane_counts[0:index])
-        results[index]['plane'] = results[index]['plane'] + offset
 else:
     raise Exception('Unknown analysis method: {0}'.format(analysis))
 
@@ -173,25 +171,12 @@ if analysis != 'scatter':
     axes = figure.add_subplot(111)
     axes.set_title(graph_title, size = 'xx-large')
 
-    if separate_graph:
-        bar_w = times[0]
-        offset = np.zeros_like(times, dtype = float)
+    offset = np.zeros_like(times, dtype = float)
+    for index in range(len(results)):
+        bar_w = times[0] * 0.8
         counts = np.array(result_dict['Result_{0}'.format(index)])
-        axes.bar(times, counts_sum, width = bar_w, label = "Sum", color = 'lightgray')
-
-        for index in range(len(results)):
-            counts = np.array(result_dict['Result_{0}'.format(index)])
-            delta = times[0] * 0.05
-            each_w = (times[0] - delta * 2) / (len(results))
-            each_x = np.array(times) + delta * 2 + each_w * index - times[0] / 2
-            axes.bar(each_x, counts, width = each_w, label = Path(input_filenames[index]).name)
-    else:
-        offset = np.zeros_like(times, dtype = float)
-        for index in range(len(results)):
-            bar_w = times[0] * 0.8
-            counts = np.array(result_dict['Result_{0}'.format(index)])
-            axes.bar(times, counts, bottom = offset, width = bar_w, label = Path(input_filenames[index]).name)
-            offset += np.array(counts)
+        axes.bar(times, counts, bottom = offset, width = bar_w, label = Path(input_filenames[index]).name)
+        offset += np.array(counts)
 
     curve_x = np.arange(times[0], np.max(times), times[0] / 10)
     axes.plot(curve_x, fitting_func(curve_x), color = 'black', linestyle = ':')
@@ -224,11 +209,16 @@ if analysis != 'scatter':
     figure.savefig(graph_filename, dpi = 300)
 
 else:
-    output_table = pd.concat(results)
-    mean_lifetime = output_table[output_table.plane > 0].lifetime.mean()
+    mean_lifetime = np.mean([result.lifetime.mean() for result in results])
     mean_text = "Mean lifetime = {0:.3f} sec ({1:.3f} frames, plane > 0)".\
                 format(mean_lifetime, mean_lifetime / time_scale)
     logger.info(mean_text)
+
+    # add offset and concat
+    for index in range(len(results)):
+        offset = sum(plane_counts[0:index])
+        results[index]['plane'] = results[index]['plane'] + offset
+    output_table = pd.concat(results)
 
     # tsv
     logger.info("Output {0} table to {1}.".format(analysis, output_filename))
@@ -243,34 +233,33 @@ else:
     axes.set_title(graph_title, size = 'xx-large')
     axes.axhline(mean_lifetime, color = 'black', linestyle = ':')
 
-    colors = ['orange', 'green', 'blue', 'red']
     max_plane = output_table['plane'].max()
     max_frame = output_table['lifeframe'].max()
 
-    mean_range = 5
-    for index in range(max_plane // mean_range + 1):
-        plane_min = mean_range * index
-        plane_max = min(mean_range * (index + 1) - 1, max_plane)
+    # plot means
+    if mean_width is None:
+        mean_width = plane_counts[0] // 10
+        logger.info("Automatically setting the averaging width: {0}".format(mean_width))
+
+    for index in range(max_plane // mean_width + 1):
+        plane_min = mean_width * index
+        plane_max = min(mean_width * (index + 1) - 1, max_plane)
 
         plot_table = output_table[(plane_min <= output_table.plane) & (output_table.plane <= plane_max)].reset_index(drop = True)
         if len(plot_table) == 0:
             continue
 
         plot_mean = plot_table['lifetime'].mean()
-        axes.hlines(plot_mean, plane_min, plane_max, color = 'black', linestyle = '--')
+        axes.hlines(plot_mean, plane_min, plane_max, color = 'black', linestyle = '-')
 
-    for plane in range(max_plane):
-        for frame in range(1, max_frame + 1):
-            plot_table = output_table[(output_table.plane == plane) & (output_table.lifeframe == frame)].reset_index(drop = True)
-            if len(plot_table) == 0:
-                continue
-
-            delta = 0.2
-            plane_zigzag = plot_table['plane'].to_list()
-            plane_zigzag = [plane_zigzag[i] + delta * ((i + 1) // 2) * (-1)**i for i in range(len(plane_zigzag))]
-            plot_table['plane_zigzag'] = plane_zigzag
-
-            axes.scatter(plot_table.plane_zigzag, plot_table.lifetime, color = colors[plane % len(colors)], marker = '.')
+    # plot points
+    delta = 0.2
+    cmap = pyplot.get_cmap("tab10")
+    plane_list = output_table['plane'].to_list()
+    plane_zigzag = [plane_list[i] + delta * ((i + 1) // 2) * (-1)**i for i in range(len(plane_list))]
+    output_table['plane_zigzag'] = plane_zigzag
+    output_table['plot_color'] = [cmap(plane % cmap.N) for plane in plane_list]
+    axes.scatter(output_table.plane_zigzag, output_table.lifetime, color = output_table.plot_color, marker = '.')
 
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
               mean_text, size = 'xx-large', ha = 'right', va = 'top')

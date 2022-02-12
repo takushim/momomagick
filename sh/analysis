@@ -3,7 +3,7 @@ set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
 output_folder="analysis"
-analyses=("cumulative" "lifetime" "regression")
+analyses=("cumulative" "lifetime" "regression" "scatter")
 time_scale='1.0'
 fit_start='0'
 fit_end=''
