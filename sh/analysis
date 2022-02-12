@@ -3,24 +3,26 @@ set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
 output_folder="analysis"
+analyses=("cumulative" "lifetime" "regression")
 time_scale='1.0'
 fit_start='0'
 fit_end=''
 start_plane=0
-analyses=("cumulative" "lifetime" "regression")
-separate=0
+file_each=0
 log_level='INFO'
 scatter=0
-bl_frame=11.95
+bleach_frame=1
+bleach_fix=26.57
+bleach_vol=11.95
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-o OUTPUT_FOLDER] [-x TIME_SCALE] [-s FIT_START] [-e FIT_END] [-l P_START] [-p] [-S] [-B BL_FRAME] [-L LOG] file [file ...]"
+    echo "$(basename "$0") [-o FOLDER] [-x T_SCALE] [-s FIT_START] [-e FIT_END] [-l P_START] [-b (#|FIX|VOL)] [-E] [-L LOG] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "o:x:s:e:L:pl:Sb:" OPT;
+while getopts "o:x:s:e:L:l:b:E" OPT;
 do
     case "$OPT" in
     o) output_folder="$OPTARG" ;;
@@ -28,9 +30,8 @@ do
     s) fit_start="$OPTARG" ;;
     e) fit_end="$OPTARG" ;;
     l) start_plane="$OPTARG" ;;
-    b) bl_frame="$OPTARG" ;;
-    p) separate=1 ;;
-    S) scatter=1 ;;
+    b) bleach_frame="$OPTARG" ;;
+    E) file_each=1 ;;
     L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
@@ -39,43 +40,58 @@ done
 shift $((OPTIND - 1))
 
 # find an image file if not specified
-if [ $# == 0 ]; then
-    files=("$(find . -maxdepth 1 -iname '*_track.json' | head -n 1)")
+if [[ $# == 0 ]]; then
+    readarray -t files < <(find . -maxdepth 1 -type f -iname '*_track.json')
 else
     files=("$@")
 fi
 
-if [[ $separate == 1 ]]; then
-    sep_option="-p"
-else
-    sep_option=""
-fi
-
-if [[ $fit_end == '' ]]; then
-    end_option=''
-else
-    end_option="-e ${fit_end}"
-fi
-
-if [[ $scatter == 1 ]]; then
-    analyses=("${analyses[@]}" 'scatter')
+if [[ "${bleach_frame^^}" == "FIX" ]]; then
+    bleach_frame=$bleach_fix
+elif [[ "${bleach_frame^^}" == "VOL" ]]; then
+    bleach_frame=$bleach_vol
 fi
 
 # process!
+analyze () {
+    input_files=("$@")
+    for analysis in "${analyses[@]}"; do
+        echo "**** ${analysis} ****"
+        if [[ $fit_end == '' ]]; then
+            end_option=''
+        else
+            end_option="-e ${fit_end}"
+        fi
+
+        if [[ "$analysis" == 'lifetime' || "$analysis" == 'cumulative' ]]; then
+            plane_option="-s ${fit_start} ${end_option} -l ${start_plane}"
+        else
+            plane_option=""
+        fi
+
+        if [[ "${#input_files[@]}" > 1 ]]; then
+            output_graph="${output_folder}/Summary_${analysis}.png"
+            output_txt="${output_folder}/Summary_${analysis}.txt"
+            mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" \
+                    -x "$time_scale" $plane_option -b "$bleach_frame" -L "$log_level" "${input_files[@]}"
+        else
+            stem="$(echo ${input_files[0]} | sed 's/\.json$//')"
+            output_txt="${output_folder}/${stem}_${analysis}.txt"
+            output_graph="${output_folder}/${stem}_${analysis}.png"
+            mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" \
+                    -x "$time_scale" $plane_option -b "$bleach_frame" -L "$log_level" "${input_files[0]}"
+        fi
+
+        echo "."
+    done
+}
+
 mkdir -p "$output_folder"
-for analysis in "${analyses[@]}"; do
-    echo "**** ${analysis} ****"
-    stem="$(echo ${files[0]} | sed 's/\.json$//')"
-    output_txt="${output_folder}/${stem}_${analysis}.txt"
-    output_graph="${output_folder}/${stem}_${analysis}.png"
-
-    if [[ "$analysis" == 'lifetime' || "$analysis" == 'cumulative' ]]; then
-        plane_option="-s ${fit_start} ${end_option} ${sep_option} -l ${start_plane}"
-    else
-        plane_option=""
-    fi
-
-    mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" \
-            -x "$time_scale" $plane_option -b "$bl_frame" -L "$log_level" "${files[@]}"
-    echo "."
-done
+if [[ $file_each == 1 ]]; then
+    for file in "${files[@]}"; do
+        echo "**** ${file} ****"
+        analyze "$file"
+    done
+else
+    analyze "${files[@]}"
+fi
