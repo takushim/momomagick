@@ -91,24 +91,30 @@ if graph_filename is None:
 
 # read JSON or TSV or TrackJ CSV file
 spot_tables = []
+plane_counts = []
 for input_filename in input_filenames:
     suffix = Path(input_filename).suffix.lower()
     if suffix == '.json':
         with open(input_filename, 'r') as f:
-            spot_table = pd.DataFrame(particles.parse_tree(json.load(f)['spot_list']))
+            json_data = json.load(f)
+            spot_table = pd.DataFrame(particles.parse_tree(json_data['spot_list']))
             spot_table['plane'] = spot_table['time']
             spot_table['total_index'] = spot_table['track']
+            plane_count = json_data['image_properties']['t_count']
     elif suffix == ".txt":
         spot_table = pd.read_csv(input_filename, comment = '#', sep = '\t')
+        plane_count = spot_table['plane'].max()
     elif suffix == ".csv":
         spot_table = trackj.read_spots(input_filename)
+        plane_count = spot_table['plane'].max()
     else:
         raise Exception("Unknown file format.")
     
     total_records = len(spot_table.total_index)
     total_tracks = len(spot_table.total_index.unique())
-    logger.info("{0}: {1} records and {2} tracks.".format(input_filename, total_records, total_records))
+    logger.info("{0}: {1} records and {2} tracks in {3} frames.".format(input_filename, total_records, total_records, plane_count))
     spot_tables.append(spot_table)
+    plane_counts.append(plane_count)
 
 # analysis
 if analysis == 'regression':
@@ -119,6 +125,9 @@ elif analysis == 'cumulative':
     results = [lifetime.cumulative(table, time_scale = time_scale, start_plane = start_plane) for table in spot_tables]
 elif analysis == 'scatter':
     results = [lifetime.new_bindings(table, time_scale = time_scale) for table in spot_tables]
+    for index in range(len(results)):
+        offset = sum(plane_counts[0:index])
+        results[index]['plane'] = results[index]['plane'] + offset
 else:
     raise Exception('Unknown analysis method: {0}'.format(analysis))
 
