@@ -254,7 +254,13 @@ else:
         plot_mean = plot_table['lifetime'].mean()
         axes.hlines(plot_mean, plane_min, plane_max, color = 'black', linestyle = '-')
 
-    # plot points
+    # draw boundaries between series
+    max_life = output_table['lifetime'].max()
+    for index in range(1, len(results)):
+        bound_x = sum(plane_counts[0:index]) + 0.5
+        axes.vlines(bound_x, 0, max_life, color = 'gray', linestyle = ':')
+
+    # plot each lifetime
     delta = 0.2
     cmap = pyplot.get_cmap("tab10")
     plane_list = output_table['plane'].to_list()
