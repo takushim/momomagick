@@ -9,6 +9,7 @@ fit_start='0'
 fit_end=''
 start_plane=0
 file_each=0
+mean_each=''
 log_level='INFO'
 scatter=0
 bleach_frame=1
@@ -17,12 +18,12 @@ bleach_vol=11.95
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-o FOLDER] [-x T_SCALE] [-s FIT_START] [-e FIT_END] [-l P_START] [-b (#|FIX|VOL)] [-E] [-L LOG] file [file ...]"
+    echo "$(basename "$0") [-o FOLDER] [-x T_SCALE] [-s FIT_START] [-e FIT_END] [-l P_START] [-b (#|FIX|VOL)] [-m MEAN_EACH] [-E] [-L LOG] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "o:x:s:e:L:l:b:E" OPT;
+while getopts "o:x:s:e:L:l:b:Em:" OPT;
 do
     case "$OPT" in
     o) output_folder="$OPTARG" ;;
@@ -32,6 +33,7 @@ do
     l) start_plane="$OPTARG" ;;
     b) bleach_frame="$OPTARG" ;;
     E) file_each=1 ;;
+    m) mean_each="$OPTARG" ;;
     L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
@@ -57,29 +59,32 @@ analyze () {
     input_files=("$@")
     for analysis in "${analyses[@]}"; do
         echo "**** ${analysis} ****"
-        if [[ $fit_end == '' ]]; then
-            end_option=''
-        else
-            end_option="-e ${fit_end}"
-        fi
-
         if [[ "$analysis" == 'lifetime' || "$analysis" == 'cumulative' ]]; then
-            plane_option="-s ${fit_start} ${end_option} -l ${start_plane}"
+            if [[ $fit_end == '' ]]; then
+                fit_option="-s ${fit_start} -l ${start_plane}"
+            else
+                fit_option="-s ${fit_start} -e ${fit_end} -l ${start_plane}"
+            fi
+            fit_option="-s ${fit_start} ${end_option} -l ${start_plane}"
+        elif [[ "$analysis" == 'scatter' ]]; then
+            if [[ $mean_each != '' ]]; then
+                fit_option="-m ${mean_each}"
+            fi
         else
-            plane_option=""
+            fit_option=""
         fi
 
         if [[ "${#input_files[@]}" > 1 ]]; then
             output_graph="${output_folder}/Summary_${analysis}.png"
             output_txt="${output_folder}/Summary_${analysis}.txt"
             mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" \
-                    -x "$time_scale" $plane_option -b "$bleach_frame" -L "$log_level" "${input_files[@]}"
+                    -x "$time_scale" $fit_option -b "$bleach_frame" -L "$log_level" "${input_files[@]}"
         else
             stem="$(echo ${input_files[0]} | sed 's/\.json$//')"
             output_txt="${output_folder}/${stem}_${analysis}.txt"
             output_graph="${output_folder}/${stem}_${analysis}.png"
             mmanalyze_lifetime.py -a "$analysis" -o "$output_txt" -g "$output_graph" \
-                    -x "$time_scale" $plane_option -b "$bleach_frame" -L "$log_level" "${input_files[0]}"
+                    -x "$time_scale" $fit_option -b "$bleach_frame" -L "$log_level" "${input_files[0]}"
         fi
 
         echo "."
