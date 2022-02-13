@@ -240,6 +240,8 @@ else:
     if mean_width is None:
         mean_width = plane_counts[0] // 10
         logger.info("Automatically setting the averaging width: {0}".format(mean_width))
+    else:
+        logger.info("Setting the averaging width: {0}".format(mean_width))
 
     for index in range(max_plane // mean_width + 1):
         plane_min = mean_width * index
