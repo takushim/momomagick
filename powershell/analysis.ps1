@@ -4,12 +4,13 @@ Param([Switch]$help = $false,
       [Float]$timescale = 1.0,
       [Int]$fitstart = 0,
       [Int]$fitend = 0,
-      [Float]$bleach_frame = 11.95,
-      [Switch]$separate = $false,
+      [String]$meaneach = '',
+      [String]$bleach_frame = '1.0',
+      [Switch]$runeach = $false,
       [String[]]$files = @())
 
 if ($help -eq $true) {
-      Write-Host ("Example: {0} -timescale 10.0 -fitstart 0 -fitend 30 -folder temp -separate -files A, B, C" -f $MyInvocation.MyCommand.Name)
+      Write-Host ("Example: {0} -timescale 10.0 -fitstart 0 -fitend 30 -folder temp -runeach -meaneach 100 -bleach_frame (#|fix|vol) -files A, B, C" -f $MyInvocation.MyCommand.Name)
       return 0
 }
 
@@ -24,26 +25,60 @@ if ($files.count -eq 0){
 }
 $stem = "{0}" -f (get-item $files[0]).basename
 
+if ($bleach_frame -like 'vol'){
+      $bleach_frame = 11.95
+}
+elseif ($bleach_frame -like 'fix') {
+      $bleach_frame = 26.57
+}
+else {
+      $bleach_frame = [Float]($bleach_frame)
+}
+
+# processing function
+function Analyze {
+      Param([String[]]$input_files = @())
+      foreach ($analysis in $analyses){
+            Write-Host ("***** {0} *****" -f $analysis)
+      
+            if ($input_files.Count -gt 1) {
+                  $text = [IO.Path]::Combine($folder, ("Summary_{0}.txt" -f $analysis))
+                  $graph = [IO.Path]::Combine($folder, ("Summary_{0}.png" -f $analysis))
+            }
+            else {
+                  $text = [IO.Path]::Combine($folder, ("{0}_{1}.txt" -f $stem, $analysis))
+                  $graph = [IO.Path]::Combine($folder, ("{0}_{1}.png" -f $stem, $analysis))
+            }
+
+            $arglist = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis, "-b", $bleach_frame)
+            if (($analysis -like 'cumulative') -or ($analysis -like 'lifetime')) {
+                  $arglist = $arglist + @("-s", $fitstart, "-e", $fitend)
+            }
+            elseif ($analysis -like 'scatter') {
+                  if ($meaneach -notlike '') {
+                        $arglist = $arglist + @("-m", $meaneach)
+                  }
+            }
+      
+            $parameters = @{
+                  FilePath = (Get-command "py.exe")
+                  ArgumentList = $arglist + $input_files
+            }
+      
+            Start-Process -NoNewWindow -Wait @parameters
+            Write-Host "."
+      }
+      
+
+}
+
 # mkdir and loop!
 mkdir -Force $folder | Out-Null
-foreach ($analysis in $analyses){
-      Write-Host ("***** {0} *****" -f $analysis)
-
-      $text = [IO.Path]::Combine($folder, ("{0}_{1}.txt" -f $stem, $analysis))
-      $graph = [IO.Path]::Combine($folder, ("{0}_{1}.png" -f $stem, $analysis))
-      $arglist = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis,
-                   "-s", $fitstart, "-e", $fitend, "-b", $bleach_frame)
-
-      if ($separate -eq $true) {
-            $arglist = $arglist + @("-p")
+if ($runeach) {
+      foreach ($file in $files) {
+            Analyze $file
       }
-
-      $parameters = @{
-            FilePath = (Get-command "py.exe")
-            ArgumentList = $arglist + $files
-      }
-
-      Start-Process -NoNewWindow -Wait @parameters
-
-      Write-Host "."
+}
+else {
+      Analyze $files
 }
