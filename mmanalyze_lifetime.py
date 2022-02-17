@@ -113,7 +113,7 @@ for input_filename in input_filenames:
     
     total_records = len(spot_table.total_index)
     total_tracks = len(spot_table.total_index.unique())
-    logger.info("{0}: {1} records and {2} tracks in {3} frames.".format(input_filename, total_records, total_records, plane_count))
+    logger.info("{0}: {1} records and {2} tracks in {3} frames.".format(input_filename, total_records, total_tracks, plane_count))
     spot_tables.append(spot_table)
     plane_counts.append(plane_count)
 
