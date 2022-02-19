@@ -46,7 +46,9 @@ do
     if [[ $dry_run == 0 ]]; then
         cd "$current"
         cd "$folder"
-        regcrop -e "${regmethod}" -f "${first_view_x}" -s "${second_view_x}" -L "${log_level}"
+        if [[ $(regcrop -e "${regmethod}" -f "${first_view_x}" -s "${second_view_x}" -L "${log_level}") -ne 0 ]]; then
+            echo "Error while handling: ${folder}"
+        fi
         echo "."
     fi
 done
