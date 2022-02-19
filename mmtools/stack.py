@@ -193,6 +193,10 @@ class Stack:
         except OSError:
             raise
 
+    def update_array (self, image_array):
+        self.image_array = image_array
+        self.update_dimensions()
+
     def __concat_s_channel (self, image_array):
         image_list = [image_array[..., index] for index in range(image_array.shape[-1])]
         image_array = np.concatenate(image_list, axis = 1)
