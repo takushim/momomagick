@@ -55,7 +55,7 @@ t_range = args.t_range
 crop_area = args.crop_area
 
 if args.output_file is None:
-    output_filename.append(stack.with_suffix(input_filename, output_suffix))
+    output_filename = stack.with_suffix(input_filename, output_suffix)
 else:
     output_filename = args.output_file
 
