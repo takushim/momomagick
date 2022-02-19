@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source $HOME/.venv/gpu/bin/activate
+
+proj_method='average'
+proj_win=5
+proj_slide=0
+log_level='INFO'
+
+# show usage and exit
+function show_usage () {
+    echo "$(basename "$0") [-m METHOD] [-w WINDOW] [-s] [-L LOG] file [file ...]"
+    exit 1
+}
+
+# parse options
+while getopts "m:w:sL:" OPT;
+do
+    case "$OPT" in
+    m) proj_method="$OPTARG" ;;
+    w) proj_win="$OPTARG" ;;
+    s) proj_slide=1 ;;
+    L) log_level="$OPTARG" ;;
+    :) show_usage ;;
+    \?) show_usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# find an image file if not specified
+if [ $# == 0 ]; then
+    files=("$(find . -maxdepth 1 -iname '*_crop_1.tif' | head -n 1)")
+else
+    files=("$@")
+fi
+
+# prefix
+if [[ "$proj_method" == 'average' ]]; then
+    proj_short="avg"
+elif [[ "$proj_method" == 'maximum' ]]; then
+    proj_short='max'
+elif [[ "$proj_method" == 'minimum' ]]; then
+    proj_short='min'
+elif [[ "$proj_method" == 'summation' ]]; then
+    proj_short='sum'
+else
+    echo "Unknown method: ${proj_method}"
+    exit 1
+fi
+
+if [[ $proj_slide == 1 ]]; then
+    proj_suffix="${proj_short}${proj_win}s"
+    slide_option='-s'
+else
+    proj_suffix="${proj_short}${proj_win}"
+    slide_option=''
+fi
+
+# process!
+for file in "${files[@]}"
+do
+    if [[ "$file" =~ '.ome.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.ome\.tif$//')"
+    elif [[ "$file" =~ '.tif' ]]; then
+        stem="$(echo ${file} | sed 's/\.tif$//')"
+    else
+        echo "Not an image file: ${file}"
+        continue
+    fi
+
+	output_proj="${stem}_${proj_suffix}.tif"
+
+    mmproject.py -o "$output_proj" -m "$proj_method" -w "$proj_win" $slide_option "$file"
+
+done
