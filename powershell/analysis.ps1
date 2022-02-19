@@ -5,7 +5,7 @@ Param([Switch]$help = $false,
       [Int]$fitstart = 0,
       [Int]$fitend = 0,
       [String]$meaneach = '',
-      [String]$bleach_frame = '1.0',
+      [String]$bleach_frame = '0.001',
       [Switch]$runeach = $false,
       [String[]]$files = @())
 
