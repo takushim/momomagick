@@ -9,13 +9,14 @@ iter=10
 first_view_x=370
 second_view_x=1400
 scale_iso=0
-output_mini=0
 psf_file=""
+proj_method='average'
+proj_win=5
 log_level='INFO'
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-f X1] [-s X2] [-p PSF] [-e REG] [-t OPT] [-z] [-d] [-i ITER] [-n] [-L LOG] file [file ...]"
+    echo "$(basename "$0") [-f X1] [-s X2] [-p PSF] [-e REG] [-t OPT] [-z] [-d] [-i ITER] [-L LOG] file [file ...]"
     echo "Default settings:"
     echo "- psf_file: ${psf_file} (None for default)"
     echo "- reg_method: ${reg_method}"
@@ -24,12 +25,11 @@ function show_usage () {
     echo "- second_view_x: ${second_view_x}"
     echo "- scale_iso: ${scale_iso}"
     echo "- deconv: ${deconv}"
-    echo "- output_mini: ${output_mini}"
     exit 1
 }
 
 # parse options
-while getopts "f:s:p:e:di:znt:L:" OPT;
+while getopts "f:s:p:e:di:zt:L:" OPT;
 do
     case "$OPT" in
     f) first_view_x="$OPTARG" ;;
@@ -40,7 +40,6 @@ do
     d) deconv=1 ;;
     i) iter="$OPTARG" ;;
     z) scale_iso=1 ;;
-    n) output_mini=1 ;;
     L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
@@ -78,9 +77,8 @@ do
 	output_reg="${stem}_${reg_method,,}.tif"
 	output_crop_0="${stem}_${reg_method,,}_crop_0.tif"
 	output_crop_1="${stem}_${reg_method,,}_crop_1.tif"
-	output_crop_1_mini="${stem}_${reg_method,,}_crop_1_mini.tif"
+	output_proj="${stem}_${reg_method,,}_crop_1_proj.tif"
 	output_deconv="${stem}_${reg_method,,}_crop_1_deconv.tif"
-	output_deconv_mini="${stem}_${reg_method,,}_crop_1_deconv_mini.tif"
     output_log="${stem}_regcrop.log"
 
     echo "Registration & cropping:" $(date) > $output_log
@@ -100,15 +98,12 @@ do
     mmcrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" -L "$log_level" "$output_reg"
     echo "Second view: ${second_view_x}" >> $output_log
 
+    mmproject.py -o "$output_proj" -m "$proj_method" -w "$proj_win" -s "$output_crop_1"
+    echo "Projection mode: ${proj_method}. Window: ${proj_win}. Sliding: True." >> $output_log
+
     if [[ $deconv == 1 ]]; then
         echo "Deconvolution iterating: ${iter}" >> $output_log
         mmdeconv.py -g 0 -i "$iter" $psf_option1 $psf_option2 $scale_option -o "$output_deconv" -L "$log_level" "$output_crop_1"
-    fi
-
-    if [[ $output_mini == 1 ]]; then
-        echo "Output mini-size versions" >> $output_log
-        mmcrop.py -o "$output_crop_1_mini" -R 0 64 256 128 -L "$log_level" "$output_crop_1"
-        mmcrop.py -o "$output_deconv_mini" -R 0 64 256 128 -L "$log_level" "$output_deconv"
     fi
 
 done
