@@ -10,8 +10,6 @@ first_view_x=370
 second_view_x=1400
 scale_iso=0
 psf_file=""
-proj_method='average'
-proj_win=5
 log_level='INFO'
 
 # show usage and exit
@@ -97,9 +95,6 @@ do
     
     mmcrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" -L "$log_level" "$output_reg"
     echo "Second view: ${second_view_x}" >> $output_log
-
-    mmproject.py -o "$output_proj" -m "$proj_method" -w "$proj_win" -s "$output_crop_1"
-    echo "Projection mode: ${proj_method}. Window: ${proj_win}. Sliding: True." >> $output_log
 
     if [[ $deconv == 1 ]]; then
         echo "Deconvolution iterating: ${iter}" >> $output_log
