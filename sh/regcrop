@@ -2,7 +2,7 @@
 set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
-reg_method="Drift"
+reg_method="POC"
 opt_method="Powell"
 deconv=0
 iter=10
