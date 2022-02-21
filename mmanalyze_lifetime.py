@@ -178,14 +178,14 @@ if analysis != 'scatter':
         axes.bar(times, counts, bottom = offset, width = bar_w, label = Path(input_filenames[index]).name)
         offset += np.array(counts)
 
-    curve_x = np.arange(times[0], np.max(times), times[0])
+    curve_x = np.arange(times[0], np.max(times), times[0] / 10)
     curve_y = fitting_func(curve_x)
-    axes.plot(curve_x[fitting_start:], curve_y[fitting_start:], color = 'black', linestyle = ':')
+    axes.plot(curve_x, curve_y, color = 'black', linestyle = ':')
     axes.set_ylim(bottom = 0)
 
     bleach_rate = np.log(2) / (bleach_frame * time_scale)
-    bleach_y = fitting_func(curve_x)[fitting_start] * np.exp(-(curve_x - curve_x[fitting_start]) * bleach_rate)
-    axes.plot(curve_x[fitting_start:], bleach_y[fitting_start:], color = 'black', linestyle = '-')
+    bleach_y = fitting_func(curve_x)[0] * np.exp(-(curve_x - curve_x[0]) * bleach_rate)
+    axes.plot(curve_x, bleach_y, color = 'black', linestyle = '-')
     bleach_text = "Bleach = {0:.3e} /sec, Half-life = {1:.3f} sec ({2:.3f} frames)".\
                   format(bleach_rate, bleach_frame * time_scale, bleach_frame)
     logger.info(bleach_text)
