@@ -3,19 +3,23 @@ set -euo pipefail
 source $HOME/.venv/gpu/bin/activate
 
 iter=10
+no_scale=0
+iso_scale=0
 log_level='INFO'
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-i ITERATION] [-L LOG] file [file ...]"
+    echo "$(basename "$0") [-i ITERATION] [-N] [-I] [-L LOG] file [file ...]"
     exit 1
 }
 
 # parse options
-while getopts "i:L:" OPT;
+while getopts "i:L:NI" OPT;
 do
     case "$OPT" in
     i) iter="$OPTARG" ;;
+    N) no_scale=1 ;;
+    I) iso_scale=1 ;;
     L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
@@ -25,7 +29,7 @@ shift $((OPTIND - 1))
 
 # find an image file if not specified
 if [ $# == 0 ]; then
-    files=("$(find . -maxdepth 1 -iname '*_crop_1.tif' | head -n 1)")
+    readarray -t files < <(find . -maxdepth 1 -iname '*_crop_1.tif')
 else
     files=("$@")
 fi
@@ -45,17 +49,21 @@ do
     output_log="${stem}_deconv.log"
     echo "Deconvolution:" $(date) > $output_log
 
-    scaling_option=""
-	output_deconv="${stem}_deconv.tif"
-    echo "Iteration: ${iter}" >> $output_log
-    echo "Scaling: ${scaling_option}" >> $output_log
-    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
+    if [[ "$no_scale" == 1 ]]; then
+        scaling_option=""
+        output_deconv="${stem}_deconv.tif"
+        echo "Iteration: ${iter}" >> $output_log
+        echo "Scaling: ${scaling_option}" >> $output_log
+        mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
+    fi
 
-    scaling_option="-s"
-	output_deconv="${stem}_deconv_iso.tif"
-    echo "Iteration: ${iter}" >> $output_log
-    echo "Scaling: ${scaling_option}" >> $output_log
-    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
+    if [[ "$iso_scale" == 1 ]]; then
+        scaling_option="-s"
+        output_deconv="${stem}_deconv_iso.tif"
+        echo "Iteration: ${iter}" >> $output_log
+        echo "Scaling: ${scaling_option}" >> $output_log
+        mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
+    fi
 
     scaling_option="-s -r"
 	output_deconv="${stem}_deconv_res.tif"
