@@ -1,37 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (c) 2018-2019, Takushi Miyoshi
-# Copyright (c) 2012-2019, Department of Otolaryngology, 
-#                          Graduate School of Medicine, Kyoto University
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# * Redistributions of source code must retain the above copyright notice,
-#   this list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimer in the documentation
-#   and/or other materials provided with the distribution.
-#
-# * Neither the name of the copyright holder nor the names of its
-#   contributors may be used to endorse or promote products derived from
-#   this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-
-import sys, pandas, numpy
+import numpy as np
 from PIL import Image, ImageDraw
 
 class DrawSpots:
@@ -43,7 +12,7 @@ class DrawSpots:
         self.invert_image = False
         self.marker_colors = ['red', 'orange', 'blue', 'cyan']
         self.marker_rainbow = False
-        self.rainbow_colors = numpy.array(["red", "blue", "green", "magenta", "purple", "cyan",\
+        self.rainbow_colors = np.array(["red", "blue", "green", "magenta", "purple", "cyan",\
                                            "orange", "maroon"])
 
     def convert_to_color (self, orig_image):
@@ -51,15 +20,15 @@ class DrawSpots:
             print("Image seems to contain RGB information. Conversion ignored.")
             return orig_image
 
-        image_color = numpy.zeros(orig_image.shape + (3,), dtype = numpy.uint8)
+        image_color = np.zeros(orig_image.shape + (3,), dtype = np.uint8)
 
         image_type = orig_image.dtype.name
         if image_type == 'int32' or image_type == 'uint16':
-            mean = numpy.mean(orig_image)
-            sigma = numpy.std(orig_image)
+            mean = np.mean(orig_image)
+            sigma = np.std(orig_image)
             image_min = max(0, mean - 3 * sigma)
-            image_max = min(mean + 4 * sigma, numpy.iinfo(orig_image.dtype).max)
-            image_8bit = (255.0 * (orig_image - image_min) / (image_max - image_min)).clip(0, 255).astype(numpy.uint8)
+            image_max = min(mean + 4 * sigma, np.iinfo(orig_image.dtype).max)
+            image_8bit = (255.0 * (orig_image - image_min) / (image_max - image_min)).clip(0, 255).astype(np.uint8)
             image_color[:,:,:,0] = image_color[:,:,:,1] = image_color[:,:,:,2] = image_8bit
         elif image_type == 'uint8':
             image_color[:,:,:,0] = image_color[:,:,:,1] = image_color[:,:,:,2] = orig_image
@@ -138,8 +107,8 @@ class DrawSpots:
                 skipped_planes.append(index)
                 continue
 
-            spots['int_x'] = numpy.round(spots['x']).astype(numpy.int)
-            spots['int_y'] = numpy.round(spots['y']).astype(numpy.int)
+            spots['int_x'] = np.round(spots['x']).astype(np.int)
+            spots['int_y'] = np.round(spots['y']).astype(np.int)
             spots = spots.sort_values(by = ['int_x', 'int_y']).reset_index(drop = True)
 
             # check possible error spots (duplicated)
@@ -179,7 +148,7 @@ class DrawSpots:
                                       (spot.int_x + self.marker_size + 1, spot.int_y + self.marker_size + 1)),\
                                      fill = None, width = self.marker_width, outline = self.marker_colors[3])
 
-            image_color[index] = numpy.asarray(image)
+            image_color[index] = np.asarray(image)
 
         if sum(skipped_planes) > 0:
             print("Skipped planes %s." % (' '.join(map(str, skipped_planes))))

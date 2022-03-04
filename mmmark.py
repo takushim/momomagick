@@ -1,71 +1,73 @@
 #!/usr/bin/env python
 
-import sys, argparse, pathlib, re, numpy, pandas, tifffile
-from mmtools import mmtiff, trackj, lifetime, drawspots
-
-# prepare spot marker
-spot_drawer = drawspots.DrawSpots()
+import argparse, json
+from mmtools import stack, trackj, particles, log
 
 # default values
 input_filename = None
 output_filename = None
-marker_filename = 'spot_table.txt'
-mask_filename = None
-shift_x = 0.0
-shift_y = 0.0
-scaling = 1.0
-filename_suffix = '_marked.tif'
+output_suffix = '_marked.tif'
+record_filename = None
+record_suffix = '_track.json'
+marker_size = 4
+marker_colors = ['red', 'orange', 'blue']
+rainbow_list = ["red", "blue", "green", "magenta", "purple", "cyan", "orange", "maroon"]
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Mark detected spots on background images', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-o', '--output-file', default=output_filename, \
-                    help='output multipage TIFF file ([basename]{0} by default)'.format(filename_suffix))
+parser.add_argument('-o', '--output-file', default = output_filename, \
+                    help='output image file ([basename]{0} by default)'.format(output_suffix))
 
-parser.add_argument('-x', '--scaling', type = float, default = scaling, \
-                    help='scaling of spot cooredinates (before shifting)')
-parser.add_argument('-s', '--image-shift', nargs=2, type=float, default=[shift_x, shift_y], metavar=('X', 'Y'), \
-                    help='shift of spots against images')
-
-parser.add_argument('-f', '--marker-file', default=marker_filename, \
+parser.add_argument('-f', '--record-file', default = record_filename, \
                     help='TSV file or TrackJ CSV file ([basename].txt if not specified)')
-parser.add_argument('-z', '--marker-size', type=int, default=spot_drawer.marker_size, \
-                    help='marker size to draw (dot == 0)')
-parser.add_argument('-c', '--marker-colors', nargs=4, type=str, default=spot_drawer.marker_colors, \
-                    metavar=('NEW', 'CONT', 'END', 'REDUN'), \
+
+parser.add_argument('-z', '--marker-size', type = int, default = marker_size, \
+                    help='marker size to draw')
+
+parser.add_argument('-c', '--marker-colors', nargs = 3, type=str, metavar=('NEW', 'CONT', 'END'), \
                     help='marker colors for new, tracked, disappearing, and redundant spots')
-parser.add_argument('-r', '--rainbow-colors', action='store_true', default=spot_drawer.marker_rainbow, \
+
+parser.add_argument('-r', '--marker-rainbow', action = 'store_true', \
                     help='use rainbow colors to distinguish each tracking')
 
-parser.add_argument('-m', '--mask-image', default = mask_filename, \
-                    help='read masking image to omit unnecessary area')
-
-parser.add_argument('-i', '--invert-image', action='store_true', default=spot_drawer.invert_image, \
+parser.add_argument('-i', '--invert-lut', action = 'store_true', \
                     help='invert the LUT of output image')
 
-parser.add_argument('input_file', default=input_filename, \
-                    help='input single or multi-page TIFF file to plot spots')
+log.add_argument(parser)
+
+parser.add_argument('input_file', default = input_filename, \
+                    help='input image file.')
+
 args = parser.parse_args()
+
+# logging
+logger = log.get_logger(__file__, level = args.log_level)
 
 # set arguments
 input_filename = args.input_file
-mask_filename = args.mask_image
-shift_x, shift_y = args.image_shift
-scaling = args.scaling
-marker_filename = args.marker_file
-spot_drawer.marker_size = args.marker_size
-spot_drawer.marker_colors = args.marker_colors
-spot_drawer.marker_rainbow = args.rainbow_colors
-spot_drawer.invert_image = args.invert_image
+marker_size = args.marker_size
+marker_colors = args.marker_colors
+marker_rainbow = args.marker_rainbow
+invert_lut = args.invert_lut
 
 if args.output_file is None:
-    output_filename = mmtiff.stem(input_filename) + filename_suffix
-    if input_filename == output_filename:
-        raise Exception('input_filename == output_filename.')
+    output_filename = stack.with_suffix(input_filename, output_suffix)
 else:
     output_filename = args.output_file
 
+if args.record_file is None:
+    record_filename = stack.with_suffix(input_filename, record_suffix)
+    log.info("")
+else:
+    record_filename = args.record_file
+
+
+
 # read TSV or TrackJ CSV file
+
+
+
 if pathlib.Path(marker_filename).suffix.lower() == ".txt":
     print("Read TSV from {0}.".format(marker_filename))
     spot_table = pandas.read_csv(marker_filename, comment = '#', sep = '\t')
