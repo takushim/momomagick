@@ -98,9 +98,14 @@ for input_filename in input_filenames:
     if suffix == '.json':
         with open(input_filename, 'r') as f:
             json_data = json.load(f)
-            spot_table = pd.DataFrame(particles.parse_tree(json_data['spot_list']))
-            spot_table['plane'] = spot_table['time']
-            spot_table['total_index'] = spot_table['track']
+            if len(json_data.get('spot_list', [])) == 0:
+                key_list = list(particles.create_spot().keys())
+                key_list = key_list + ['plane', 'total_index', 'track']
+                spot_table = pd.DataFrame(index = [], columns = key_list)
+            else:
+                spot_table = pd.DataFrame(particles.parse_tree(json_data['spot_list']))
+                spot_table['plane'] = spot_table['time']
+                spot_table['total_index'] = spot_table['track']
             plane_count = json_data['image_properties']['t_count']
     elif suffix == ".txt":
         spot_table = pd.read_csv(input_filename, comment = '#', sep = '\t')
