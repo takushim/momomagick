@@ -65,7 +65,6 @@ analyze () {
             else
                 fit_option="-s ${fit_start} -e ${fit_end} -l ${start_plane}"
             fi
-            fit_option="-s ${fit_start} ${end_option} -l ${start_plane}"
         elif [[ "$analysis" == 'scatter' ]]; then
             if [[ $mean_each != '' ]]; then
                 fit_option="-m ${mean_each}"

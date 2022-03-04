@@ -23,6 +23,7 @@ function show_usage () {
     echo "- second_view_x: ${second_view_x}"
     echo "- scale_iso: ${scale_iso}"
     echo "- deconv: ${deconv}"
+    echo "** Use -f 370 -s 1520 for old images. **"
     exit 1
 }
 

@@ -16,6 +16,7 @@ function show_usage () {
     echo "Default settings:"
     echo "- first_view_x: ${first_view_x}"
     echo "- second_view_x: ${second_view_x}"
+    echo "** Use -f 370 -s 1520 for old images. **"
     exit 1
 }
 
@@ -51,8 +52,10 @@ do
         if [[ $(regcrop -e "${regmethod}" -f "${first_view_x}" -s "${second_view_x}" -L "${log_level}") -ne "0" ]]; then
             echo "Error while handling: ${folder}"
         fi
-        if [[ $(deconv -L "${log_level}") -ne "0" ]]; then
-            echo "Error while handling: ${folder}"
+        if [[ $devonv == 1 ]]; then
+            if [[ $(deconv -L "${log_level}") -ne "0" ]]; then
+                echo "Error while handling: ${folder}"
+            fi
         fi
         echo "."
     fi
