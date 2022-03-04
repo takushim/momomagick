@@ -12,7 +12,7 @@ def list_to_table (spot_list):
     if spot_list is None or len(spot_list) == 0:
         dummy_spot = create_spot(index = 0, time = 0, channel = 0, x = 0.0, y = 0.0, z = 0, parent = None)
         spot_table = pd.DataFrame(parse_tree([dummy_spot]))
-        spot_table = spot_table.drop(0)
+        spot_table = spot_table.drop(spot_table.index)
     else:
         spot_table = pd.DataFrame(parse_tree(spot_list))
     
