@@ -1,11 +1,22 @@
 #!/usr/bin/env python
 
+import pandas as pd
 from datetime import datetime
 class TreeParseException (Exception):
     def __init__ (self, message = "Unknown exception"):
         self.message = message
     def __str__ (self):
         return self.message
+
+def list_to_table (spot_list):
+    if spot_list is None or len(spot_list) == 0:
+        dummy_spot = create_spot(index = 0, time = 0, channel = 0, x = 0.0, y = 0.0, z = 0, parent = None)
+        spot_table = pd.DataFrame(parse_tree([dummy_spot]))
+        spot_table = spot_table.drop(0)
+    else:
+        spot_table = pd.DataFrame(parse_tree(spot_list))
+    
+    return spot_table
 
 def parse_tree (spot_list):
     spot_list = [spot for spot in spot_list if spot.get('delete', False) == False]

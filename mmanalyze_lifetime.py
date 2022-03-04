@@ -98,25 +98,10 @@ for input_filename in input_filenames:
     if suffix == '.json':
         with open(input_filename, 'r') as f:
             json_data = json.load(f)
-            if len(json_data.get('spot_list', [])) == 0:
-                key_list = list(particles.create_spot().keys())
-                key_list = key_list + ['plane', 'total_index', 'track']
-                spot_table = pd.DataFrame(index = [], columns = key_list)
-            else:
-                spot_table = pd.DataFrame(particles.parse_tree(json_data['spot_list']))
-                spot_table['plane'] = spot_table['time']
-                spot_table['total_index'] = spot_table['track']
             plane_count = json_data['image_properties']['t_count']
-            if len(json_data.get('spot_list', [])) == 0:
-                dummy_spot = particles.create_spot(index = 0, time = 0, channel = 0, x = 0.0, y = 0.0, z = 0, parent = None)
-                spot_table = pd.DataFrame(particles.parse_tree([dummy_spot]))
-                spot_table['plane'] = spot_table['time']
-                spot_table['total_index'] = spot_table['track']
-                spot_table = spot_table.drop(0)
-            else:
-                spot_table = pd.DataFrame(particles.parse_tree(json_data['spot_list']))
-                spot_table['plane'] = spot_table['time']
-                spot_table['total_index'] = spot_table['track']
+            spot_table = particles.list_to_table(json_data.get('spot_list', []))
+            spot_table['plane'] = spot_table['time']
+            spot_table['total_index'] = spot_table['track']
     elif suffix == ".txt":
         spot_table = pd.read_csv(input_filename, comment = '#', sep = '\t')
         plane_count = spot_table['plane'].max()
