@@ -98,10 +98,17 @@ for input_filename in input_filenames:
     if suffix == '.json':
         with open(input_filename, 'r') as f:
             json_data = json.load(f)
-            spot_table = pd.DataFrame(particles.parse_tree(json_data['spot_list']))
-            spot_table['plane'] = spot_table['time']
-            spot_table['total_index'] = spot_table['track']
             plane_count = json_data['image_properties']['t_count']
+            if len(json_data.get('spot_list', [])) == 0:
+                dummy_spot = particles.create_spot(index = 0, time = 0, channel = 0, x = 0.0, y = 0.0, z = 0, parent = None)
+                spot_table = pd.DataFrame(particles.parse_tree([dummy_spot]))
+                spot_table['plane'] = spot_table['time']
+                spot_table['total_index'] = spot_table['track']
+                spot_table = spot_table.drop(0)
+            else:
+                spot_table = pd.DataFrame(particles.parse_tree(json_data['spot_list']))
+                spot_table['plane'] = spot_table['time']
+                spot_table['total_index'] = spot_table['track']
     elif suffix == ".txt":
         spot_table = pd.read_csv(input_filename, comment = '#', sep = '\t')
         plane_count = spot_table['plane'].max()
@@ -129,7 +136,7 @@ elif analysis == 'scatter':
 else:
     raise Exception('Unknown analysis method: {0}'.format(analysis))
 
-if analysis != 'scatter':
+if analysis in ['regression', 'lifetime', 'cumulative']:
     max_index = np.argmax([len(result.frame) for result in results])
     frames = results[max_index].frame.to_list()
     times = results[max_index].time.to_list()
@@ -148,7 +155,7 @@ if analysis != 'scatter':
 
     # fitting
     fitting = lifetime.fit_one_phase_decay(times, counts_sum, start = fitting_start, \
-                                           end = fitting_end, method = opt_method)
+                                        end = fitting_end, method = opt_method)
     fitting_func = fitting['func']
     logger.info("Fitting: {0}".format(fitting['message']))
 
@@ -209,7 +216,7 @@ if analysis != 'scatter':
 
     figure.savefig(graph_filename, dpi = 300)
 
-else:
+elif analysis == 'scatter':
     mean_lifetime = np.mean([result.lifetime.mean() for result in results])
     mean_text = "Mean lifetime = {0:.3f} sec ({1:.3f} frames, plane > 0)".\
                 format(mean_lifetime, mean_lifetime / time_scale)
@@ -272,4 +279,9 @@ else:
 
     axes.text(axes.get_xlim()[1] * 0.95, axes.get_ylim()[1] * 0.95, \
               mean_text, size = 'xx-large', ha = 'right', va = 'top')
+
+    axes.set_xlim(0, sum(plane_counts) - 1)
     figure.savefig(graph_filename, dpi = 300)
+
+else:
+    raise Exception('Unknown analysis: {0}'.format(analysis))

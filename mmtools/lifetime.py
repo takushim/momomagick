@@ -14,27 +14,53 @@ optimizing_methods = ["Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP"
 default_method = "Nelder-Mead"
 
 def life_table (count_list, time_scale = 1.0):
-    frame_list = [(i + 1) for i in range(len(count_list))]
-    time_list = [(i + 1) * time_scale for i in range(len(count_list))]
-    table = pd.DataFrame({life_columns[0]: frame_list,
-                          life_columns[1]: time_list,
-                          life_columns[2]: count_list},
-                          columns = life_columns)
+    if (count_list is None) or (len(count_list) == 0):
+        table = pd.DataFrame({life_columns[0]: pd.Series(dtype = int),
+                              life_columns[1]: pd.Series(dtype = float),
+                              life_columns[2]: pd.Series(dtype = int)},
+                              columns = life_columns)
+    else:
+        frame_list = [(i + 1) for i in range(len(count_list))]
+        time_list = [(i + 1) * time_scale for i in range(len(count_list))]
+        table = pd.DataFrame({life_columns[0]: frame_list,
+                              life_columns[1]: time_list,
+                              life_columns[2]: count_list},
+                              columns = life_columns)
     return table
 
 def binding_table (plane_list, count_list, time_scale = 1.0):
-    count_list = [(i + 1) for i in count_list]
-    time_list = [i * time_scale for i in count_list]
-    table = pd.DataFrame({binding_columns[0]: plane_list,
-                          binding_columns[1]: count_list,
-                          binding_columns[2]: time_list},
-                          columns = binding_columns)
+    if (count_list is None) or (len(count_list) == 0) or \
+       (plane_list is None) or (len(plane_list) == 0):
+        table = pd.DataFrame({binding_columns[0]: pd.Series(dtype = int),
+                              binding_columns[1]: pd.Series(dtype = int),
+                              binding_columns[2]: pd.Series(dtype = float)},
+                              columns = binding_columns)
+    else:
+        count_list = [(i + 1) for i in count_list]
+        time_list = [i * time_scale for i in count_list]
+        table = pd.DataFrame({binding_columns[0]: plane_list,
+                              binding_columns[1]: count_list,
+                              binding_columns[2]: time_list},
+                              columns = binding_columns)
     return table
 
 def life_count (spot_table):
     return spot_table.groupby('total_index').cumcount().to_list()
 
 def fit_one_phase_decay (time_list, count_list, start = 0, end = 0, method = default_method):
+    if len(count_list) == 0 or len(time_list) == 0:
+        result = {
+            'func': lambda x: 1.0,
+            'params': None,
+            'halflife': 0.0,
+            'koff': 0.0,
+            'status': 'fitting not performed',
+            'start': fit_start,
+            'end': fit_end,
+            'message': 'fitting not performed',
+            }
+        return result
+
     fit_start = start
     if end == 0:
         fit_end = len(count_list)
@@ -71,6 +97,9 @@ def fit_one_phase_decay (time_list, count_list, start = 0, end = 0, method = def
     return result
 
 def regression (spot_table, time_scale = 1.0):
+    if len(spot_table) == 0:
+        return life_table(None)
+
     # regression
     work_table = spot_table.copy()
     start_plane = np.min(work_table.plane)
@@ -91,6 +120,9 @@ def regression (spot_table, time_scale = 1.0):
     return life_table(output_counts, time_scale = time_scale)
 
 def lifetime (spot_table, time_scale = 1.0, start_plane = 0):
+    if len(spot_table) == 0:
+        return life_table(None)
+
     # add lifetime
     work_table = spot_table.copy()
     work_table['life_count'] = life_count(work_table)
@@ -108,6 +140,9 @@ def lifetime (spot_table, time_scale = 1.0, start_plane = 0):
     return life_table(output_counts, time_scale = time_scale)
 
 def cumulative (spot_table, time_scale = 1.0, start_plane = 0):
+    if len(spot_table) == 0:
+        return life_table(None)
+
     # add lifetime columns
     work_table = spot_table.copy()
     work_table['life_count'] = life_count(work_table)
@@ -125,6 +160,9 @@ def cumulative (spot_table, time_scale = 1.0, start_plane = 0):
     return life_table(output_counts, time_scale = time_scale)
 
 def new_bindings (spot_table, time_scale = 1.0):
+    if len(spot_table) == 0:
+        return binding_table(None, None)
+
     # add lifetime columns
     work_table = spot_table.copy()
     work_table['life_count'] = life_count(work_table)
@@ -137,10 +175,3 @@ def new_bindings (spot_table, time_scale = 1.0):
     maxcount_list = work_table['life_count'].to_list()
 
     return binding_table(plane_list, maxcount_list, time_scale)
-
-# This is for spotmarker
-def filter_spots_maskimage (spot_table, mask_image):
-    first_spot_table = spot_table.drop_duplicates(subset='total_index', keep='first').reset_index(drop=True)
-    first_spot_table['mask'] = mask_image[first_spot_table.y.values.astype(np.int), first_spot_table.x.values.astype(np.int)]
-    index_set = set(first_spot_table[first_spot_table['mask'] > 0].total_index.to_list())
-    return spot_table[spot_table.total_index.isin(index_set)]

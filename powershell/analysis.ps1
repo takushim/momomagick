@@ -1,6 +1,7 @@
 # get/set parameters from command line arguments
 Param([Switch]$help = $false,
       [String]$folder = 'analysis',
+      [String]$analysis = 'all',
       [Float]$timescale = 1.0,
       [Int]$fitstart = 0,
       [Int]$fitend = 0,
@@ -19,11 +20,18 @@ $ErrorActionPreference = 'Stop'
 . $HOME\.venv\gpu\Scripts\Activate.ps1
 $scriptpath = "$HOME\bin\dispim"
 $script = [IO.Path]::Combine($scriptpath, "mmanalyze_lifetime.py")
-$analyses = @("cumulative", "lifetime", "regression", "scatter")
 if ($files.count -eq 0){
       $files = (get-item "*track.json")
 }
 $stem = "{0}" -f (get-item $files[0]).basename
+
+if ($analysis -like 'all') {
+      $analyses = @("cumulative", "lifetime", "regression", "scatter")
+}
+else{
+      $analyses = @($analysis)
+}
+
 
 if ($bleach_frame -like 'vol'){
       $bleach_frame = 11.95

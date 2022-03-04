@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from datetime import datetime
 class TreeParseException (Exception):
     def __init__ (self, message = "Unknown exception"):
         self.message = message
@@ -36,3 +37,10 @@ def parse_tree (spot_list):
 def find_children (spot, spot_list):
     return [x for x in spot_list if (x['parent'] == spot['index']) and (x['delete'] == False)]
 
+def create_spot (index = None, time = None, channel = None, x = None, y = None, z = None, parent = None):
+    spot = {'index': index, 'time': time, 'channel': channel, \
+            'x': x, 'y': y, 'z': z, 'parent': parent, 'label': None, \
+            'delete': False, \
+            'create': datetime.now().astimezone().isoformat(), \
+            'update': datetime.now().astimezone().isoformat()}
+    return spot
