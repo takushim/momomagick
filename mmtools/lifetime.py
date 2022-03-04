@@ -48,24 +48,14 @@ def fit_one_phase_decay (time_list, count_list, start = 0, end = 0, method = def
     times = np.array(time_list)
     counts = np.array(count_list)
 
-    if end == 0:
-        def one_phase_decay (params):
-            a, b, c = params
-            return np.sum(((a * np.exp(- b * times) + c) - counts) * ((a * np.exp(- b * times) + c) - counts))
+    def one_phase_decay (params):
+        a, b = params
+        return np.sum(((a * np.exp(- b * times)) - counts) * ((a * np.exp(- b * times)) - counts))
 
-        max_index = np.argmax(count_list)
-        init_decay = float(count_list[max_index])
-        init_params = [init_decay, 0.0, 0.0]
-        result_func = lambda x: params[0] * np.exp (- params[1] * x) + params[2]
-    else:
-        def one_phase_decay (params):
-            a, b = params
-            return np.sum(((a * np.exp(- b * times)) - counts) * ((a * np.exp(- b * times)) - counts))
-
-        max_index = np.argmax(count_list)
-        init_decay = float(count_list[max_index])
-        init_params = [init_decay, 0.0]
-        result_func = lambda x: params[0] * np.exp (- params[1] * x)
+    max_index = np.argmax(count_list)
+    init_decay = float(count_list[max_index])
+    init_params = [init_decay, 0.0]
+    result_func = lambda x: params[0] * np.exp (- params[1] * x)
 
     opt = optimize.minimize(one_phase_decay, init_params, method = method)
     params = opt['x']
