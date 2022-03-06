@@ -3,8 +3,7 @@
 import argparse, json
 import numpy as np
 from PIL import Image, ImageDraw
-from progressbar import progressbar
-from mmtools import stack, log, particles
+from mmtools import stack, log, particles, gpuimage
 
 # default values
 input_filename = None
@@ -15,12 +14,17 @@ record_suffix = '_track.json'
 marker_radius = 3
 marker_width = 1
 marker_colors = ['red', 'orange', 'blue']
+clip_percentile = 0.0
+image_scaling = 1.0
+spot_scaling = None
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Mark detected spots on background images', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='output image file ([basename]{0} by default)'.format(output_suffix))
+
+gpuimage.add_gpu_argument(parser)
 
 parser.add_argument('-f', '--record-file', default = record_filename, \
                     help='TSV file or TrackJ CSV file ([basename].txt if not specified)')
@@ -31,8 +35,17 @@ parser.add_argument('-r', '--marker-radius', type = int, default = marker_radius
 parser.add_argument('-w', '--marker-width', type = int, default = marker_width, \
                     help='line widths of markers')
 
-parser.add_argument('-m', '--marker-colors', nargs = 3, type=str, default = marker_colors, metavar=('NEW', 'CONT', 'END'), \
+parser.add_argument('-m', '--marker-colors', nargs = 3, type = str, default = marker_colors, metavar=('NEW', 'CONT', 'END'), \
                     help='marker colors for new, tracked, disappearing, and redundant spots')
+
+parser.add_argument('-c', '--clip-percentile', type = float, default = clip_percentile, \
+                    help='percentile used for automatic clipping. ignored for images within uint8 range.')
+
+parser.add_argument('-x', '--image-scaling', type = float, default = image_scaling, \
+                    help='scaling factor of images.')
+
+parser.add_argument('-s', '--spot-scaling', type = float, default = spot_scaling, \
+                    help='scaling factor of spot coordinates. scaling factor of images used for None.')
 
 parser.add_argument('-i', '--invert-lut', action = 'store_true', \
                     help='invert the LUT of output image')
@@ -47,12 +60,18 @@ args = parser.parse_args()
 # logging
 logger = log.get_logger(__file__, level = args.log_level)
 
+# turn on gpu
+gpu_id = gpuimage.parse_gpu_argument(args)
+
 # set arguments
 input_filename = args.input_file
 marker_radius = args.marker_radius
 marker_width = args.marker_width
 marker_colors = args.marker_colors
 invert_lut = args.invert_lut
+clip_percentile = args.clip_percentile
+image_scaling = args.image_scaling
+spot_scaling = args.spot_scaling if args.spot_scaling is not None else args.image_scaling
 
 if args.output_file is None:
     output_filename = stack.with_suffix(input_filename, output_suffix)
@@ -64,9 +83,22 @@ if args.record_file is None:
 else:
     record_filename = args.record_file
 
-# read TIFF files TZCYX(S)
+# load image and convert into an 8-bit RGB image
 logger.info("Loading image: {0}.".format(input_filename))
 input_stack = stack.Stack(input_filename)
+logger.info("Preparing an RGB uint8 image.")
+input_stack.clip_all(percentile = clip_percentile)
+input_stack.fit_to_uint8(fit_always = False)
+
+if invert_lut:
+    logger.info("Inverting the LUT of the image.")
+    input_stack.invert_lut()
+
+if np.isclose(image_scaling, 1.0) == False:
+    logger.info("Scaling the image by: {0}.".format(image_scaling))
+    input_stack.scale_by_ratio(ratio = (1.0, image_scaling, image_scaling), gpu_id = gpu_id, progress = True)
+
+input_stack.add_s_axis(s_count = 3)
 
 # read the JSON file
 logger.info("Reading records: {0}.".format(record_filename))
@@ -75,21 +107,19 @@ with open(record_filename, 'r') as f:
     spot_list = json_data.get('spot_list', [])
     spot_list = [spot for spot in spot_list if spot['delete'] == False]
 
-# convert image into an 8-bit RGB image
-image_array = input_stack.image_array
-if input_stack.has_s_axis == False:
-    image_array = np.moveaxis(np.array([image_array, image_array, image_array]), 0, -1)
-    logger.info("Image array was shaped into: {0}.".format(image_array.shape))
+if np.isclose(spot_scaling, 1.0) == False:
+    logger.info("Scaling spots by: {0}.".format(spot_scaling))
+    for spot in spot_list:
+        spot['x'] = spot['x'] * spot_scaling
+        spot['y'] = spot['y'] * spot_scaling
 
-if image_array.dtype != np.uint8:
-    logger.info("Converting the pixel values to uint8.")
-    image_array = (255.0 * (image_array - np.min(image_array)) / np.ptp(image_array)).astype(np.uint8)
+# spot lists
+spots_first = [spot for spot in spot_list if spot['parent'] is None]
+spots_last = [spot for spot in spot_list if (len(particles.find_children(spot, spot_list)) == 0) and (spot not in spots_first)]
+spots_cont = [spot for spot in spot_list if spot not in (spots_first + spots_last)]
+spots_one = [spot for spot in spots_first if (len(particles.find_children(spot, spot_list)) == 0)]
 
-if invert_lut:
-    logger.info("Inverting the LUT.")
-    image_array = 255 - image_array
-
-# draw spots
+# marking functions
 def mark_spots (draw, spots, color):
     for spot in spots:
         draw.ellipse((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
@@ -100,29 +130,26 @@ def mark_ones (draw, spots, color):
         draw.arc((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
                  start = 315, end = 135, fill = color, width = marker_width)
 
-for t_index in progressbar(range(input_stack.t_count)):
-    for c_index in range(input_stack.c_count):
-        for z_index in range(input_stack.z_count):
-            image = Image.fromarray(image_array[t_index, c_index, z_index])
-            draw = ImageDraw.Draw(image)
+def current_spots (spot_list, t_index, c_index, z_index):
+    return [spot for spot in spot_list if spot['time'] == t_index and spot['channel'] == c_index and spot['z'] == z_index]
 
-            spots_current = [spot for spot in spot_list \
-                             if spot['time'] == t_index and spot['channel'] == c_index and spot['z'] == z_index]
+def mark_func (image, t_index, c_index):
+    for z_index in range(len(image)):
+        z_image = Image.fromarray(image[z_index])
+        draw = ImageDraw.Draw(z_image)
 
-            spots_first = [spot for spot in spots_current if spot['parent'] is None]
-            spots_last = [spot for spot in spots_current
-                          if (len(particles.find_children(spot, spot_list)) == 0) and (spot not in spots_first)]
-            spots_cont = [spot for spot in spots_current if spot not in (spots_first + spots_last)]
-            spots_one = [spot for spot in spots_first if (len(particles.find_children(spot, spot_list)) == 0)]
+        mark_spots(draw, current_spots(spots_first, t_index, c_index, z_index), marker_colors[0])
+        mark_spots(draw, current_spots(spots_cont, t_index, c_index, z_index), marker_colors[1])
+        mark_spots(draw, current_spots(spots_last, t_index, c_index, z_index), marker_colors[2])
+        mark_ones(draw, current_spots(spots_one, t_index, c_index, z_index), marker_colors[2])
 
-            mark_spots(draw, spots_first, marker_colors[0])
-            mark_spots(draw, spots_cont, marker_colors[1])
-            mark_spots(draw, spots_last, marker_colors[2])
-            mark_ones(draw, spots_one, marker_colors[2])
+        image[z_index] = np.array(z_image)
 
-            image_array[t_index, c_index, z_index] = np.array(image)
+    return image
 
-input_stack.update_array(image_array)
+# draw markers
+logger.info("Start marking spots.".format(output_filename))
+input_stack.apply_all(mark_func, progress = True, with_s_axis = True)
 
 # save image
 logger.info("Saving image: {0}.".format(output_filename))

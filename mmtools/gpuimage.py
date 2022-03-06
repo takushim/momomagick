@@ -11,6 +11,13 @@ except ImportError:
 
 logger = getLogger(__name__)
 
+def add_gpu_argument (parser, gpu_id = None):
+    parser.add_argument('-g', '--gpu-id', default = gpu_id, help='GPU ID')
+
+def parse_gpu_argument (args):
+    turn_on_gpu(args.gpu_id)
+    return args.gpu_id
+
 def turn_on_gpu (gpu_id):
     device = cp.cuda.Device(gpu_id)
     device.use()

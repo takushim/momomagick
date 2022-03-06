@@ -382,6 +382,50 @@ class Stack:
         self.voxel_um = [metadata['z_step_um'], metadata['y_pixel_um'], metadata['x_pixel_um']]
         self.finterval_sec = metadata['finterval_sec']
 
+    def add_s_axis (self, s_count = 1):
+        if self.has_s_axis:
+            image_array = np.array([self.image_array[index % self.s_count] for index in range(s_count)])
+        else:
+            image_array = np.array([self.image_array] * s_count)
+
+        self.image_array = np.moveaxis(image_array, 0, -1)
+        self.update_dimensions()
+
+    def clip_each (self, percentile = 0, with_s_axis = True, progress = False):
+        def clip_func (image, t_index, c_index):
+            upper = np.percentile(image, 100 - percentile)
+            lower = np.percentile(image, percentile)
+            return image.clip(lower, upper)
+        self.apply_all(clip_func, with_s_axis = with_s_axis, progress = progress)
+
+    def clip_all (self, percentile = 0):
+        upper = np.percentile(self.image_array, 100 - percentile)
+        lower = np.percentile(self.image_array, percentile)
+        self.image_array = self.image_array.clip(lower, upper)
+
+    def fit_to_uint8 (self, fit_always = False, progress = False):
+        if fit_always or np.min(self.image_array) < 0 or np.max(self.image_array) > 255:
+            def uint8_func (image, t_index, c_index):
+                return (255.0 * (image - np.min(image)) / np.ptp(image)).astype(np.uint8)
+            self.apply_all(uint8_func, with_s_axis = True, progress = progress)
+        else:
+            self.image_array = self.image_array.astype(np.uint8)
+            self.update_dimensions()
+
+    def invert_lut (self):
+        if self.image_array.dtype.kind == 'f':
+            logger.info()
+        elif self.image_array.dtype.kind == 'u':
+            self.image_array = np.iinfo(self.image_array.dtype).max - self.image_array
+        elif self.image_array.dtype.kind == 'i':
+            if np.min(self.image_array) >= 0:
+                self.image_array = np.iinfo(self.image_array.dtype).max - self.image_array
+            else:
+                logger.warning("Inverting lut of image with negative values. This is problematic.")
+                self.image_array = - self.image_array
+        else:
+            logger.warning("Cannot invert lut. Dtype: {0}".format(self.image_array.dtype))
+
     def resize_image (self, shape, centering = False, offset = None):
         shape = [self.t_count, self.c_count] + list(shape)
         if offset is not None:
@@ -413,35 +457,30 @@ class Stack:
         self.image_array = self.image_array[tuple(slice_list)].copy()
         self.update_dimensions()
 
-    def __apply_all (self, image_func):
+    def __apply_all (self, image_func, with_s_axis = False):
         output_frames = []
         for t_index in range(self.t_count):
             output_channels = []
             for c_index in range(self.c_count):
-                if self.has_s_axis:
-                    output_images = []
-                    for s_index in range(self.s_count):
-                        image = self.image_array[t_index, c_index, ..., s_index]
-                        image = image_func(image, t_index, c_index)
-                        output_images.append(image)
-                    output_channels.append(output_images)
+                if self.has_s_axis and not with_s_axis:
+                    image = [image_func(self.image_array[t_index, c_index, ..., s_index], t_index, c_index) for s_index in range(self.s_count)]
+                    image = np.moveaxis(np.array(image), 0, -1)
                 else:
-                    image = self.image_array[t_index, c_index]
-                    image = image_func(image, t_index, c_index)
-                    output_channels.append(image)
+                    image = image_func(self.image_array[t_index, c_index], t_index, c_index)
+                output_channels.append(image)
             output_frames.append(output_channels)
             yield t_index
 
         self.image_array = np.array(output_frames)
         self.update_dimensions()
 
-    def apply_all (self, image_func, progress = False):
+    def apply_all (self, image_func, progress = False, with_s_axis = False):
         if progress:
             with ProgressBar(max_value = self.t_count) as bar:
-                for index in self.__apply_all(image_func):
+                for index in self.__apply_all(image_func, with_s_axis = with_s_axis):
                     bar.update(index + 1)
         else:
-            for index in self.__apply_all(image_func):
+            for index in self.__apply_all(image_func, with_s_axis = with_s_axis):
                 pass
 
     def scale_by_ratio (self, ratio = 1.0, gpu_id = None, progress = False):
