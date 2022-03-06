@@ -8,7 +8,6 @@ from mmtools import stack, log, gpuimage
 input_filename = None
 output_filename = None
 output_suffix = '_trans.tif'
-gpu_id = None
 crop_area = None
 flip = ''
 rot = [0.0, 0.0, 0.0]
@@ -20,8 +19,7 @@ parser = argparse.ArgumentParser(description='Rotate a tiff image.', \
 parser.add_argument('-o', '--output-file', default=output_filename, \
                     help='Output TIFF file ([basename0]{0} by default)'.format(output_suffix))
 
-parser.add_argument('-g', '--gpu-id', default = gpu_id, \
-                    help='GPU ID')
+gpuimage.add_gpu_argument(parser)
 
 parser.add_argument('-s', '--scale-isometric', action = 'store_true', \
                     help='Scale images to achieve isotrophic voxels')
@@ -50,9 +48,11 @@ args = parser.parse_args()
 # logging
 logger = log.get_logger(__file__, level = args.log_level)
 
+# turn on gpu
+gpu_id = gpuimage.parse_gpu_argument(args)
+
 # set arguments
 input_filename = args.input_file
-gpu_id = args.gpu_id
 crop_area = args.crop_area
 scale_isometric = args.scale_isometric
 
@@ -64,9 +64,6 @@ if args.output_file is None:
     output_filename = stack.with_suffix(input_filename, output_suffix)
 else:
     output_filename = args.output_file
-
-# turn on GPU device
-gpuimage.turn_on_gpu(gpu_id)
 
 # read input image
 input_stack = stack.Stack(input_filename)

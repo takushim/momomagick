@@ -9,7 +9,6 @@ from progressbar import progressbar
 from mmtools import stack, register, deconvolve, gpuimage, log
 
 # default values
-gpu_id = None
 input_filename = None
 output_image_filename = None
 output_image_suffix = '_fusion.tif'
@@ -33,6 +32,8 @@ parser = argparse.ArgumentParser(description='Fusion diSPIM images from two path
 parser.add_argument('-o', '--output-image-file', default=output_image_filename, \
                     help='Output TIFF file ([basename0]{0} by default)'.format(output_image_suffix))
 
+gpuimage.add_gpu_argument(parser)
+
 parser.add_argument('-J', '--output-json', action = 'store_true', \
                     help='Enable output of the json file')
 
@@ -50,9 +51,6 @@ parser.add_argument('-r', '--sub-rotation', type = int,
 
 parser.add_argument('-k', '--keep-channels', action = 'store_true',
                     help='Process main and sub channels separately (useful for registration check).')
-
-parser.add_argument('-g', '--gpu-id', default = gpu_id, \
-                    help='GPU ID')
 
 parser.add_argument('-e', '--reg-method', type = str, default = reg_method, choices = reg_method_list, \
                     help='Method used for image registration')
@@ -75,8 +73,10 @@ args = parser.parse_args()
 # logging
 logger = log.get_logger(__file__, level = args.log_level)
 
+# turn on gpu
+gpu_id = gpuimage.parse_gpu_argument(args)
+
 # set arguments
-gpu_id = args.gpu_id
 input_filename = args.input_file
 main_channel = args.main_channel
 sub_channel = args.sub_channel
@@ -97,9 +97,6 @@ if args.output_json_file is None:
     output_json_filename = stack.with_suffix(input_filename, output_json_suffix)
 else:
     output_json_filename = args.output_json_file
-
-# turn on GPU device
-stack.turn_on_gpu(gpu_id)
 
 # load input image
 logger.info("Loading image: {0}.".format(input_filename))

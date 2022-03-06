@@ -12,15 +12,13 @@ zoom = [1.0, 1.0, 1.0]
 shear = [0.0, 0.0, 0.0]
 output_filename = None
 output_suffix = '_affine.tif'
-gpu_id = None
 
 parser = argparse.ArgumentParser(description='Affine transformation of images.', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='output image file name ([basename]{0} if not specified)'.format(output_suffix))
 
-parser.add_argument('-g', '--gpu-id', default = gpu_id, \
-                    help='GPU ID')
+gpuimage.add_gpu_argument(parser)
 
 parser.add_argument('-s', '--scale-isometric', action = 'store_true', \
                     help='Scale images to achieve isotrophic voxels')
@@ -50,9 +48,11 @@ args = parser.parse_args()
 # logging
 logger = log.get_logger(__file__, level = args.log_level)
 
+# turn on gpu
+gpu_id = gpuimage.parse_gpu_argument(args)
+
 # set arguments
 input_filename = args.input_file
-gpu_id = args.gpu_id
 scale_isometric = args.scale_isometric
 if args.output_file is None:
     output_filename = stack.with_suffix(input_filename, output_suffix)
@@ -63,10 +63,6 @@ shift = np.array(args.shift[::-1])
 rotation = np.array(args.rotation[::-1])
 zoom = np.array(args.zoom[::-1])
 shear = np.array(args.shear[::-1])
-
-# activate GPU
-if gpu_id is not None:
-    gpuimage.turn_on_gpu(gpu_id)
 
 # read input image
 input_stack = stack.Stack(input_filename)

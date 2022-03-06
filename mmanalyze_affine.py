@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
-import sys, argparse, json
+import argparse, json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from pathlib import Path
 from mmtools import mmtiff, regist
 
 # default values

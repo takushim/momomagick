@@ -10,7 +10,6 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 from mmtools import gpuimage, stack, register, log
 
 # defaults
-gpu_id = None
 input_filename = None
 input_channel = 0
 output_json_filename = None
@@ -31,8 +30,7 @@ parser = argparse.ArgumentParser(description='Register time-lapse images using a
 parser.add_argument('-o', '--output-image-file', default = output_json_filename, \
                     help='output image file name ([basename]{0} if not specified)'.format(output_image_suffix))
 
-parser.add_argument('-g', '--gpu-id', default = gpu_id, \
-                    help='GPU ID')
+gpuimage.add_gpu_argument(parser)
 
 parser.add_argument('-J', '--output-json', action = 'store_true', \
                     help='Enable output of the json file')
@@ -73,8 +71,10 @@ args = parser.parse_args()
 # logging
 logger = log.get_logger(__file__, level = args.log_level)
 
+# turn on gpu
+gpu_id = gpuimage.parse_gpu_argument(args)
+
 # set arguments
-gpu_id = args.gpu_id
 input_filename = args.input_file
 input_channel = args.input_channel
 ref_filename = args.ref_image
@@ -94,10 +94,6 @@ if args.output_json_file is None:
     output_json_filename = stack.with_suffix(input_filename, output_json_suffix)
 else:
     output_json_filename = args.output_json_file
-
-# turn on GPU device
-if gpu_id is not None:
-    gpuimage.turn_on_gpu(gpu_id)
 
 # read input image
 input_stack = stack.Stack(input_filename, keep_s_axis = False)

@@ -17,9 +17,6 @@ logger = getLogger(__name__)
 optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP", "None"]
 registering_methods = ["Full", "Rigid-Zoom", "Rigid", "Drift", "XY", "POC", "None"]
 
-def turn_on_gpu (gpu_id):
-    return gpuimage.turn_on_gpu(gpu_id)
-
 def find_method (name, method_list):
     try:
         lower_list = [method.lower() for method in method_list]

@@ -19,9 +19,6 @@ default_voxel = [default_z_step_um, default_pixel_um, default_pixel_um]
 default_shape = (1, 1, 1, 256, 256)
 default_dtype = np.uint16
 
-def turn_on_gpu (gpu_id):
-    return gpuimage.turn_on_gpu(gpu_id)
-
 def with_suffix (filename, suffix):
     filename = Path(filename).with_suffix('')
     if filename.suffix.lower() == '.ome':

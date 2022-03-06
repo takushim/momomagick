@@ -10,9 +10,6 @@ except ImportError:
 
 logger = getLogger(__name__)
 
-def turn_on_gpu (gpu_id):
-    return gpuimage.turn_on_gpu(gpu_id)
-
 def deconvolve (input_image, psf_image, iterations = 10, gpu_id = None):
     if gpu_id is None:
         return deconvolve_cpu(input_image, psf_image, iterations = iterations)

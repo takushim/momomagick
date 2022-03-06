@@ -9,7 +9,6 @@ from progressbar import progressbar
 from mmtools import stack, gpuimage, register, log
 
 # default values
-gpu_id = None
 input_filenames = None
 channels = [0, 0]
 init_flip = ''
@@ -34,14 +33,13 @@ parser = argparse.ArgumentParser(description='Overlay two time-lapse images afte
 parser.add_argument('-o', '--output-image-file', default=output_image_filename, \
                     help='output TIFF file ([basename]{0} by default)'.format(output_image_suffix))
 
+gpuimage.add_gpu_argument(parser)
+
 parser.add_argument('-J', '--output-json', action = 'store_true', \
                     help='Enable output of the json file')
 
 parser.add_argument('-j', '--output-json-file', default = output_json_filename, \
                     help='output JSON file name ([basename]{0} by default)'.format(output_json_suffix))
-
-parser.add_argument('-g', '--gpu-id', default = gpu_id, \
-                    help='GPU ID')
 
 parser.add_argument('-c', '--channels', nargs = 2, type = int, default = channels, \
                     help='specify two channels used for registration')
@@ -88,8 +86,10 @@ args = parser.parse_args()
 # logging
 logger = log.get_logger(__file__, level = args.log_level)
 
+# turn on gpu
+gpu_id = gpuimage.parse_gpu_argument(args)
+
 # set arguments
-gpu_id = args.gpu_id
 input_filenames = args.input_files
 register_all = args.register_all
 reg_method = args.reg_method
@@ -117,10 +117,6 @@ if args.output_json_file is None:
     output_json_filename = stack.with_suffix(input_filenames[1], output_json_suffix)
 else:
     output_json_filename = args.output_json_file
-
-# turn on GPU device
-if gpu_id is not None:
-    register.turn_on_gpu(gpu_id)
 
 # read input TIFF
 input_stacks = [stack.Stack(file) for file in input_filenames]

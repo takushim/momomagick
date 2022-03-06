@@ -11,7 +11,6 @@ from mmtools import stack, log, gpuimage
 input_filenames = None
 output_filename = None
 output_suffix = '_sweep.tif'
-gpu_id = None
 t_frames = [0, 0]
 channels = [0, 0]
 z_indexes = None
@@ -24,8 +23,7 @@ parser = argparse.ArgumentParser(description='Try overlay of two images using va
 parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='filename of output TIFF file ([basename]%s by default)' % (output_suffix))
 
-parser.add_argument('-g', '--gpu-id', default = gpu_id, \
-                    help='GPU ID')
+gpuimage.add_gpu_argument(parser)
 
 parser.add_argument('-t', '--t-frames', type = int, nargs = 2, default = t_frames, \
                     help='frames used for overlay (the first frames by default)')
@@ -61,8 +59,10 @@ args = parser.parse_args()
 # logging
 logger = log.get_logger(__file__, level = args.log_level)
 
+# turn on gpu
+gpu_id = gpuimage.parse_gpu_argument(args)
+
 # set arguments
-gpu_id = args.gpu_id
 input_filenames = args.input_files
 t_frames = args.t_frames
 channels = args.channels
@@ -82,10 +82,6 @@ elif platform.system() == "Darwin":
     font_filename = '/Library/Fonts/Verdana.ttf'
 else:
     raise Exception('Unknown operating system. Font cannot be loaded.')
-
-# turn on gpu
-if gpu_id is not None:
-    gpuimage.turn_on_gpu(gpu_id)
 
 # read images
 input_stacks = [stack.Stack(file) for file in input_filenames]

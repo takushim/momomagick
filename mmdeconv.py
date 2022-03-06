@@ -3,7 +3,7 @@
 import argparse
 import numpy as np
 from pathlib import Path
-from mmtools import stack, deconvolve, log
+from mmtools import stack, deconvolve, log, gpuimage
 
 # defaults
 psf_folder = Path(__file__).parent.joinpath('psf')
@@ -15,12 +15,13 @@ psf_iso = 'dispim_iso_bw.tif'
 psf_noniso = 'dispim_0.5um_bw.tif'
 psf_2d = 'dispim_2d_bw.tif'
 iterations = 10
-gpu_id = None
 
 parser = argparse.ArgumentParser(description = 'Deconvolve images using the Richardson-Lucy algorhythm', \
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-o', '--output-file', default = output_filename, \
                     help='Output image file name ([basename]{0} if not specified)'.format(output_suffix))
+
+gpuimage.add_gpu_argument(parser)
 
 parser.add_argument('-p', '--psf-image', default = psf_filename, \
                     help='Name of psf image in the current or system folders. None: {0}'.format([psf_iso, psf_noniso, psf_2d]))
@@ -34,9 +35,6 @@ parser.add_argument('-s', '--scale-isometric', action = 'store_true', \
 parser.add_argument('-r', '--restore-scale', action = 'store_true', \
                     help='Restore the z scale of image after deconvolution')
 
-parser.add_argument('-g', '--gpu-id', default = gpu_id, \
-                    help='Turn on GPU use with the specified ID')
-
 log.add_argument(parser)
 
 parser.add_argument('input_file', default = input_filename, \
@@ -47,20 +45,19 @@ args = parser.parse_args()
 # logging
 logger = log.get_logger(__file__, level = args.log_level)
 
+# turn on gpu
+gpu_id = gpuimage.parse_gpu_argument(args)
+
 # defaults
 iterations = args.iterations
 psf_filename = args.psf_image
 scale_isometric = args.scale_isometric
 restore_scale = args.restore_scale
-gpu_id = args.gpu_id
 input_filename = args.input_file
 if args.output_file is None:
     output_filename = stack.with_suffix(input_filename, output_suffix)
 else:
     output_filename = args.output_file
-
-# turn on GPU device
-stack.turn_on_gpu(gpu_id)
 
 # load input image
 logger.info("Loading image: {0}.".format(input_filename))

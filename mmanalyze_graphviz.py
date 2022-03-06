@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
-import sys, argparse, json, graphviz
-import pandas as pd
+import argparse, json, graphviz
 from pathlib import Path
-from mmtools import mmtiff, trackj, particles
+from mmtools import stack, particles
 
 # default values
 input_filename = None
@@ -24,9 +23,10 @@ args = parser.parse_args()
 
 # set arguments
 input_filename = args.input_file
-output_filename = args.output_file
-if output_filename is None:
-    output_filename = mmtiff.with_suffix(input_filename, output_suffix)
+if args.output_file is None:
+    output_filename = stack.with_suffix(input_filename, output_suffix)
+else:
+    output_filename = args.output_file
 
 # read JSON or TSV or TrackJ CSV file
 with open(input_filename, 'r') as f:
