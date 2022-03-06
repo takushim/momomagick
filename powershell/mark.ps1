@@ -17,10 +17,19 @@ $ErrorActionPreference = 'Stop'
 $scriptpath = "$HOME\bin\dispim"
 $script = [IO.Path]::Combine($scriptpath, "mmmark.py")
 $record_suffix = "_track.json"
+$globs = @("*_8bit.tif", "*.tif")
 
 # prepare the image list
 if ($images.Count -eq 0){
-      $images = (get-item "*_8bit.tif")
+      foreach ($glob in $globs) {
+            if (Test-Path $glob) {
+                  $images = (get-item $glob_path)
+                  break
+            }
+      }
+      if ($images.Count -eq 0) {
+            Write-Host ("Image not found.")
+      }
 }
 else {
       $images = (get-item $images)
