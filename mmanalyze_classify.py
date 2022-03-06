@@ -3,7 +3,7 @@
 import argparse, json
 import pandas as pd
 from pathlib import Path
-from mmtools import stack, log, particles, lifetime
+from mmtools import stack, log, particles
 
 # default values
 input_filenames = None
