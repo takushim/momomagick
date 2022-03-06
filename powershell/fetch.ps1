@@ -2,7 +2,7 @@
 Param([Switch]$help = $false,
       [String[]]$folders)
 
-if (($help -eq $true) -or ($file.folder -eq 0)) {
+if (($help -eq $true) -or ($folders.Count -eq 0)) {
       Write-Host ("Example: {0} -folder FOLDER_LIST" -f $MyInvocation.MyCommand.Name)
       return 0
 }
@@ -43,6 +43,10 @@ foreach ($folder in $folders) {
                   $file = (get-item $glob_path)
                   break
             }
+      }
+      if ($file.Count -ne 1) {
+            Write-Host ("No or multiple images found in {0}. Skipping." -f $folder)
+            continue
       }
 
       $image = $file
