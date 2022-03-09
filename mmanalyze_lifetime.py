@@ -133,8 +133,9 @@ if analysis in ['regression', 'lifetime', 'cumulative']:
     max_index = np.argmax([len(result.frame) for result in results])
     frames = results[max_index].frame.to_list()
     times = results[max_index].time.to_list()
+    times_lower = [index * time_scale for index in range(len(frames))]
 
-    result_dict = {'frame': frames, 'time': times}
+    result_dict = {'frame': frames, 'time': times, 'time_lower': times_lower}
     counts_sum = [0] * len(frames)
     for index in range(len(results)):
         counts = [0] * len(frames)
@@ -145,6 +146,11 @@ if analysis in ['regression', 'lifetime', 'cumulative']:
 
     result_table = pd.DataFrame(result_dict)
     result_table['sum'] = counts_sum
+
+    if analysis == 'lifetime':
+        result_table['sum_ratio'] = [count_sum / sum(counts_sum) for count_sum in counts_sum]
+    else:
+        result_table['sum_ratio'] = [count_sum / counts_sum[0] for count_sum in counts_sum]
 
     # fitting
     fitting = lifetime.fit_one_phase_decay(times, counts_sum, start = fitting_start, \
