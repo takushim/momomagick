@@ -66,10 +66,15 @@ function Analyze {
                         $arglist = $arglist + @("-m", $meaneach)
                   }
             }
+
+            $quoted_files = @()
+            foreach ($input_file in $input_files) {
+                  $quoted_files = $quoted_files + ("`"{0}`"" -f $input_file)
+            }
       
             $parameters = @{
                   FilePath = (Get-command "py.exe")
-                  ArgumentList = $arglist + $input_files
+                  ArgumentList = $arglist + $quoted_files
             }
       
             Start-Process -NoNewWindow -Wait @parameters
