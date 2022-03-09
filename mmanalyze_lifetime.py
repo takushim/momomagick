@@ -109,7 +109,7 @@ for input_filename in input_filenames:
         spot_table = trackj.read_spots(input_filename)
         plane_count = spot_table['plane'].max()
     else:
-        raise Exception("Unknown file format.")
+        raise Exception("Unknown file format: {0}".format(input_filename))
     
     total_records = len(spot_table.total_index)
     total_tracks = len(spot_table.total_index.unique())

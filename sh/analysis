@@ -14,7 +14,7 @@ log_level='INFO'
 scatter=0
 bleach_frame=1
 bleach_fix=26.57
-bleach_vol=11.95
+bleach_vol=9.75
 
 # show usage and exit
 function show_usage () {

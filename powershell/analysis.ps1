@@ -32,9 +32,8 @@ else{
       $analyses = @($analysis)
 }
 
-
 if ($bleach_frame -like 'vol'){
-      $bleach_frame = 11.95
+      $bleach_frame = 9.75
 }
 elseif ($bleach_frame -like 'fix') {
       $bleach_frame = 26.57
