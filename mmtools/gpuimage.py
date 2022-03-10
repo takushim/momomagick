@@ -19,10 +19,14 @@ def parse_gpu_argument (args):
     return args.gpu_id
 
 def turn_on_gpu (gpu_id):
-    device = cp.cuda.Device(gpu_id)
-    device.use()
-    logger.info("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
-    logger.info("Free memory: {0}".format(device.mem_info))
+    if gpu_id is not None:
+        device = cp.cuda.Device(gpu_id)
+        device.use()
+        logger.info("Turning on GPU: {0}, PCI-bus ID: {1}".format(gpu_id, device.pci_bus_id))
+        logger.info("Free memory: {0}".format(device.mem_info))
+    else:
+        device = None
+
     return device
 
 def pasting_slices (src_shape, tgt_shape, centering = False, offset = None):
