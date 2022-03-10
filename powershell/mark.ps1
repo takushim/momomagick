@@ -17,7 +17,7 @@ $ErrorActionPreference = 'Stop'
 $scriptpath = "$HOME\bin\dispim"
 $script = [IO.Path]::Combine($scriptpath, "mmmark.py")
 $record_suffix = "_track.json"
-$globs = @("*_8bit.tif", "*.tif")
+$globs = @("*_8bit.tif")
 
 # prepare the image list
 if ($images.Count -eq 0){
