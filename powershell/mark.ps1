@@ -23,7 +23,7 @@ $globs = @("*_8bit.tif", "*.tif")
 if ($images.Count -eq 0){
       foreach ($glob in $globs) {
             if (Test-Path $glob) {
-                  $images = (get-item $glob_path)
+                  $images = (get-item $glob)
                   break
             }
       }
@@ -49,7 +49,7 @@ foreach ($image in $images) {
             Write-Host ("Found a record file: {0}." -f $record_file)
       }
 
-      $arglist = @($script, "-x", $scale, "-r", $radius, "-f", $record_file)
+      $arglist = @($script, "-x", $scale, "-r", $radius, "-f", ("`"{0}`"" -f $record_file))
 
       if ($gpu -eq $true) {
             $arglist = $arglist + @("-g", "0")
@@ -61,7 +61,7 @@ foreach ($image in $images) {
 
       $parameters = @{
             FilePath = (Get-command "py.exe")
-            ArgumentList = $arglist + $image
+            ArgumentList = $arglist + ("`"{0}`"" -f $image)
       }
 
       Start-Process -NoNewWindow -Wait @parameters
