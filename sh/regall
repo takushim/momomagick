@@ -52,7 +52,7 @@ do
         if [[ $(regcrop -e "${regmethod}" -f "${first_view_x}" -s "${second_view_x}" -L "${log_level}") -ne "0" ]]; then
             echo "Error while handling: ${folder}"
         fi
-        if [[ $devonv == 1 ]]; then
+        if [[ $deconv == 1 ]]; then
             if [[ $(deconv -L "${log_level}") -ne "0" ]]; then
                 echo "Error while handling: ${folder}"
             fi
