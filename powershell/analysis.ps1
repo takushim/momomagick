@@ -23,7 +23,6 @@ $script = [IO.Path]::Combine($scriptpath, "mmanalyze_lifetime.py")
 if ($files.count -eq 0){
       $files = (get-item "*track.json")
 }
-$stem = "{0}" -f (get-item $files[0]).basename
 
 if ($analysis -like 'all') {
       $analyses = @("cumulative", "lifetime", "regression", "scatter")
@@ -49,13 +48,14 @@ function Analyze {
             Write-Host ("***** {0} *****" -f $analysis)
       
             if ($input_files.Count -gt 1) {
-                  $text = [IO.Path]::Combine($folder, ("Summary_{0}.txt" -f $analysis))
-                  $graph = [IO.Path]::Combine($folder, ("Summary_{0}.png" -f $analysis))
+                  $stem = "Summary"
             }
             else {
-                  $text = [IO.Path]::Combine($folder, ("{0}_{1}.txt" -f $stem, $analysis))
-                  $graph = [IO.Path]::Combine($folder, ("{0}_{1}.png" -f $stem, $analysis))
+                  $stem = "{0}" -f (get-item $input_files[0]).basename
             }
+
+            $text = [IO.Path]::Combine($folder, ("{0}_{1}.txt" -f $stem, $analysis))
+            $graph = [IO.Path]::Combine($folder, ("{0}_{1}.png" -f $stem, $analysis))
 
             $arglist = @($script, "-x", $timescale, "-o", $text, "-g", $graph, "-a", $analysis, "-b", $bleach_frame)
             if (($analysis -like 'cumulative') -or ($analysis -like 'lifetime')) {
