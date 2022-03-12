@@ -27,7 +27,7 @@ reg_area = None
 parser = argparse.ArgumentParser(description='Register time-lapse images using affine matrix and optimization', \
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('-o', '--output-image-file', default = output_json_filename, \
+parser.add_argument('-o', '--output-image-file', default = output_image_filename, \
                     help='output image file name ([basename]{0} if not specified)'.format(output_image_suffix))
 
 gpuimage.add_gpu_argument(parser)
@@ -128,12 +128,21 @@ logger.info("Using area: {0}, channel: {1}.".format(reg_area, input_channel))
 
 # calculate POCs for pre-registration
 poc_result_list = []
-logger.info("Pre-registrating using subpixel phase-only-correlation.")
 
 poc_register = register.Poc(ref_image[z_slice, reg_slice_y, reg_slice_x], gpu_id = gpu_id)
-for index in progressbar(range(input_stack.t_count)):
-    poc_result = poc_register.register_subpixel(input_stack.image_array[index, input_channel, z_slice, reg_slice_y, reg_slice_x])
-    poc_result_list.append(poc_result)
+if reg_method == 'None':
+    logger.info("Skipping Pre-registration.")
+    poc_result_list = [{'shift': [0.0, 0.0, 0.0], 'corr': 1.0}] * input_stack.t_count
+elif reg_method == 'INTPOC':
+    logger.info("Pre-registrating using coarse phase-only-correlation.")
+    for index in progressbar(range(input_stack.t_count)):
+        poc_result = poc_register.register(input_stack.image_array[index, input_channel, z_slice, reg_slice_y, reg_slice_x])
+        poc_result_list.append(poc_result)
+else:
+    logger.info("Pre-registrating using subpixel phase-only-correlation.")
+    for index in progressbar(range(input_stack.t_count)):
+        poc_result = poc_register.register_subpixel(input_stack.image_array[index, input_channel, z_slice, reg_slice_y, reg_slice_x])
+        poc_result_list.append(poc_result)
 
 poc_register = None
 

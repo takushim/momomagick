@@ -15,7 +15,7 @@ except ImportError:
 logger = getLogger(__name__)
 
 optimizing_methods = ["Auto", "Powell", "Nelder-Mead", "CG", "BFGS", "L-BFGS-B", "SLSQP", "None"]
-registering_methods = ["Full", "Rigid-Zoom", "Rigid", "Drift", "XY", "POC", "None"]
+registering_methods = ["Full", "Rigid-Zoom", "Rigid", "Drift", "XY", "POC", "INTPOC", "None"]
 
 def find_method (name, method_list):
     try:
@@ -102,10 +102,10 @@ def register (ref_image, input_image, init_shift = None, gpu_id = None, reg_meth
         else:
             # calculate POCs for pre-registration
             poc_register = Poc(ref_image, gpu_id = gpu_id)
-            if reg_method == "POC":
-                poc_result = poc_register.register_subpixel(input_image, opt_method = opt_method)
-            else:
+            if reg_method == "INTPOC":
                 poc_result = poc_register.register(input_image)
+            else:
+                poc_result = poc_register.register_subpixel(input_image, opt_method = opt_method)
             poc_register = None
             init_shift = poc_result['shift']
 
@@ -230,7 +230,7 @@ class Affine:
             else:
                 init_shift = list(init_shift)
 
-            if reg_method == 'None' or reg_method == 'POC':
+            if reg_method == 'None' or reg_method == 'POC' or reg_method == 'INTPOC':
                 init_params = init_shift
                 params_to_matrix = drift_to_matrix_2d
             elif reg_method == 'XY':
@@ -256,7 +256,7 @@ class Affine:
             else:
                 init_shift = list(init_shift)
 
-            if reg_method == 'None' or reg_method == 'POC':
+            if reg_method == 'None' or reg_method == 'POC' or reg_method == 'INTPOC':
                 init_params = init_shift
                 params_to_matrix = drift_to_matrix_3d
             elif reg_method == 'XY':
@@ -295,7 +295,7 @@ class Affine:
                 error = cp.asnumpy(cp.sum((self.ref_float - trans_float) * (self.ref_float - trans_float)))
                 return error
 
-        if reg_method == "None" or reg_method == 'POC':
+        if reg_method == "None" or reg_method == 'POC' or reg_method == 'INTPOC':
             results = optimize.OptimizeResult()
             results.x = init_params
             results.success = True

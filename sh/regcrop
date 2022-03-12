@@ -90,7 +90,7 @@ do
         scale_option=""
     fi
 
-    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -o "$output_reg" -L "$log_level" "$file"
+    mmregister.py -R 220 0 600 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -o "$output_reg" -L "$log_level" "$file"
     mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" -L "$log_level" "$output_reg"
     echo "First view: ${first_view_x}" >> $output_log
     

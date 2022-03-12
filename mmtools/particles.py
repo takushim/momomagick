@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import json
+from matplotlib.font_manager import json_load
 import pandas as pd
 from datetime import datetime
 class TreeParseException (Exception):
@@ -7,6 +9,13 @@ class TreeParseException (Exception):
         self.message = message
     def __str__ (self):
         return self.message
+
+def load_spots (filename, keep_delete = False):
+    with open(filename, 'r') as file:
+        spot_list = json.load(file).get('spot_list', [])
+        if keep_delete == False:
+            spot_list = [spot for spot in spot_list if spot['delete'] == False]
+    return spot_list
 
 def list_to_table (spot_list):
     if spot_list is None or len(spot_list) == 0:
