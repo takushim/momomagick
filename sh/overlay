@@ -32,7 +32,8 @@ shift $((OPTIND - 1))
 
 # find the overlay image
 if [[ "$file_egfp" == "" ]]; then
-    file_egfp="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_crop_0.tif' | head -n 1)"
+    #file_egfp="$(find . -maxdepth 1 -iname '*EGFP*MMStack_Pos0_crop_0.tif' | head -n 1)"
+    file_egfp="$(find . -maxdepth 1 -iname '*EGFP*fusion_?.tif' | head -n 1)"
 fi
 
 # find the fitting (bridging) image
