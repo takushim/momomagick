@@ -480,6 +480,32 @@ class Stack:
             for index in self.__apply_all(image_func, with_s_axis = with_s_axis):
                 pass
 
+    def __extend_channel (self, image_func, alloc_c_count = 0):
+        output_frames = []
+        for t_index in range(self.t_count):
+            if alloc_c_count == 0:
+                image = image_func(t_index, self.image_array.shape[2:], self.image_array.dtype)
+                while len(image.shape) < len(self.image_array.shape) - 1:
+                    image = image[np.newaxis]
+            else:
+                image_shape = [alloc_c_count] + list(self.image_array.shape[2:])
+                image = np.zeros(image_shape, dtype = self.image_array.dtype)
+                image = image_func(t_index, image)
+            output_frames.append(np.concatenate([self.image_array[t_index], np.array(image)]))
+            yield t_index
+
+        self.image_array = np.array(output_frames)
+        self.update_dimensions()
+
+    def extend_channel (self, image_func, progress = False, alloc_c_count = 0):
+        if progress:
+            with ProgressBar(max_value = self.t_count) as bar:
+                for index in self.__extend_channel(image_func, alloc_c_count = alloc_c_count):
+                    bar.update(index + 1)
+        else:
+            for index in self.__extend_channel(image_func, alloc_c_count = alloc_c_count):
+                pass
+
     def scale_by_ratio (self, ratio = 1.0, gpu_id = None, progress = False):
         ratio = gpuimage.expand_ratio(ratio)
         def scale_func (image, t_index, c_index):
