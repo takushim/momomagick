@@ -490,7 +490,7 @@ class Stack:
             else:
                 image_shape = [alloc_c_count] + list(self.image_array.shape[2:])
                 image = np.zeros(image_shape, dtype = self.image_array.dtype)
-                image = image_func(t_index, image)
+                image = image_func(image, t_index)
             output_frames.append(np.concatenate([self.image_array[t_index], np.array(image)]))
             yield t_index
 
