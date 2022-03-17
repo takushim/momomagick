@@ -61,6 +61,9 @@ parser.add_argument('-t', '--opt-method', type = str, default = opt_method, choi
 parser.add_argument('-p', '--psf-image', default = psf_filename, \
                     help='filename of psf image, searched in current folder -> program folder')
 
+parser.add_argument('-c', '--restore-scale', action = 'store_true', \
+                    help='Restore the scale of image after fusion and deconvolution')
+
 parser.add_argument('-i', '--iterations', type = int, default = iterations, \
                     help='number of iterations')
 
@@ -87,6 +90,7 @@ opt_method = args.opt_method
 psf_filename = args.psf_image
 iterations = args.iterations
 output_json = args.output_json
+restore_scale = args.restore_scale
 
 if args.output_image_file is None:
     output_image_filename = stack.with_suffix(input_filename, output_image_suffix)
@@ -101,6 +105,7 @@ else:
 # load input image
 logger.info("Loading image: {0}.".format(input_filename))
 input_stack = stack.Stack(input_filename)
+voxel_um = input_stack.voxel_um
 
 if psf_filename is None:
     psf_path = Path(psf_folder).joinpath(psf_filename)
@@ -173,6 +178,11 @@ for index in progressbar(range(input_stack.t_count)):
     else:
         output_stack.image_array[index, 0] = main_image
         output_stack.image_array[index, 1] = sub_image
+
+# restore the z scaling
+if restore_scale:
+    logger.info("Restoring the z scale into: {0}".format(voxel_um))
+    output_stack.scale_by_pixelsize(pixel_um = voxel_um, gpu_id = gpu_id, progress = True)
 
 # output image
 logger.info("Saving image: {0}.".format(output_image_filename))
