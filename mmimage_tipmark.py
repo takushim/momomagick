@@ -113,10 +113,15 @@ else:
     def current_spots (spot_list, t_index, z_index):
         return [spot for spot in spot_list if spot['time'] == t_index and spot['z'] == z_index]
 
-def mark_spots (draw, spots, color):
-    for spot in spots:
-        draw.ellipse((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
-                     outline = color, fill = None, width = marker_width)
+if marker_radius == 0:
+    def mark_spots (draw, spots, color):
+        for spot in spots:
+            draw.point((spot['x'], spot['y']), outline = color, fill = None)
+else:
+    def mark_spots (draw, spots, color):
+        for spot in spots:
+            draw.ellipse((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
+                        outline = color, fill = None, width = marker_width)
 
 def mark_func (t_index, image_shape, image_dtype):
     image = np.zeros(image_shape, dtype = image_dtype)
