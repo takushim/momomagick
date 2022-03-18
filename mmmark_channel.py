@@ -8,9 +8,9 @@ from mmtools import stack, log, particles, gpuimage
 # default values
 input_filename = None
 output_filename = None
-output_suffix = '_tip.tif'
+output_suffix = '_chmarked.tif'
 record_filename = None
-record_suffix = '_tip.json'
+record_suffix = '_track.json'
 marker_radius = 3
 marker_width = 1
 marker_color = 'grey'

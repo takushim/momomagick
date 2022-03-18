@@ -8,7 +8,7 @@ from mmtools import stack, log, particles, gpuimage
 # default values
 input_filename = None
 output_filename = None
-output_suffix = '_marked.tif'
+output_suffix = '_colmarked.tif'
 record_filename = None
 record_suffix = '_track.json'
 marker_radius = 3
