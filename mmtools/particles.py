@@ -1,14 +1,28 @@
 #!/usr/bin/env python
 
 import json
-from matplotlib.font_manager import json_load
 import pandas as pd
+from numpyencoder import NumpyEncoder
 from datetime import datetime
+
 class TreeParseException (Exception):
     def __init__ (self, message = "Unknown exception"):
         self.message = message
     def __str__ (self):
         return self.message
+
+def load_json (filename, keep_delete = False):
+    with open(filename, 'r') as file:
+        json_data = json.load(file)
+        spot_list = json_data.get('spot_list', [])
+        if keep_delete == False:
+            json_data['spot_list'] = [spot for spot in spot_list if spot['delete'] == False]
+    return json_data
+
+def save_json (filename, json_data):
+    with open(filename, 'w') as file:
+        json.dump(json_data, file, ensure_ascii = False, indent = 4, sort_keys = False, \
+                  separators = (',', ': '), cls = NumpyEncoder)
 
 def load_spots (filename, keep_delete = False):
     with open(filename, 'r') as file:
