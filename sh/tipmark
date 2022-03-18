@@ -1,0 +1,56 @@
+#!/bin/sh
+set -euo pipefail
+source $HOME/.venv/gpu/bin/activate
+
+json_tip=''
+json_track=''
+log_level='INFO'
+
+# show usage and exit
+function show_usage () {
+    echo "$(basename "$0") [-t TIP] [-r TRACK] [-L LOG] file"
+    exit 1
+}
+
+# parse options
+while getopts "t:r:L:" OPT;
+do
+    case "$OPT" in
+    t) json_tip="$OPTARG" ;;
+    r) json_track="$OPTARG" ;;
+    L) log_level="$OPTARG" ;;
+     :) show_usage ;;
+    \?) show_usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# find an image file if not specified
+if [[ $# == 0 ]]; then
+    file="$(find . -maxdepth 1 -iname '*_overlay.tif' | head -n 1)"
+else
+    file="$0"
+fi
+
+if [[ "$json_tip" == "" ]]; then
+    json_tip="$(find . -maxdepth 1 -iname '*_tip.json' | head -n 1)"
+fi
+
+if [[ "$json_track" == "" ]]; then
+    json_tip="$(find . -maxdepth 1 -iname '*_track.json' | head -n 1)"
+fi
+
+if [[ "$file" =~ '.ome.tif' ]]; then
+    stem="$(echo ${file} | sed 's/\.ome\.tif$//')"
+elif [[ "$file" =~ '.tif' ]]; then
+    stem="$(echo ${file} | sed 's/\.tif$//')"
+else
+    echo "Not an image file: ${file}"
+    continue
+fi
+
+output_tip="${stem}_tipmarked.tif"
+output_track="${stem}_trackmarked.tif"
+
+mmmark_channel.py -z -t -f "$json_tip" -o "$output_tip" -L "$log_level" "$file"
+mmmark_channel.py -z -f "$json_track" -p "$output_track" -L "$log_level" "$output_tip"
