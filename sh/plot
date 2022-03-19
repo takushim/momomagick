@@ -37,20 +37,25 @@ if [[ "$json_tip" == "" ]]; then
 fi
 
 if [[ "$json_track" == "" ]]; then
-    json_tip="$(find . -maxdepth 1 -iname '*_track.json' | head -n 1)"
+    json_track="$(find . -maxdepth 1 -iname '*_track.json' | head -n 1)"
 fi
 
 if [[ "$file" =~ '.ome.tif' ]]; then
-    stem="$(echo ${file} | sed 's/\.ome\.tif$//')"
+    image_stem="$(echo ${file} | sed 's/\.ome\.tif$//')"
 elif [[ "$file" =~ '.tif' ]]; then
-    stem="$(echo ${file} | sed 's/\.tif$//')"
+    image_stem="$(echo ${file} | sed 's/\.tif$//')"
 else
     echo "Not an image file: ${file}"
     continue
 fi
 
-output_tip="${stem}_tipmarked.tif"
-output_track="${stem}_trackmarked.tif"
+track_stem="$(echo ${json_track} | sed 's/_track\.json$//')"
 
-mmmark_channel.py -z -t -f "$json_tip" -o "$output_tip" -L "$log_level" "$file"
-mmmark_channel.py -z -f "$json_track" -p "$output_track" -L "$log_level" "$output_tip"
+output_track="${track_stem}_filtered.json"
+output_tip="${image_stem}_tip.tif"
+output_tiptrack="${image_stem}_tip_track.tif"
+
+mmmark_channel.py -o "$output_tip" -f "$json_tip" -z -t -r 2 -a 'cross' -L "$log_level" "$file"
+
+mmspotfilter.py -o "$output_track" -n "$json_track"
+mmmark_channel.py -o "$output_tiptrack" -f "$output_track" -z -r 3 -a 'circle' -L "$log_level" "$output_tip"

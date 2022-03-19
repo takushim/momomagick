@@ -14,6 +14,8 @@ record_suffix = '_track.json'
 marker_radius = 3
 marker_width = 1
 marker_color = 'grey'
+marker_shape = 'circle'
+marker_shape_list = ['circle', 'rectangle', 'cross', 'plus', 'dot']
 image_scaling = 1.0
 spot_scaling = None
 
@@ -35,6 +37,9 @@ parser.add_argument('-w', '--marker-width', type = int, default = marker_width, 
                     help='line widths of markers')
 
 parser.add_argument('-c', '--marker-color', type = str, default = marker_color, \
+                    help='color of markers.')
+
+parser.add_argument('-a', '--marker-shape', type = str, default = marker_shape, choices = marker_shape_list, \
                     help='color of markers.')
 
 parser.add_argument('-x', '--image-scaling', type = float, default = image_scaling, \
@@ -66,6 +71,8 @@ gpu_id = gpuimage.parse_gpu_argument(args)
 input_filename = args.input_file
 marker_radius = args.marker_radius
 marker_width = args.marker_width
+marker_shape = args.marker_shape
+marker_color = args.marker_color
 image_scaling = args.image_scaling
 spot_scaling = args.spot_scaling if args.spot_scaling is not None else args.image_scaling
 ignore_time = args.ignore_time
@@ -113,15 +120,36 @@ else:
     def current_spots (spot_list, t_index, z_index):
         return [spot for spot in spot_list if spot['time'] == t_index and spot['z'] == z_index]
 
-if marker_radius == 0:
-    def mark_spots (draw, spots, color):
-        for spot in spots:
-            draw.point((spot['x'], spot['y']), outline = color, fill = None)
-else:
+if marker_shape == 'circle':
     def mark_spots (draw, spots, color):
         for spot in spots:
             draw.ellipse((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
-                        outline = color, fill = None, width = marker_width)
+                         outline = color, fill = None, width = marker_width)
+elif marker_shape == 'dot':
+    def mark_spots (draw, spots, color):
+        for spot in spots:
+            draw.point((spot['x'], spot['y']), outline = color, fill = None)
+elif marker_shape == 'rectangle':
+    def mark_spots (draw, spots, color):
+        for spot in spots:
+            draw.rectangle((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
+                           outline = color, fill = None, width = marker_width)
+elif marker_shape == 'cross':
+    def mark_spots (draw, spots, color):
+        for spot in spots:
+            draw.line((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
+                      fill = color, width = marker_width)
+            draw.line((spot['x'] + marker_radius, spot['y'] - marker_radius, spot['x'] - marker_radius, spot['y'] + marker_radius),
+                      fill = color, width = marker_width)
+elif marker_shape == 'plus':
+    def mark_spots (draw, spots, color):
+        for spot in spots:
+            draw.line((spot['x'] - marker_radius, spot['y'], spot['x'] + marker_radius, spot['y']),
+                      fill = color, width = marker_width)
+            draw.line((spot['x'], spot['y'] - marker_radius, spot['x'], spot['y'] + marker_radius),
+                      fill = color, width = marker_width)
+else:
+    raise Exception('Unknown shape: {0}'.format(marker_shape))
 
 def mark_func (t_index, image_shape, image_dtype):
     image = np.zeros(image_shape, dtype = image_dtype)
