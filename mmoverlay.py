@@ -147,6 +147,8 @@ if scale_isometric:
     input_stacks[1].scale_by_pixelsize(pixel_um, gpu_id = gpu_id)
 else:
     scale_ratio = np.array(input_stacks[0].voxel_um) / np.array(input_stacks[1].voxel_um)
+    if input_stacks[0].z_count == 1:
+        scale_ratio[0] = 1
     logger.info("Scaling factor for the first image: {0}.".format(scale_ratio))
     input_stacks[0].scale_by_ratio(scale_ratio, gpu_id = gpu_id)
 

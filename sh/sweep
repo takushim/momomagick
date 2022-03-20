@@ -29,7 +29,8 @@ shift $((OPTIND - 1))
 
 # find the overlay (sweeping) image if not specified
 if [[ "$file_sweep" == "" ]]; then
-    file_sweep="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_0.tif' | head -n 1)"
+    #file_sweep="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_0.tif' | head -n 1)"
+    file_sweep="$(find . -maxdepth 1 -iname '*EGFP*fusion_?.tif' | head -n 1)"
 fi
 
 # find the background image if not specified

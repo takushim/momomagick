@@ -44,6 +44,9 @@ fi
 # find the background image 
 if [[ "$#" == 0 ]]; then
     file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_*_crop_1_deconv_res.tif' | head -n 1)"
+    if [[ "$file_back" == "" ]]; then
+        file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_*_crop_1.tif' | head -n 1)"
+    fi
 elif [[ "$#" == 1 ]]; then
     file_back="$@"
 else

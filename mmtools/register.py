@@ -72,7 +72,7 @@ def full_to_matrix_2d (params):
 def full_to_matrix_3d (params):
     return np.array([params[0:4], params[4:8], params[8:12], [0.0, 0.0, 0.0, 1.0]])
 
-def compose_matrix_2d (shift = [0.0, 0.0], rotation = [0.0], zoom = [1.0, 1.0], shear = [0.0, 0.0]):
+def compose_matrix_2d (shift = [0.0, 0.0], rotation = [0.0], zoom = [1.0, 1.0], shear = [0.0]):
     rotation = np.array(rotation).item() * np.pi / 180
     rot_mat = np.array([[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation),  np.cos(rotation)]])
     return affines.compose(shift, rot_mat, zoom, shear)
@@ -247,7 +247,7 @@ class Affine:
                 params_to_matrix = rbmzoom_to_matrix_2d
             elif reg_method == 'Full':
                 init_params = [1.0, 0.0, init_shift[0], 0.0, 1.0, init_shift[1]]
-                params_to_matrix =full_to_matrix_2d
+                params_to_matrix = full_to_matrix_2d
             else:
                 raise Exception("Unknown registration method:", reg_method)
         elif len(input_image.shape) == 3:
