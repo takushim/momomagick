@@ -57,26 +57,46 @@ def mark_spots_func (radius, linewidth = 1, shape = 'circle'):
 
     return mark_spots
 
-def draw_texts_func (offset, font_size, corner = 'NE'):
+def draw_texts_func (offset, font_size, corner = 'NE', with_lead = False, lead_offset = 0, lead_width = 1):
     font = ImageFont.truetype(font_path(), font_size)
     if corner == 'NE':
-        def center_to_offset (spot, text_width, text_height):
+        def text_pos (spot, offset, text_width, text_height):
             x = spot['x'] + offset
             y = spot['y'] - offset - text_height
             return (x, y)
     elif corner == 'NW':
-        def center_to_offset (spot, text_width, text_height):
+        def text_pos (spot, offset, text_width, text_height):
             x = spot['x'] - offset - text_width
             y = spot['y'] - offset - text_height
             return (x, y)
     elif corner == 'SE':
-        def center_to_offset (spot, text_width, text_height):
+        def text_pos (spot, offset, text_width, text_height):
             x = spot['x'] + offset
             y = spot['y'] + offset
             return (x, y)
     elif corner == 'SW':
-        def center_to_offset (spot, text_width, text_height):
+        def text_pos (spot, offset, text_width, text_height):
             x = spot['x'] - offset - text_width
+            y = spot['y'] + offset
+            return (x, y)
+    elif corner == 'N':
+        def text_pos (spot, offset, text_width, text_height):
+            x = spot['x'] - text_width // 2
+            y = spot['y'] - offset - text_height
+            return (x, y)
+    elif corner == 'E':
+        def text_pos (spot, offset, text_width, text_height):
+            x = spot['x'] + offset
+            y = spot['y'] - text_height // 2
+            return (x, y)
+    elif corner == 'W':
+        def text_pos (spot, offset, text_width, text_height):
+            x = spot['x'] - offset - text_width
+            y = spot['y'] - text_height // 2
+            return (x, y)
+    elif corner == 'S':
+        def text_pos (spot, offset, text_width, text_height):
+            x = spot['x'] - text_width // 2
             y = spot['y'] + offset
             return (x, y)
     else:
@@ -88,6 +108,13 @@ def draw_texts_func (offset, font_size, corner = 'NE'):
             if text is None:
                 continue
             width, height = font.getsize(text)
-            draw.text(center_to_offset(spot, width, height), text, font = font, fill = color)
+            if with_lead:
+                line_start = text_pos(spot, offset, 0, 0)
+                line_end = text_pos(spot, lead_offset, 0, 0)
+                draw.line((line_start, line_end), width = lead_width, fill = color)
+                draw.text(text_pos(spot, offset + lead_offset, width, height), text, font = font, fill = color)
+            else:
+                draw.text(text_pos(spot, offset, width, height), text, font = font, fill = color)
+
 
     return draw_texts

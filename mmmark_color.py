@@ -16,6 +16,8 @@ marker_width = 1
 marker_colors = ['red', 'orange', 'blue']
 clip_percentile = 0.0
 image_scaling = 1.0
+life_lead_offset = 0
+life_font_size = 10
 spot_scaling = None
 
 # parse arguments
@@ -50,6 +52,12 @@ parser.add_argument('-s', '--spot-scaling', type = float, default = spot_scaling
 parser.add_argument('-l', '--draw-life', action = 'store_true', \
                     help='draw lifetimes for the first spots')
 
+parser.add_argument('-d', '--life-lead-offset', type = int, default = life_lead_offset, \
+                    help='offset to draw lifetimes')
+
+parser.add_argument('-n', '--life-font-size', type = int, default = life_font_size, \
+                    help='font size to draw lifetimes')
+
 parser.add_argument('-i', '--invert-lut', action = 'store_true', \
                     help='invert the LUT of output image')
 
@@ -73,6 +81,8 @@ marker_width = args.marker_width
 marker_colors = args.marker_colors
 invert_lut = args.invert_lut
 draw_life = args.draw_life
+life_font_size = args.life_font_size
+life_lead_offset = args.life_lead_offset
 clip_percentile = args.clip_percentile
 image_scaling = args.image_scaling
 spot_scaling = args.spot_scaling if args.spot_scaling is not None else args.image_scaling
@@ -128,7 +138,12 @@ for spot_first in spots_first:
 # marking functions
 mark_spots = draw.mark_spots_func(marker_radius, marker_width)
 mark_ones = draw.mark_spots_func(marker_radius, marker_width, shape = 'arc')
-draw_texts = draw.draw_texts_func(marker_radius, 10)
+
+if life_lead_offset > 0:
+    draw_texts = draw.draw_texts_func(marker_radius, life_font_size, with_lead = True, \
+                                      lead_offset = life_lead_offset, lead_width = marker_width)
+else:
+    draw_texts = draw.draw_texts_func(marker_radius, life_font_size)
 
 def current_spots (spot_list, t_index, c_index, z_index):
     return [spot for spot in spot_list if spot['time'] == t_index and spot['channel'] == c_index and spot['z'] == z_index]

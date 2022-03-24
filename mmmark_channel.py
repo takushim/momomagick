@@ -18,6 +18,8 @@ marker_shape = 'circle'
 marker_shape_list = ['circle', 'rectangle', 'cross', 'plus', 'dot']
 image_scaling = 1.0
 spot_scaling = None
+life_lead_offset = 0
+life_font_size = 10
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Mark detected spots on background images', \
@@ -57,6 +59,12 @@ parser.add_argument('-z', '--ignore-z-index', action = 'store_true', \
 parser.add_argument('-l', '--draw-life', action = 'store_true', \
                     help='draw lifetimes for the first spots')
 
+parser.add_argument('-d', '--life-lead-offset', type = int, default = life_lead_offset, \
+                    help='offset to draw lifetimes')
+
+parser.add_argument('-n', '--life-font-size', type = int, default = life_font_size, \
+                    help='font size to draw lifetimes')
+
 log.add_argument(parser)
 
 parser.add_argument('input_file', default = input_filename, \
@@ -78,6 +86,8 @@ marker_shape = args.marker_shape
 marker_color = args.marker_color
 image_scaling = args.image_scaling
 draw_life = args.draw_life
+life_font_size = args.life_font_size
+life_lead_offset = args.life_lead_offset
 spot_scaling = args.spot_scaling if args.spot_scaling is not None else args.image_scaling
 ignore_time = args.ignore_time
 ignore_z_index = args.ignore_z_index
@@ -131,7 +141,11 @@ else:
         return [spot for spot in spot_list if spot['time'] == t_index and spot['z'] == z_index]
 
 mark_spots = draw.mark_spots_func(marker_radius, marker_width, marker_shape)
-draw_texts = draw.draw_texts_func(marker_radius, marker_radius)
+if life_lead_offset > 0:
+    draw_texts = draw.draw_texts_func(marker_radius, life_font_size, with_lead = True, \
+                                      lead_offset = life_lead_offset, lead_width = marker_width)
+else:
+    draw_texts = draw.draw_texts_func(marker_radius, life_font_size)
 
 def mark_func (t_index, image_shape, image_dtype):
     image = np.zeros(image_shape, dtype = image_dtype)
