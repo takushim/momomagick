@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-import argparse, platform
+import argparse
 import numpy as np
 from itertools import product
 from progressbar import progressbar
 from PIL import Image, ImageDraw, ImageFont
-from mmtools import stack, log, gpuimage
+from mmtools import stack, log, gpuimage, draw
 
 # default values
 input_filenames = None
@@ -74,14 +74,7 @@ if args.output_file is None:
 else:
     output_filename = args.output_file
 
-if platform.system() == "Windows":
-    font_filename = 'C:/Windows/Fonts/Arial.ttf'
-elif platform.system() == "Linux":
-    font_filename = '/usr/share/fonts/dejavu/DejaVuSans.ttf'
-elif platform.system() == "Darwin":
-    font_filename = '/Library/Fonts/Verdana.ttf'
-else:
-    raise Exception('Unknown operating system. Font cannot be loaded.')
+font_filename = draw.font_path()
 
 # read images
 input_stacks = [stack.Stack(file) for file in input_filenames]

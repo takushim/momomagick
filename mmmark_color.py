@@ -3,7 +3,7 @@
 import argparse
 import numpy as np
 from PIL import Image, ImageDraw
-from mmtools import stack, log, particles, gpuimage
+from mmtools import stack, log, particles, gpuimage, draw
 
 # default values
 input_filename = None
@@ -47,6 +47,9 @@ parser.add_argument('-x', '--image-scaling', type = float, default = image_scali
 parser.add_argument('-s', '--spot-scaling', type = float, default = spot_scaling, \
                     help='scaling factor of spot coordinates. scaling factor of images used for None.')
 
+parser.add_argument('-l', '--draw-life', action = 'store_true', \
+                    help='draw lifetimes for the first spots')
+
 parser.add_argument('-i', '--invert-lut', action = 'store_true', \
                     help='invert the LUT of output image')
 
@@ -69,6 +72,7 @@ marker_radius = args.marker_radius
 marker_width = args.marker_width
 marker_colors = args.marker_colors
 invert_lut = args.invert_lut
+draw_life = args.draw_life
 clip_percentile = args.clip_percentile
 image_scaling = args.image_scaling
 spot_scaling = args.spot_scaling if args.spot_scaling is not None else args.image_scaling
@@ -102,7 +106,7 @@ input_stack.add_s_axis(s_count = 3)
 
 # read the JSON file
 logger.info("Reading records: {0}.".format(record_filename))
-spot_list = particles.load_spots(record_filename)
+spot_list = particles.parse_tree(particles.load_spots(record_filename))
 
 if np.isclose(spot_scaling, 1.0) == False:
     logger.info("Scaling spots by: {0}.".format(spot_scaling))
@@ -116,16 +120,15 @@ spots_last = [spot for spot in spot_list if (len(particles.find_children(spot, s
 spots_cont = [spot for spot in spot_list if spot not in (spots_first + spots_last)]
 spots_one = [spot for spot in spots_first if (len(particles.find_children(spot, spot_list)) == 0)]
 
-# marking functions
-def mark_spots (draw, spots, color):
-    for spot in spots:
-        draw.ellipse((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
-                     outline = color, fill = None, width = marker_width)
+# add lifetime as text
+for spot_first in spots_first:
+    count = len([spot for spot in spot_list if spot['track'] == spot_first['track']])
+    spot_first['text'] = str(count)
 
-def mark_ones (draw, spots, color):
-    for spot in spots:
-        draw.arc((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
-                 start = 315, end = 135, fill = color, width = marker_width)
+# marking functions
+mark_spots = draw.mark_spots_func(marker_radius, marker_width)
+mark_ones = draw.mark_spots_func(marker_radius, marker_width, shape = 'arc')
+draw_texts = draw.draw_texts_func(marker_radius, 10)
 
 def current_spots (spot_list, t_index, c_index, z_index):
     return [spot for spot in spot_list if spot['time'] == t_index and spot['channel'] == c_index and spot['z'] == z_index]
@@ -139,6 +142,9 @@ def mark_func (image, t_index, c_index):
         mark_spots(draw, current_spots(spots_cont, t_index, c_index, z_index), marker_colors[1])
         mark_spots(draw, current_spots(spots_last, t_index, c_index, z_index), marker_colors[2])
         mark_ones(draw, current_spots(spots_one, t_index, c_index, z_index), marker_colors[2])
+
+        if draw_life:
+            draw_texts(draw, current_spots(spots_first, t_index, c_index, z_index), marker_colors[0])
 
         image[z_index] = np.array(z_image)
 

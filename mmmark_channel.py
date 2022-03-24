@@ -3,7 +3,7 @@
 import argparse
 import numpy as np
 from PIL import Image, ImageDraw
-from mmtools import stack, log, particles, gpuimage
+from mmtools import stack, log, particles, gpuimage, draw
 
 # default values
 input_filename = None
@@ -54,6 +54,9 @@ parser.add_argument('-t', '--ignore-time', action = 'store_true', \
 parser.add_argument('-z', '--ignore-z-index', action = 'store_true', \
                     help='ignore the z index (useful for marking on a maximum projection)')
 
+parser.add_argument('-l', '--draw-life', action = 'store_true', \
+                    help='draw lifetimes for the first spots')
+
 log.add_argument(parser)
 
 parser.add_argument('input_file', default = input_filename, \
@@ -74,6 +77,7 @@ marker_width = args.marker_width
 marker_shape = args.marker_shape
 marker_color = args.marker_color
 image_scaling = args.image_scaling
+draw_life = args.draw_life
 spot_scaling = args.spot_scaling if args.spot_scaling is not None else args.image_scaling
 ignore_time = args.ignore_time
 ignore_z_index = args.ignore_z_index
@@ -98,7 +102,13 @@ if np.isclose(image_scaling, 1.0) == False:
 
 # read the JSON file
 logger.info("Reading records: {0}.".format(record_filename))
-spot_list = particles.load_spots(record_filename)
+spot_list = particles.parse_tree(particles.load_spots(record_filename))
+
+# add lifetime as text
+for spot in spot_list:
+    if spot['parent'] is None:
+        count = len([s for s in spot_list if s['track'] == spot['track']])
+        spot['text'] = str(count)
 
 if np.isclose(spot_scaling, 1.0) == False:
     logger.info("Scaling spots by: {0}.".format(spot_scaling))
@@ -120,36 +130,8 @@ else:
     def current_spots (spot_list, t_index, z_index):
         return [spot for spot in spot_list if spot['time'] == t_index and spot['z'] == z_index]
 
-if marker_shape == 'circle':
-    def mark_spots (draw, spots, color):
-        for spot in spots:
-            draw.ellipse((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
-                         outline = color, fill = None, width = marker_width)
-elif marker_shape == 'dot':
-    def mark_spots (draw, spots, color):
-        for spot in spots:
-            draw.point((spot['x'], spot['y']), outline = color, fill = None)
-elif marker_shape == 'rectangle':
-    def mark_spots (draw, spots, color):
-        for spot in spots:
-            draw.rectangle((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
-                           outline = color, fill = None, width = marker_width)
-elif marker_shape == 'cross':
-    def mark_spots (draw, spots, color):
-        for spot in spots:
-            draw.line((spot['x'] - marker_radius, spot['y'] - marker_radius, spot['x'] + marker_radius, spot['y'] + marker_radius),
-                      fill = color, width = marker_width)
-            draw.line((spot['x'] + marker_radius, spot['y'] - marker_radius, spot['x'] - marker_radius, spot['y'] + marker_radius),
-                      fill = color, width = marker_width)
-elif marker_shape == 'plus':
-    def mark_spots (draw, spots, color):
-        for spot in spots:
-            draw.line((spot['x'] - marker_radius, spot['y'], spot['x'] + marker_radius, spot['y']),
-                      fill = color, width = marker_width)
-            draw.line((spot['x'], spot['y'] - marker_radius, spot['x'], spot['y'] + marker_radius),
-                      fill = color, width = marker_width)
-else:
-    raise Exception('Unknown shape: {0}'.format(marker_shape))
+mark_spots = draw.mark_spots_func(marker_radius, marker_width, marker_shape)
+draw_texts = draw.draw_texts_func(marker_radius, marker_radius)
 
 def mark_func (t_index, image_shape, image_dtype):
     image = np.zeros(image_shape, dtype = image_dtype)
@@ -157,6 +139,8 @@ def mark_func (t_index, image_shape, image_dtype):
         z_image = Image.fromarray(image[z_index])
         draw = ImageDraw.Draw(z_image)
         mark_spots(draw, current_spots(spot_list, t_index, z_index), marker_color)
+        if draw_life:
+            draw_texts(draw, current_spots(spot_list, t_index, z_index), marker_color)
         image[z_index] = np.array(z_image)
     return image
 
