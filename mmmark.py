@@ -34,7 +34,7 @@ parser.add_argument('-o', '--output-file', default = output_filename, \
 gpuimage.add_gpu_argument(parser)
 
 parser.add_argument('-f', '--record-file', default = record_filename, \
-                    help='TSV file or TrackJ CSV file ([basename].txt if not specified)')
+                    help='JSON file recording spots ([basename]{0} by default)'.format(record_suffix))
 
 parser.add_argument('-r', '--marker-radius', type = int, default = marker_radius, \
                     help='radii of markers')
