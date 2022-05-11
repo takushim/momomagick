@@ -216,6 +216,13 @@ for index in progressbar(range(max_frames)):
     for c_index in range(input_stacks[0].c_count):
         image = input_stacks[0].image_array[t_indexes[0], c_index].astype(float)
         image = gpuimage.resize(image, output_shape[2:], centering = True)
+
+        matrix = affine_result_list[index]['matrix']
+        if len(matrix) == 4:
+            matrix[0:3, 3] = matrix[0:3, 3] + post_shift
+        else:
+            matrix[0:2, 2] = matrix[0:2, 2] + post_shift[1:]
+
         image = gpuimage.affine_transform(image, affine_result_list[index]['matrix'], gpu_id = gpu_id)
         output_stack.image_array[index, c_index] = image
 
