@@ -20,6 +20,7 @@ image_scaling = 1.0
 life_lead_offset = 0
 life_font_size = 10
 spot_scaling = None
+spot_shift = [0.0, 0.0, 0.0]
 
 # constants
 marker_color = 'gray'
@@ -53,6 +54,9 @@ parser.add_argument('-x', '--image-scaling', type = float, default = image_scali
 
 parser.add_argument('-s', '--spot-scaling', type = float, default = spot_scaling, \
                     help='scaling factor of spot coordinates. scaling factor of images used for None.')
+
+parser.add_argument('-S', '--spot-shift', nargs = 3, type = float, default = spot_shift, \
+                    metavar = ('X', 'Y', 'Z'), help='Shift the spots.')
 
 parser.add_argument('-l', '--draw-life', action = 'store_true', \
                     help='draw lifetimes for the first spots')
@@ -100,6 +104,7 @@ life_lead_offset = args.life_lead_offset
 image_scaling = args.image_scaling
 new_channel = args.new_channel
 spot_scaling = args.spot_scaling if args.spot_scaling is not None else args.image_scaling
+spot_shift = args.spot_shift[::-1]
 ignore_time = args.ignore_time
 ignore_z_index = args.ignore_z_index
 
@@ -130,6 +135,13 @@ for spot in spot_list:
     if spot['parent'] is None:
         count = len([s for s in spot_list if s['track'] == spot['track']])
         spot['text'] = str(count)
+
+# shift spots
+for pos, shift in zip(['z', 'y', 'x'], spot_shift):
+    if np.isclose(shift, 0.0) == False:
+        logger.info("Shifting {0} by {1}.".format(pos, shift))
+        for spot in spot_list:
+            spot[pos] = spot[pos] + shift
 
 # scale spot coordinates if necessary
 if np.isclose(spot_scaling, 1.0) == False:
