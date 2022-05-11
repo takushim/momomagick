@@ -1,5 +1,6 @@
 # get/set parameters from command line arguments
 Param([Switch]$help = $false,
+      [Switch]$original = $false,
       [String[]]$folders)
 
 if (($help -eq $true) -or ($folders.Count -eq 0)) {
@@ -13,20 +14,29 @@ $logfile = 'fetch.log'
 . $HOME\.venv\gpu\Scripts\Activate.ps1
 
 # select a file if $file is a folder name
-$globs = @(
-           "*poc_crop_1_deconv_res.tif",
-           "*poc_crop_1_deconv_iso.tif",
-           "*poc_crop_1_deconv.tif",
-           "*poc_crop_1.tif",
-           "*drift_crop_1_deconv_res.tif",
-           "*drift_crop_1_deconv_iso.tif",
-           "*drift_crop_1_deconv.tif",
-           "*drift_crop_1.tif",
-           "*_crop_1_deconv_res.tif",
-           "*_crop_1_deconv_iso.tif",
-           "*_crop_1_deconv.tif",
-           "*_crop_1.tif"
-           )
+if ($original -eq $true) {
+      $globs = @(
+            "*poc_crop_1.tif",
+            "*drift_crop_1.tif",
+            "*_crop_1.tif"
+            )
+}
+else {
+      $globs = @(
+            "*poc_crop_1_deconv_res.tif",
+            "*poc_crop_1_deconv_iso.tif",
+            "*poc_crop_1_deconv.tif",
+            "*poc_crop_1.tif",
+            "*drift_crop_1_deconv_res.tif",
+            "*drift_crop_1_deconv_iso.tif",
+            "*drift_crop_1_deconv.tif",
+            "*drift_crop_1.tif",
+            "*_crop_1_deconv_res.tif",
+            "*_crop_1_deconv_iso.tif",
+            "*_crop_1_deconv.tif",
+            "*_crop_1.tif"
+            )
+}
 
 # expand folders
 $folders = (get-item $folders)

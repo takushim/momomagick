@@ -132,9 +132,8 @@ spot_list = particles.parse_tree(particles.load_spots(record_filename))
 
 # add lifetime as text
 for spot in spot_list:
-    if spot['parent'] is None:
-        count = len([s for s in spot_list if s['track'] == spot['track']])
-        spot['text'] = str(count)
+    count = len([s for s in spot_list if s['track'] == spot['track']])
+    spot['text'] = str(count)
 
 # shift spots
 for pos, shift in zip(['z', 'y', 'x'], spot_shift):
