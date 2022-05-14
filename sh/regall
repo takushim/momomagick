@@ -7,7 +7,7 @@ second_view_x=1400
 log_level='INFO'
 keyword='fix100ms'
 regmethod='POC'
-devonv=0
+deconv=0
 dry_run=0
 
 # show usage and exit
