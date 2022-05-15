@@ -33,7 +33,7 @@ def mark_spots_func (radius, linewidth = 1, shape = 'circle', draw_half = False)
         elif shape == 'dot':
             def mark_spots (draw, spots, color):
                 for spot in spots:
-                    draw.point((spot['x'], spot['y']), outline = color, fill = None)
+                    draw.point((spot['x'], spot['y']), fill = color)
         elif shape == 'rectangle':
             def mark_spots (draw, spots, color):
                 for spot in spots:
