@@ -77,18 +77,19 @@ do
 	output_crop_0="${stem}_${reg_method,,}_crop_0.tif"
 	output_crop_1="${stem}_${reg_method,,}_crop_1.tif"
 	output_proj="${stem}_${reg_method,,}_crop_1_proj.tif"
-	output_deconv="${stem}_${reg_method,,}_crop_1_deconv.tif"
     output_log="${stem}_regcrop.log"
-
-    echo "Registration & cropping:" $(date) > $output_log
-    echo "Method: ${reg_method,,}" >> $output_log
 
     if [[ $scale_iso == 1 ]]; then
         echo "Isomertic scaling is ON during registration." >> $output_log
         scale_option="-s"
+    	output_deconv="${stem}_${reg_method,,}_crop_1_deconv_iso.tif"
     else
         scale_option=""
+    	output_deconv="${stem}_${reg_method,,}_crop_1_deconv_res.tif"
     fi
+
+    echo "Registration & cropping:" $(date) > $output_log
+    echo "Method: ${reg_method,,}" >> $output_log
 
     mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -o "$output_reg" -L "$log_level" "$file"
     mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" -L "$log_level" "$output_reg"
