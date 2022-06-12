@@ -12,7 +12,7 @@ dry_run=0
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-f X1] [-s X2] [-d] [-D] keyword"
+    echo "$(basename "$0") [-f X1] [-s X2] [-d] [-D] [-e REG] keyword"
     echo "Default settings:"
     echo "- first_view_x: ${first_view_x}"
     echo "- second_view_x: ${second_view_x}"
@@ -21,12 +21,13 @@ function show_usage () {
 }
 
 # parse options
-while getopts "f:s:L:dD" OPT;
+while getopts "f:s:L:e:dD" OPT;
 do
     case "$OPT" in
     f) first_view_x="$OPTARG" ;;
     s) second_view_x="$OPTARG" ;;
     d) deconv=1 ;;
+    e) regmethod="$OPTARG" ;;
     D) dry_run=1 ;;
     L) log_level="$OPTARG" ;;
     :) show_usage ;;
