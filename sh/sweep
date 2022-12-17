@@ -5,21 +5,25 @@ source $HOME/.venv/gpu/bin/activate
 z_index=""
 file_sweep=""
 auto_sweep=0
+x_range="-X -40 40 0.5"
+y_range="-Y -10 10 0.5"
 log_level='INFO'
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-a] [-z Z_INDEX] [-s FILE_SWEEP] [-L LOG] FILE_BACK"
+    echo "$(basename "$0") [-a] [-z Z_INDEX] [-X FROM TO STEP] [-Y FROM TO STEP] [-s FILE_SWEEP] [-L LOG] FILE_BACK"
     exit 1
 }
 
 # parse options
-while getopts "az:s:" OPT;
+while getopts "az:s:X:Y:L:" OPT;
 do
     case "$OPT" in
     a) auto_sweep=1 ;;
     z) z_index="$OPTARG" ;;
     s) file_sweep="$OPTARG" ;;
+    X) x_range="-X ${OPTARG}" ;;
+    Y) y_range="-Y ${OPTARG}" ;;
     L) log_level="$OPTARG" ;;
     :) show_usage ;;
     \?) show_usage ;;
@@ -30,12 +34,12 @@ shift $((OPTIND - 1))
 # find the overlay (sweeping) image if not specified
 if [[ "$file_sweep" == "" ]]; then
     #file_sweep="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_0.tif' | head -n 1)"
-    file_sweep="$(find . -maxdepth 1 -iname '*EGFP*fusion_?.tif' | head -n 1)"
+    file_sweep="$(find . -maxdepth 1 -iname 'MAX*EGFP*.tif' | head -n 1)"
 fi
 
 # find the background image if not specified
 if [[ "$#" == 0 ]]; then
-    file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_drift_crop_1.tif' | head -n 1)"
+    file_back="$(find . -maxdepth 1 -iname '*MMStack_Pos0_*_crop_1.tif' | head -n 1)"
 elif [[ "$#" == 1 ]]; then
     file_back="$@"
 else
@@ -50,7 +54,6 @@ elif [[ "$file_back" =~ '.tif' ]]; then
     stem="$(echo ${file_back} | sed 's/\.tif$//')"
 else
     echo "Not an image file: ${file_back}"
-    continue
 fi
 
 output_sweep="${stem}_sweep.tif"
@@ -64,5 +67,5 @@ fi
 if [[ $auto_sweep == 1 ]]; then
     mmoverlay.py -g 0 -o "$output_sweep" -c 0 0 -n -e XY "$file_sweep" -L "$log_level" "$file_back"
 else
-    mmsweep.py -g 0 -o "$output_sweep" -X -40 40 0.5 -Y -10 10 0.5 -c 0 0 $z_option -L "$log_level" "$file_sweep" "$file_back"
+    mmimage_sweep.py -g 0 -o "$output_sweep" $x_range $y_range -c 0 0 $z_option -L "$log_level" "$file_sweep" "$file_back"
 fi
