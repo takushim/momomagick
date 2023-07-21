@@ -8,19 +8,21 @@ deconv=0
 iter=10
 first_view_x=370
 second_view_x=1400
+reg_view_x=""
 scale_iso=0
 psf_file=""
 log_level='INFO'
 
 # show usage and exit
 function show_usage () {
-    echo "$(basename "$0") [-f X1] [-s X2] [-p PSF] [-e REG] [-t OPT] [-z] [-d] [-i ITER] [-L LOG] file [file ...]"
+    echo "$(basename "$0") [-f X1] [-s X2] [-r X3/@1/@2] [-p PSF] [-e REG] [-t OPT] [-z] [-d] [-i ITER] [-L LOG] file [file ...]"
     echo "Default settings:"
     echo "- psf_file: ${psf_file} (None for default)"
     echo "- reg_method: ${reg_method}"
     echo "- opt_method: ${opt_method}"
     echo "- first_view_x: ${first_view_x}"
     echo "- second_view_x: ${second_view_x}"
+    echo "- reg_view_x: ${reg_view_x}"
     echo "- scale_iso: ${scale_iso}"
     echo "- deconv: ${deconv}"
     echo "** Use -f 370 -s 1520 for old images. **"
@@ -28,11 +30,12 @@ function show_usage () {
 }
 
 # parse options
-while getopts "f:s:p:e:di:zt:L:" OPT;
+while getopts "f:s:r:p:e:di:zt:L:" OPT;
 do
     case "$OPT" in
     f) first_view_x="$OPTARG" ;;
     s) second_view_x="$OPTARG" ;;
+    r) reg_view_x="$OPTARG" ;;
     p) psf_file="$OPTARG" ;;
     e) reg_method="$OPTARG" ;;
     t) opt_method="$OPTARG" ;;
@@ -62,6 +65,17 @@ else
     psf_option2="$psf_file"
 fi
 
+# reg view
+if [[ "$reg_view_x" == "" ]]; then
+    reg_view_x="${first_view_x}"
+else
+    if [[ "$reg_view_x" == "@1" ]]; then
+        reg_view_x="${first_view_x}"
+    elif [[ "$reg_view_x" == "@2" ]]; then
+        reg_view_x="${second_view_x}"
+    fi
+fi
+
 # process!
 for file in "${files[@]}"
 do
@@ -76,7 +90,6 @@ do
 	output_reg="${stem}_${reg_method,,}.tif"
 	output_crop_0="${stem}_${reg_method,,}_crop_0.tif"
 	output_crop_1="${stem}_${reg_method,,}_crop_1.tif"
-	output_proj="${stem}_${reg_method,,}_crop_1_proj.tif"
     output_log="${stem}_regcrop.log"
 
     if [[ $scale_iso == 1 ]]; then
@@ -90,8 +103,9 @@ do
 
     echo "Registration & cropping:" $(date) > $output_log
     echo "Method: ${reg_method,,}" >> $output_log
+    echo "Reg view: ${reg_view_x}" >> $output_log
 
-    mmregister.py -R "$first_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -o "$output_reg" -L "$log_level" "$file"
+    mmregister.py -R "$reg_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -o "$output_reg" -L "$log_level" "$file"
     mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" -L "$log_level" "$output_reg"
     echo "First view: ${first_view_x}" >> $output_log
     
