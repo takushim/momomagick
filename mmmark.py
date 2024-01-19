@@ -38,13 +38,13 @@ parser.add_argument('-f', '--record-file', default = record_filename, \
                     help='JSON file recording spots ([basename]{0} by default)'.format(record_suffix))
 
 parser.add_argument('-r', '--marker-radius', type = int, default = marker_radius, \
-                    help='radii of markers')
+                    help='radius of markers')
 
 parser.add_argument('-w', '--marker-width', type = int, default = marker_width, \
                     help='line widths of markers')
 
 parser.add_argument('-m', '--marker-colors', nargs = 3, type = str, default = marker_colors, metavar=('NEW', 'CONT', 'END'), \
-                    help='marker colors for new, tracked, disappearing, and redundant spots')
+                    help='marker colors for new, tracked, disappearing spots')
 
 parser.add_argument('-a', '--marker-shape', type = str, default = marker_shape, choices = marker_shape_list, \
                     help='color of markers.')
