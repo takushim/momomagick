@@ -1,16 +1,16 @@
-# momoassist
+# momomagick
 
 A python toolbox for manipulating 2D/3D microscope multichannel time-lapse images saved in the TIFF or OME-TIFF format (X-Y-C-Z-T), especially those acquired with the [diSPIM light-sheet microscope](http://dispim.org) using [Micro-Manager](https://micro-manager.org/). The python scripts in this toolbox are used in our next paper, whose preprint will be available soon.
 
-**momoassist** was named after [Micro-Manager](https://micro-manager.org/), the famous software for controlling microscope hardware, and also after our hamster, **Momo**, who survived the COVID-19 pandemic with our family.
+**momomagick** was named after [Micro-Manager](https://micro-manager.org/), the famous software for controlling microscope hardware, [ImageMagick](https://imagemagick.org/) and also after our hamster, **Momo**, who survived the COVID-19 pandemic with our family.
 
-![momo.jpg](https://github.com/takushim/momoassist/raw/main/images/momo.jpg)
+![momo.jpg](https://github.com/takushim/momomagick/raw/main/images/momo.jpg)
 
 Momo (2019-2020, RIP)
 
 ## Introduction
 
-**momoassist** is a set of python scripts to handle 2D/3D images saved in the TIFF or OME-TIFF format. In this document, the basic usage of the scripts are described using the following sample images.
+**momomagick** is a set of python scripts to handle 2D/3D images saved in the TIFF or OME-TIFF format. In this document, the basic usage of the scripts are described using the following sample images.
 * time_lapse_2d.tif (in prep) - image cropping and registration
 * time_lapse_3d.tif (in prep) - image cropping and registration
 * single_channel_3d.tif (in prep) - deconvolution
@@ -52,13 +52,13 @@ pip install numpy pandas scipy Pillow tifffile ome-types NumpyEncoder statsmodel
 
 ### Installation
 
-Download the zip file from my [GitHub repository](https://github.com/takushim/momoassist) and place all the files in an appropriate folder, for example, `C:\Users\[username]\momoassist` or `C:\Users\[username]\bin\momoassist`. Add the installed folder to the `PATH` environment variable.
+Download the zip file from my [GitHub repository](https://github.com/takushim/momomagick) and place all the files in an appropriate folder, for example, `C:\Users\[username]\momomagick` or `C:\Users\[username]\bin\momomagick`. Add the installed folder to the `PATH` environment variable.
 
 **Note:** If you are using PowerShell, add `.PY` to the PATHEXT environment variable. Otherwise, Python will start in a separate window and finishes soon.
 
 If [git](https://git-scm.com/) is installed, my git repository can be cloned using the following commend:
 ```
-git clone https://github.com/takushim/momoassist.git
+git clone https://github.com/takushim/momomagick.git
 ```
 
 ### Scripts in this toolkit
