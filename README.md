@@ -4,7 +4,7 @@ A python toolbox for manipulating 2D/3D microscope multichannel time-lapse image
 
 **momomagick** was named after [Micro-Manager](https://micro-manager.org/), the famous software for controlling microscope hardware, [ImageMagick](https://imagemagick.org/) and also after our hamster, **Momo**, who survived the COVID-19 pandemic with our family.
 
-![momo.jpg](https://github.com/takushim/momomagick/raw/main/images/momo.jpg)
+![momo.jpg](https://github.com/takushim/momomagick/raw/main/samples/momo.jpg)
 
 Momo (2019-2020, RIP)
 
