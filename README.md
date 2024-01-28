@@ -1,6 +1,6 @@
 # momomagick
 
-A python toolbox for manipulating 2D/3D microscope multichannel time-lapse images saved in the TIFF or OME-TIFF format (X-Y-C-Z-T), especially those acquired with the [diSPIM light-sheet microscope](http://dispim.org) using [Micro-Manager](https://micro-manager.org/). The python scripts in this toolbox are used in our next paper, whose preprint will be available soon.
+A python toolbox for manipulating 2D/3D microscope multichannel time-lapse images saved in the TIFF or OME-TIFF format (X-Y-C-Z-T), especially those acquired with the [diSPIM light-sheet microscope](http://dispim.org) using [Micro-Manager](https://micro-manager.org/). This toolkit supports **accelaration using nVidia GPU boards**. The python scripts in this toolbox are used in our next paper, whose preprint will be available soon.
 
 **momomagick** was named after [Micro-Manager](https://micro-manager.org/), the famous software for controlling microscope hardware, [ImageMagick](https://imagemagick.org/) and the tiny friend of our family, **Momo**, who survived the COVID-19 pandemic with our family.
 
