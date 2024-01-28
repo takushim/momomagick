@@ -1,6 +1,5 @@
 #!/bin/sh
 set -euo pipefail
-source $HOME/.venv/gpu/bin/activate
 
 json_tip=''
 json_track=''
@@ -25,11 +24,12 @@ do
 done
 shift $((OPTIND - 1))
 
-# find an image file if not specified
-if [[ $# == 0 ]]; then
-    file="$(find . -maxdepth 1 -iname '*_overlay.tif' | head -n 1)"
+# set the image list
+if [ $# == 0 ]; then
+    echo "Specify at least one image file."
+    exit 1
 else
-    file="$0"
+    files=("$@")
 fi
 
 if [[ "$json_tip" == "" ]]; then

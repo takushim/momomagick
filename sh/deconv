@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source $HOME/.venv/gpu/bin/activate
 
 iter=10
 no_scale=0
@@ -27,9 +26,10 @@ do
 done
 shift $((OPTIND - 1))
 
-# find an image file if not specified
+# set the image list
 if [ $# == 0 ]; then
-    readarray -t files < <(find . -maxdepth 1 -iname '*_crop_1.tif')
+    echo "Specify at least one image file."
+    exit 1
 else
     files=("$@")
 fi

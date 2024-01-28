@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source $HOME/.venv/gpu/bin/activate
 
 # show usage and exit
 function show_usage () {
@@ -20,9 +19,10 @@ do
 done
 shift $((OPTIND - 1))
 
-# find an image file if not specified
+# set the image list
 if [ $# == 0 ]; then
-    files=("$(find . -maxdepth 1 -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
+    echo "Specify at least one image file."
+    exit 1
 else
     files=("$@")
 fi

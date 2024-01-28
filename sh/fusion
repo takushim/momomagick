@@ -1,6 +1,5 @@
 #!/bin/sh
 set -euo pipefail
-source $HOME/.venv/gpu/bin/activate
 
 iters=0
 reg_method="Full"
@@ -42,13 +41,15 @@ if [[ $path_a == 0 && $path_b == 0 ]]; then
     path_b=1
 fi
 
-# find an image file if not specified
+# set the image list
 if [ $# == 0 ]; then
-    files=("$(find . -maxdepth 1 -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
+    echo "Specify at least one image file."
+    exit 1
 else
     files=("$@")
 fi
 
+# process!
 for file in "${files[@]}"
 do
     if [[ "$file" =~ '.ome.tif' ]]; then

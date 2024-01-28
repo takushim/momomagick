@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source $HOME/.venv/gpu/bin/activate
 
 reg_method="POC"
 opt_method="Powell"
@@ -25,7 +24,6 @@ function show_usage () {
     echo "- reg_view_x: ${reg_view_x}"
     echo "- scale_iso: ${scale_iso}"
     echo "- deconv: ${deconv}"
-    echo "** Use -f 370 -s 1520 for old images. **"
     exit 1
 }
 
@@ -49,9 +47,10 @@ do
 done
 shift $((OPTIND - 1))
 
-# find an image file if not specified
+# set the image list
 if [ $# == 0 ]; then
-    files=("$(find . -maxdepth 1 -iname '*MMStack_Pos0.ome.tif' | head -n 1)")
+    echo "Specify at least one image file."
+    exit 1
 else
     files=("$@")
 fi

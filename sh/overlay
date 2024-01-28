@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source $HOME/.venv/gpu/bin/activate
 
 file_egfp=""
 file_back=""
