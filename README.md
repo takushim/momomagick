@@ -45,7 +45,8 @@ Next, install the following packages to your Python environment using pip. You c
 
 All of these libraries can be installed using `pip` by typing:
 ```
-pip install numpy pandas scipy Pillow tifffile ome-types NumpyEncoder statsmodels transforms3d progressbar2
+pip install numpy pandas scipy Pillow tifffile ome-types \
+    NumpyEncoder statsmodels transforms3d progressbar2
 ```
 
 **Note:** Some scripts in this toolkit can work faster using nVidia GPU and cupy. For this purpose, setup the `CUDA environment` using guides (available for [Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html) and [Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)). Then, install `cupy` using pip. GPU calculation is not activated by default. Use `-g 0` (the number may change when your workstation has multiple GPU boards) for GPU calculation.
