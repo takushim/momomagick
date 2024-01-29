@@ -49,6 +49,11 @@ pip install numpy pandas scipy Pillow tifffile ome-types \
     NumpyEncoder statsmodels transforms3d progressbar2
 ```
 
+**Note:** The latest progressbar2 (version 4.3.2 as of Jan 2024) creates new lines when the progressbar is updated ([Issue #291](https://github.com/wolph/python-progressbar/issues/291)). The author mentioned that Windows is tricky about this issue. Install version 4.2.0 untill this issue is fixed using the following command.
+```
+pip install progressbar2==4.2.0
+```
+
 **Note:** Some scripts in this toolkit can work faster using nVidia GPU and cupy. For this purpose, setup the `CUDA environment` using guides (available for [Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html) and [Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)). Then, install `cupy` using pip. GPU calculation is not activated by default. Use `-g 0` (the number may change when your workstation has multiple GPU boards) for GPU calculation.
 
 ### Installation
