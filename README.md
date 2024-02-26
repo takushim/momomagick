@@ -26,7 +26,7 @@ Momo (2020-2021, RIP)
 
 First of all, download and install the following programs.
 
-* [`Python 3.12.1 or later`](https://www.python.org)
+* [`Python 3.11.1 or later`](https://www.python.org)
 * [`Fiji (recommended)`](https://imagej.net/software/fiji/)
 * [`Git (recommended)`](https://git-scm.com/)
 
