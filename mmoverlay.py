@@ -166,7 +166,7 @@ logger.info("Registration started. Reg: {0}. Opt: {1}.".format(reg_method, opt_m
 logger.info("Channels: {0}".format(channels))
 logger.info("Scaling at registration: {0}.".format(scale_image))
 affine_result_list = []
-for index in progressbar(range(max_frames)):
+for index in progressbar(range(max_frames), redirect_stdout = True):
     # handle broadcasting
     t_indexes = [index % stack.t_count for stack in input_stacks]
 
@@ -209,7 +209,7 @@ output_stack.alloc_zero_image(output_shape, dtype = np.float, \
 
 logger.info("Overlay started.")
 logger.info("Post-processing shift: {0}".format(post_shift))
-for index in progressbar(range(max_frames)):
+for index in progressbar(range(max_frames), redirect_stdout = True):
     # handle broadcasting
     t_indexes = [index % stack.t_count for stack in input_stacks]
 

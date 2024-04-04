@@ -135,12 +135,12 @@ if reg_method == 'None':
     poc_result_list = [{'shift': [0.0, 0.0, 0.0], 'corr': 1.0}] * input_stack.t_count
 elif reg_method == 'INTPOC':
     logger.info("Pre-registrating using coarse phase-only-correlation.")
-    for index in progressbar(range(input_stack.t_count)):
+    for index in progressbar(range(input_stack.t_count), redirect_stdout = True):
         poc_result = poc_register.register(input_stack.image_array[index, input_channel, z_slice, reg_slice_y, reg_slice_x])
         poc_result_list.append(poc_result)
 else:
     logger.info("Pre-registrating using subpixel phase-only-correlation.")
-    for index in progressbar(range(input_stack.t_count)):
+    for index in progressbar(range(input_stack.t_count), redirect_stdout = True):
         poc_result = poc_register.register_subpixel(input_stack.image_array[index, input_channel, z_slice, reg_slice_y, reg_slice_x])
         poc_result_list.append(poc_result)
 
@@ -166,7 +166,7 @@ output_image_list = []
 affine_register = register.Affine(ref_image[z_slice, reg_slice_y, reg_slice_x], gpu_id = gpu_id)
 
 logger.info("Optimization started. Reg: {0}. Opt: {1}.".format(reg_method, opt_method))
-for index in progressbar(range(input_stack.t_count)):
+for index in progressbar(range(input_stack.t_count), redirect_stdout = True):
     init_shift = poc_result_list[index]['poc_shift']
     input_image = input_stack.image_array[index, input_channel, z_slice, reg_slice_y, reg_slice_x]
     affine_result = affine_register.register(input_image, init_shift = init_shift, \

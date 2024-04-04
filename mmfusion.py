@@ -143,7 +143,7 @@ output_stack.alloc_zero_image(output_shape, dtype = np.float, \
 
 affine_result_list = []
 logger.info("Registration and deconvolution started.")
-for index in progressbar(range(input_stack.t_count)):
+for index in progressbar(range(input_stack.t_count), redirect_stdout = True):
     # registration
     main_image = input_stack.image_array[index, main_channel].astype(float)
     sub_image = input_stack.image_array[index, sub_channel].astype(float)

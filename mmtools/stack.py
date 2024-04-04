@@ -473,7 +473,7 @@ class Stack:
 
     def apply_all (self, image_func, progress = False, with_s_axis = False):
         if progress:
-            with ProgressBar(max_value = self.t_count) as bar:
+            with ProgressBar(max_value = self.t_count, redirect_stdout = True) as bar:
                 for index in self.__apply_all(image_func, with_s_axis = with_s_axis):
                     bar.update(index + 1)
         else:
@@ -499,7 +499,7 @@ class Stack:
 
     def extend_channel (self, image_func, progress = False, alloc_c_count = 0):
         if progress:
-            with ProgressBar(max_value = self.t_count) as bar:
+            with ProgressBar(max_value = self.t_count, redirect_stdout = True) as bar:
                 for index in self.__extend_channel(image_func, alloc_c_count = alloc_c_count):
                     bar.update(index + 1)
         else:
