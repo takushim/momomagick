@@ -13,7 +13,7 @@ time_scale = None
 fitting_start = 0
 fitting_end = 0
 output_filename = None
-output_suffix = "_{0}.txt"
+output_suffix = "_{0}.csv"
 start_plane = 0
 graph_filename = None
 graph_suffix = "_{0}.png"
@@ -158,9 +158,9 @@ if analysis in ['regression', 'lifetime', 'cumulative']:
     fitting_func = fitting['func']
     logger.info("Fitting: {0}".format(fitting['message']))
 
-    # tsv
+    # csv
     logger.info("Output {0} table to {1}.".format(analysis, output_filename))
-    result_table.to_csv(output_filename, sep = '\t', index = False)
+    result_table.to_csv(output_filename, index = False)
 
     # graph
     logger.info("Output {0} graph to {1}.".format(analysis, graph_filename))
@@ -227,9 +227,9 @@ elif analysis == 'scatter':
         results[index]['plane'] = results[index]['plane'] + offset
     output_table = pd.concat(results)
 
-    # tsv
+    # csv
     logger.info("Output {0} table to {1}.".format(analysis, output_filename))
-    output_table.to_csv(output_filename, sep = '\t', index = False)
+    output_table.to_csv(output_filename, index = False)
 
     # graph
     logger.info("Output {0} graph to {1}.".format(analysis, graph_filename))
