@@ -5,9 +5,8 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 from progressbar import progressbar
-from numpyencoder import NumpyEncoder
 from statsmodels.nonparametric.smoothers_lowess import lowess
-from mmtools import gpuimage, stack, register, log
+from mmtools import gpuimage, stack, register, log, npencode
 
 # defaults
 input_filename = None
@@ -214,5 +213,5 @@ if output_json:
     logger.info("Output JSON file: {0}.".format(output_json_filename))
     with open(output_json_filename, 'w') as file:
         json.dump(output_dict, file, ensure_ascii = False, indent = 4, sort_keys = False, \
-                  separators = (', ', ': '), cls = NumpyEncoder)
+                  separators = (', ', ': '), cls = npencode.Encoder)
 

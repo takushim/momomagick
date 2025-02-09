@@ -1,36 +1,32 @@
 # momomagick
+A python toolbox for manipulating 2D/3D microscope multichannel time-lapse images saved in the TIFF or OME-TIFF format (X-Y-C-Z-T), particularly those acquired using the [diSPIM light-sheet microscope](http://dispim.org) and [Micro-Manager](https://micro-manager.org/). This toolkit supports **accelaration using nVidia GPU boards**. The python scripts in this toolbox are used in our [single-molecule microscopy in live hair cell stereocilia preprinted at bioRxiv](https://www.biorxiv.org/content/10.1101/2024.05.04.590649v1).
 
-A python toolbox for manipulating 2D/3D microscope multichannel time-lapse images saved in the TIFF or OME-TIFF format (X-Y-C-Z-T), especially those acquired with the [diSPIM light-sheet microscope](http://dispim.org) using [Micro-Manager](https://micro-manager.org/). This toolkit supports **accelaration using nVidia GPU boards**. The python scripts in this toolbox are used in our next paper, whose preprint will be available soon.
-
-**momomagick** was named after [Micro-Manager](https://micro-manager.org/), the famous software for controlling microscope hardware, [ImageMagick](https://imagemagick.org/) and the tiny friend of our family, **Momo**, who survived the COVID-19 pandemic with our family.
+**momomagick** was named after the famous software to control microscope hardware [Micro-Manager](https://micro-manager.org/), the famous software to manipulate image files [ImageMagick](https://imagemagick.org/) and the tiny friend **Momo**, who survived the COVID-19 pandemic with our family members.
 
 ![Momo (hamster)](https://github.com/takushim/momomagick/raw/main/samples/momo.jpg)
 
 Momo (2020-2021, RIP)
 
 ## Introduction
-
-**momomagick** is a set of python scripts to handle 2D/3D images saved in the TIFF or OME-TIFF format. In this document, the basic usage of the scripts are described using the following sample images.
+**momomagick** is a set of python scripts to handle 2D/3D images saved in the TIFF or OME-TIFF format. This document describes the basic usage using the following sample images.
 * time_lapse_2d.tif (in prep) - image cropping and registration
 * time_lapse_3d.tif (in prep) - image cropping and registration
 * single_channel_3d.tif (in prep) - deconvolution
 * dual_channel_3d.tif (in prep) - fusion and deconvolution of dual-channel images
 
-**Note:** Sample images and output images will be uploaded soon.
-
-**Note:** Scripts in this toolkit were written for my TIF/OME-TIFF images acquired using diSPIM and MicroManager, which has the voxel size of 162.5 nm x 162.5 nm x 500 nm (X-Y-Z). The image resolution will fall back to these values when it is not available from the image file. **Keep your eyes on the log messages especially when you handle 3D images.**
+**Note:** Scripts in this toolkit are written for my TIF/OME-TIFF images acquired using diSPIM and MicroManager, which has the voxel size of 162.5 nm x 162.5 nm x 500 nm (X-Y-Z). The image resolution will fall back to these values when it is not specified in the image file. **Keep your eyes on the log messages especially when you handle 3D images.**
 
 ## Getting Started
+### Setup the environment
+First, download and install the following programs.
 
-### Requirements
+* [Python 3.11.1 or later](https://www.python.org)
+* [Git](https://git-scm.com/)
+* [Fiji](https://imagej.net/software/fiji/) -  to view output images
 
-First of all, download and install the following programs.
+**Note:** Check `Add python.exe to PATH` on the first page of the Python installer if you are not familiar with the command-line user interface. The Git installer will add Git commands to PATH automatically.
 
-* [`Python 3.11.1 or later`](https://www.python.org)
-* [`Fiji (recommended)`](https://imagej.net/software/fiji/)
-* [`Git (recommended)`](https://git-scm.com/)
-
-Next, install the following packages to your Python environment using pip. You can install these packages directly to the Python system, but it is highly recommended to prepare [a virtual environment](https://docs.python.org/3/library/venv.html) and install packages on it. In this case, make sure to activate the virtual environment before running the program.
+Next, install required packages using pip. You can install these packages directly to the Python system, but it is highly recommended to prepare [a virtual environment](https://docs.python.org/3/library/venv.html) to install packages.
 
 * `numpy`
 * `pandas`
@@ -38,64 +34,104 @@ Next, install the following packages to your Python environment using pip. You c
 * `Pillow`
 * `tifffile`
 * `ome-types`
-* `NumpyEncoder`
 * `statsmodels`
 * `transforms3d` -- make sure to install "transforms3d", not transform3d
 * `progressbar2` -- make sure to install "progressbar2", not progressbar
 
-All of these libraries can be installed using `pip` by typing:
+Here are the steps to install required packages in a virtual environment named **momo**. You are making this environment in your home folder using PowerShell on Windows.
+
+1. Make sure that `*.py` files are associated with python.exe using File Explorer. 
+2. Open PowerShell.
+3. Update the `PATHEXT` environmental variable to prevent Powershell from running Python scripts in new windows. You can set environmental variables permanently using Windows Settings or Profile.ps1.
 ```
-pip install numpy pandas scipy Pillow tifffile ome-types \
-    NumpyEncoder statsmodels transforms3d progressbar2
+$env:PATHEXT = "${env:PATHEXT}:.PY"
+```
+4. Move to a folder where you want to place files for the environment (use `cd` command).
+```
+cd $HOME
+```
+5. Make a virtual enviconment named **momo**. Enter the full path to python.exe instead of python if the path to python.exe is not in the `PATH` environment variable. 
+```
+python -m venv momo
+```
+6. Activate the **momo** virtual environment.
+```
+momo/Scripts/Activate.ps1
+```
+7. Update pip (optional). `pip` is automatically added to `PATH`.
+```
+py -m pip install pip -U
+```
+8. Install required packages.
+```
+pip install numpy pandas scipy Pillow tifffile ome-types statsmodels transforms3d progressbar2
 ```
 
-**Note:** The latest progressbar2 (version 4.3.2 as of Jan 2024) creates new lines when the progressbar is updated ([Issue #291](https://github.com/wolph/python-progressbar/issues/291)). The author mentioned that Windows is tricky about this issue. Install version 4.2.0 until this issue is fixed using the following command. The installed version will be removed automatically.
+Here are additional steps to run some scripts using nVidia GPU and cupy. 
+1. Setup the CUDA environment using guides for [Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html) and [Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html).
+2. Hit a pip command to install the `cupy` package. Install cupy-cuda11x for CUDA version 11.
 ```
-pip install progressbar2==4.2.0
+pip install cupy-cuda12x
 ```
+3. Use the Python script with an option `-g 0`. The number may change when your PC has multiple GPU boards.
 
-**Note:** Some scripts in this toolkit can work faster using nVidia GPU and cupy. For this purpose, setup the `CUDA environment` using guides (available for [Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html) and [Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)). Then, install `cupy` using pip. GPU calculation is not activated by default. Use `-g 0` (the number may change when your workstation has multiple GPU boards) for GPU calculation.
+### Download scripts
+Here are the steps to install scripts in your home folder using PowerShell on Windows.
 
-### Installation
-
-Download the zip file from my [GitHub repository](https://github.com/takushim/momomagick) and place all the files in an appropriate folder, for example, `C:\Users\[username]\momomagick` or `C:\Users\[username]\bin\momomagick`. Add the installed folder to the `PATH` environment variable.
-
-**Note:** If you are using PowerShell, add `.PY` to the PATHEXT environment variable. Otherwise, Python will start in a separate window and finishes soon.
-
-If [git](https://git-scm.com/) is installed, my git repository can be cloned using the following commend:
+1. Open PowerShell.
+2. Move to your home folder.
+```
+cd $HOME
+```
+3. Clone my [GitHub repository](https://github.com/takushim/momomagick).
 ```
 git clone https://github.com/takushim/momomagick.git
 ```
 
-### Scripts in this toolkit
+### Before running scripts
 
-**Note:** Use `--help` option for the detailed usage.
+**Note:** You can skip this part if you are familiar with the command-line user interface.
 
-This documents explains the usages of the following scripts.
-* `mmcrop.py` - image cropping
-* `mmregister.py`- registration of time-lapse images
-* `mmdeconv.py` - deconvolution
-* `mmfusion.py` - fusion and deconvolution of dual-channel images
+You will have to update environmental variables before running scripts.
+1. Open PowerShell and move to the folder storing your images using the `cd` command. You can also open PowerShell in the current folder using File Explorer.
+2. Set the environmental variables. You can set environmental variables permanently using Windows Settings or Profile.ps1.
+```
+$env:PATHEXT = "${env:PATHEXT}:.PY"
+```
+```
+$env:PATH = "${env:PATH};${HOME}/momomagick"
+```
+3. Run scripts **without closing the current PowerShell window**.
+
+### Use scripts
+
+This documents explains the usages of the following scripts. Use `--help` option for the detailed usage.
+* `mmcrop.py` - Image cropping
+* `mmregister.py`- Registration of time-lapse images
+* `mmdeconv.py` - Deconvolution
+* `mmfusion.py` - Fusion and deconvolution of dual-channel images
 
 Usages of these scripts are **not** covered by this documents.
-* `mmlifetime.py` - calculate lifetime distribution or regression curves from the json file output from [momotrack](https://github.com/takushim/momotrack)
-* `mmmark.py` - draw markers on images using the json file output from [momotrack](https://github.com/takushim/momotrack), especially used for images converted to 8 bit.
-* `mmspotfilter.py` - filter the json file output from [momotrack](https://github.com/takushim/momotrack)
-* `mmoverlay.py` - register two image stacks and output one multi-channel image
+* `mmlifetime.py` - Calculate lifetime distribution or regression curves from the json file output from [momotrack](https://github.com/takushim/momotrack)
+* `mmmark.py` - Draw markers on images using the json file output from [momotrack](https://github.com/takushim/momotrack). Usually markers are drawn on images converted to the 8-bit format.
+* `mmspotfilter.py` - Filter the json file output from [momotrack](https://github.com/takushim/momotrack)
+* `mmoverlay.py` - Register two image stacks and output one multi-channel image
+* `mmswapaxis.py` - Swap T and Z axes of TIFF files output from ImageJ.
 
 Algorithms are provided by the modules in the `mmtools` folder.
-* `deconvolve.py` - deconvolution using cpu or gpu
-* `draw.py` - draw various markers
-* `gpuimage.py` - manipulate images using cpu or gpu
-* `lifetime.py` - calculate lifetime distribution or regression curves
-* `log.py` - logger
-* `mmtiff.py` - obsolete and retained for compatibility
-* `particles.py` - handle tracking records output from [momotrack](https://github.com/takushim/momotrack)
-* `register.py` - register two images using cpu or gpu
-* `stack.py` - load TIFF/OME-TIFF files  (optimized for MicroManager)
-* `trackj.py` - obsolete and retained for compatibility
+* `register.py` - Register two images using cpu or gpu
+* `deconvolve.py` - Deconvolve images using cpu or gpu
+* `stack.py` - Load TIFF/OME-TIFF files  (optimized for MicroManager)
+* `gpuimage.py` - Manipulate images using cpu or gpu
+* `draw.py` - Draw various markers
+* `lifetime.py` - Calculate lifetime distribution or regression curves
+* `particles.py` - Handle tracking records output from [momotrack](https://github.com/takushim/momotrack)
+* `npencode.py` - Output numpy instances to json. Implemented referring to [NumpyEncoder](https://github.com/hmallen/numpyencoder).
+* `log.py` - Logger
+* `mmtiff.py` - Obsolete and retained for compatibility
+* `trackj.py` - Obsolete and retained for compatibility
 
-The `psf` folder contains images of PSF (point spread function) for the diSPIM microscope output generated using [`PSF Generator`](https://bigwww.epfl.ch/algorithms/psfgenerator/). You may want to check the `sh` folder for actual usages.
+The `psf` folder contains images of PSF (point spread function) for the diSPIM microscope output generated using [`PSF Generator`](https://bigwww.epfl.ch/algorithms/psfgenerator/). You may want to check the `sh` folder for the automation.
 
 ## Cropping
 
