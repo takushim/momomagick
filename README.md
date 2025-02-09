@@ -67,7 +67,9 @@ py -m pip install pip -U
 pip install numpy pandas scipy Pillow tifffile ome-types statsmodels transforms3d progressbar2
 ```
 
-Here are additional steps to run some scripts using nVidia GPU and cupy. 
+
+### Setup the CUDA environment (optional)
+Some scripts can run faster using nVidia GPU and cupy. Here are the steps.
 1. Setup the CUDA environment using guides for [Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html) and [Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html).
 2. Hit a pip command to install the `cupy` package. Install cupy-cuda11x for CUDA version 11.
 ```
