@@ -69,7 +69,7 @@ pip install numpy pandas scipy Pillow tifffile ome-types statsmodels transforms3
 
 
 ### Setup the CUDA environment (optional)
-Some scripts can run faster using nVidia GPU and cupy. Here are the steps.
+Some scripts can run faster using nVidia GPU and cupy.
 1. Setup the CUDA environment using guides for [Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html) and [Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html).
 2. Hit a pip command to install the `cupy` package. Install cupy-cuda11x for CUDA version 11.
 ```
@@ -78,6 +78,8 @@ pip install cupy-cuda12x
 3. Use the Python script with an option `-g 0`. The number may change when your PC has multiple GPU boards.
 
 ### Download scripts
+**Note:** You don't have to follow the steps below if you are familiar with the command-line user interface.
+
 Here are the steps to install scripts in your home folder using PowerShell on Windows.
 
 1. Open PowerShell.
@@ -91,8 +93,7 @@ git clone https://github.com/takushim/momomagick.git
 ```
 
 ### Before running scripts
-
-**Note:** You can skip this part if you are familiar with the command-line user interface.
+**Note:** You don't have to follow the steps below if you are familiar with the command-line user interface.
 
 You will have to update environmental variables before running scripts.
 1. Open PowerShell and move to the folder storing your images using the `cd` command. You can also open PowerShell in the current folder using File Explorer.
