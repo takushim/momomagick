@@ -18,6 +18,8 @@ Momo (2020-2021, RIP)
 
 ## Getting Started
 ### Setup the environment
+**Note:** You don't have to use the following steps if you are familiar with the command-line user interface.
+
 First, download and install the following programs.
 
 * [Python 3.11.1 or later](https://www.python.org)
@@ -73,8 +75,6 @@ pip install cupy-cuda12x
 3. Use the Python script with an option `-g 0`. The number may change when your PC has multiple GPU boards.
 
 ### Download scripts
-**Note:** You don't have to follow the steps below if you are familiar with the command-line user interface.
-
 Here are the steps to install scripts in your home folder using PowerShell on Windows.
 
 1. Open PowerShell.
@@ -88,8 +88,6 @@ git clone https://github.com/takushim/momomagick.git
 ```
 
 ### Before running scripts
-**Note:** You don't have to follow the steps below if you are familiar with the command-line user interface.
-
 You will have to update environmental variables before running scripts.
 1. Open PowerShell and move to the folder storing your images using the `cd` command. You can also open PowerShell in the current folder using File Explorer.
 2. Set the environmental variables. You can set environmental variables permanently using Windows Settings or Profile.ps1.
