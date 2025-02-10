@@ -99,9 +99,9 @@ $env:PATH = "${env:PATH};${HOME}/momomagick"
 ```
 3. Run scripts **without closing the current PowerShell window**.
 
-### Use scripts
-
-This documents explains the usages of the following scripts. Use `--help` option for the detailed usage.
+## Usages
+### Scripts
+This document explains the usages of the following scripts. Use `--help` option for the detailed usage.
 * `mmcrop.py` - Image cropping
 * `mmregister.py`- Registration of time-lapse images
 * `mmdeconv.py` - Deconvolution
