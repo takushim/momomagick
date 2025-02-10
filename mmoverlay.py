@@ -4,9 +4,8 @@ import argparse, json, copy
 import numpy as np
 from datetime import datetime
 from pathlib import Path
-from numpyencoder import NumpyEncoder
 from progressbar import progressbar
-from mmtools import stack, gpuimage, register, log
+from mmtools import stack, gpuimage, register, log, npencode
 
 # default values
 input_filenames = None
@@ -252,5 +251,5 @@ if output_json:
     logger.info("Output JSON file: {0}".format(output_json_filename))
     with open(output_json_filename, 'w') as f:
         json.dump(output_dict, f, ensure_ascii = False, indent = 4, sort_keys = False, \
-                  separators = (',', ': '), cls = NumpyEncoder)
+                  separators = (',', ': '), cls = npencode.NumpyEncoder)
 

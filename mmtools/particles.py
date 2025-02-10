@@ -2,8 +2,8 @@
 
 import json
 import pandas as pd
-from numpyencoder import NumpyEncoder
 from datetime import datetime
+from mmtools import npencode
 
 class TreeParseException (Exception):
     def __init__ (self, message = "Unknown exception"):
@@ -22,7 +22,7 @@ def load_json (filename, keep_delete = False):
 def save_json (filename, json_data):
     with open(filename, 'w') as file:
         json.dump(json_data, file, ensure_ascii = False, indent = 4, sort_keys = False, \
-                  separators = (',', ': '), cls = NumpyEncoder)
+                  separators = (',', ': '), cls = npencode.NumpyEncoder)
 
 def load_spots (filename, keep_delete = False):
     with open(filename, 'r') as file:
