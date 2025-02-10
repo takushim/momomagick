@@ -42,31 +42,26 @@ Here are the steps to install required packages in a virtual environment named *
 
 1. Make sure that `*.py` files are associated with python.exe using File Explorer. 
 2. Open PowerShell.
-3. Update the `PATHEXT` environmental variable to prevent Powershell from running Python scripts in new windows. You can set environmental variables permanently using Windows Settings or Profile.ps1.
-```
-$env:PATHEXT = "${env:PATHEXT}:.PY"
-```
-4. Move to a folder where you want to place files for the environment (use `cd` command).
+3. Move to a folder where you want to place files for the environment (use `cd` command).
 ```
 cd $HOME
 ```
-5. Make a virtual enviconment named **momo**. Enter the full path to python.exe instead of python if the path to python.exe is not in the `PATH` environment variable. 
+4. Make a virtual enviconment named **momo**. Enter the full path to python.exe instead of python if the path to python.exe is not in the `PATH` environment variable. 
 ```
 python -m venv momo
 ```
-6. Activate the **momo** virtual environment.
+5. Activate the **momo** virtual environment.
 ```
 momo/Scripts/Activate.ps1
 ```
-7. Update pip (optional). `pip` is automatically added to `PATH`.
+6. Update pip (optional). `pip` is automatically added to `PATH`.
 ```
 py -m pip install pip -U
 ```
-8. Install required packages.
+7. Install required packages.
 ```
 pip install numpy pandas scipy Pillow tifffile ome-types statsmodels transforms3d progressbar2
 ```
-
 
 ### Setup the CUDA environment (optional)
 Some scripts can run faster using nVidia GPU and cupy.
