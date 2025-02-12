@@ -18,7 +18,7 @@ Momo (2020-2021, RIP)
 
 ## Getting Started
 ### Setup the environment
-**Note:** You don't have to use the following steps if you are familiar with the command-line user interface.
+**Note:** You can use your own setup if you are familiar with the command-line user interface.
 
 First, download and install the following programs.
 
@@ -92,7 +92,7 @@ You will have to update environmental variables before running scripts.
 1. Open PowerShell and move to the folder storing your images using the `cd` command. You can also open PowerShell in the current folder using File Explorer.
 2. Set the environmental variables. You can set environmental variables permanently using Windows Settings or Profile.ps1.
 ```
-$env:PATHEXT = "${env:PATHEXT}:.PY"
+$env:PATHEXT = "${env:PATHEXT};.PY"
 ```
 ```
 $env:PATH = "${env:PATH};${HOME}/momomagick"
