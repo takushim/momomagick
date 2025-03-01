@@ -99,7 +99,7 @@ $env:PATH = "${env:PATH};${HOME}/momomagick"
 ```
 3. Activate the virtual environment of Python.
 ```
-$HOME/momo/Scripts/Activate.ps1
+. $HOME/momo/Scripts/Activate.ps1
 ```
 4. Run scripts **without closing the current PowerShell window**.
 
