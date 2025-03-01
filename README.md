@@ -54,7 +54,7 @@ python -m venv momo
 ```
 5. Activate the **momo** virtual environment.
 ```
-momo/Scripts/Activate.ps1
+. $HOME/momo/Scripts/Activate.ps1
 ```
 6. Update pip (optional). `pip` is automatically added to `PATH`.
 ```
