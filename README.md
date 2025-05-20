@@ -17,91 +17,34 @@ Momo (2020-2021, RIP)
 **Note:** Scripts in this toolkit are written for my TIF/OME-TIFF images acquired using diSPIM and MicroManager, which has the voxel size of 162.5 nm x 162.5 nm x 500 nm (X-Y-Z). The image resolution will fall back to these values when it is not specified in the image file. **Keep your eyes on the log messages especially when you handle 3D images.**
 
 ## Getting Started
-### Setup the environment
-**Note:** You can use your own setup if you are familiar with the command-line user interface.
+### Installation and usage
+Please refer to the following guides, using the **tanitracer** as the repository name.
+* [Installation of the Python toolkits](https://github.com/takushim/momodoc/blob/main/installation.md)
+* [Basic usage of Python scripts](https://github.com/takushim/momodoc/blob/main/usage.md)
 
-First, download and install the following programs.
-
-* [Python 3.11.1 or later](https://www.python.org)
-* [Git](https://git-scm.com/)
-* [Fiji](https://imagej.net/software/fiji/) -  to view output images
-
-**Note:** Check `Add python.exe to PATH` on the first page of the Python installer if you are not familiar with the command-line user interface. The Git installer will add Git commands to PATH automatically.
-
-Next, install required packages using pip. You can install these packages directly to the Python system, but it is highly recommended to prepare [a virtual environment](https://docs.python.org/3/library/venv.html) to install packages.
-
+The required Python packages are:
 * `numpy`
 * `pandas`
 * `scipy`
-* `Pillow`
+* `Pillow` (PIL)
 * `tifffile`
 * `ome-types`
 * `statsmodels`
-* `transforms3d` -- make sure to install "transforms3d", not transform3d
-* `progressbar2` -- make sure to install "progressbar2", not progressbar
+* `transforms3d` -- make sure to install **transforms3d**, not transform3d
+* `progressbar2` -- make sure to install **progressbar2**, not progressbar
 
-Here are the steps to install required packages in a virtual environment named **momo**. You are making this environment in your home folder using PowerShell on Windows.
-
-1. Make sure that `*.py` files are associated with python.exe using File Explorer. 
-2. Open PowerShell.
-3. Move to a folder where you want to place files for the environment (use `cd` command).
-```
-cd $HOME
-```
-4. Make a virtual enviconment named **momo**. Enter the full path to python.exe instead of python if the path to python.exe is not in the `PATH` environment variable. 
-```
-python -m venv momo
-```
-5. Activate the **momo** virtual environment.
-```
-. $HOME/momo/Scripts/Activate.ps1
-```
-6. Update pip (optional). `pip` is automatically added to `PATH`.
-```
-py -m pip install pip -U
-```
-7. Install required packages.
+You can install these packages using the following command:
 ```
 pip install numpy pandas scipy Pillow tifffile ome-types statsmodels transforms3d progressbar2
 ```
 
-### Setup the CUDA environment (optional)
-Some scripts can run faster using nVidia GPU and cupy.
-1. Setup the CUDA environment using guides for [Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html) and [Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html).
-2. Hit a pip command to install the `cupy` package. Install cupy-cuda11x for CUDA version 11.
-```
-pip install cupy-cuda12x
-```
-3. Use the Python script with an option `-g 0`. The number may change when your PC has multiple GPU boards.
-
-### Download scripts
-Here are the steps to install scripts in your home folder using PowerShell on Windows.
-
-1. Open PowerShell.
-2. Move to your home folder.
-```
-cd $HOME
-```
-3. Clone my [GitHub repository](https://github.com/takushim/momomagick).
+To clone this repository, run:
 ```
 git clone https://github.com/takushim/momomagick.git
 ```
 
-### Before running scripts
-You will have to update environmental variables before running scripts.
-1. Open PowerShell and move to the folder storing your images using the `cd` command. You can also open PowerShell in the current folder using File Explorer.
-2. Set the environmental variables. You can set environmental variables permanently using Windows Settings or Profile.ps1.
-```
-$env:PATHEXT = "${env:PATHEXT};.PY"
-```
-```
-$env:PATH = "${env:PATH};${HOME}/momomagick"
-```
-3. Activate the virtual environment of Python.
-```
-. $HOME/momo/Scripts/Activate.ps1
-```
-4. Run scripts **without closing the current PowerShell window**.
+### CUDA environment (optional)
+Some scripts can run faster using an NVIDIA GPU and CuPy. Please refer to the **Set up the CUDA environment** section in the [installation guide](https://github.com/takushim/momodoc/blob/main/installation.md), and run scripts with the `-g 0` option. The number may vary if your PC has multiple GPU devices.
 
 ## Usages
 ### Scripts
