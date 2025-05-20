@@ -18,7 +18,7 @@ Momo (2020-2021, RIP)
 
 ## Getting Started
 ### Installation and usage
-Please refer to the following guides, using the **tanitracer** as the repository name.
+Please refer to the following guides, using the **momomagick** as the repository name.
 * [Installation of the Python toolkits](https://github.com/takushim/momodoc/blob/main/installation.md)
 * [Basic usage of Python scripts](https://github.com/takushim/momodoc/blob/main/usage.md)
 
