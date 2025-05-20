@@ -46,8 +46,7 @@ git clone https://github.com/takushim/momomagick.git
 ### CUDA environment (optional)
 Some scripts can run faster using an NVIDIA GPU and CuPy. Please refer to the **Set up the CUDA environment** section in the [installation guide](https://github.com/takushim/momodoc/blob/main/installation.md), and run scripts with the `-g 0` option. The number may vary if your PC has multiple GPU devices.
 
-## Usages
-### Scripts
+## Scripts
 This document explains the usages of the following scripts. Use `--help` option for the detailed usage.
 * `mmcrop.py` - Image cropping
 * `mmregister.py`- Registration of time-lapse images
