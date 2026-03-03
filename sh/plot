@@ -55,7 +55,7 @@ output_track="${track_stem}_filtered.json"
 output_tip="${image_stem}_tip.tif"
 output_tiptrack="${image_stem}_tip_track.tif"
 
-mmmark_channel.py -o "$output_tip" -f "$json_tip" -z -t -r 2 -a 'cross' -L "$log_level" "$file"
+momomark_channel.py -o "$output_tip" -f "$json_tip" -z -t -r 2 -a 'cross' -L "$log_level" "$file"
 
-mmspotfilter.py -o "$output_track" -n "$json_track"
-mmmark_channel.py -o "$output_tiptrack" -f "$output_track" -z -r 3 -a 'circle' -L "$log_level" "$output_tip"
+momospotfilter.py -o "$output_track" -n "$json_track"
+momomark_channel.py -o "$output_tiptrack" -f "$output_track" -z -r 3 -a 'circle' -L "$log_level" "$output_tip"

@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
 import argparse
-from mmtools import stack, log
+from momotools import stack, log
 
 # default values
 input_filename = None
 output_filename = None
-output_suffix = "_swap.tif"
-swap_axes = [0, 2]
+output_suffix = "_track.tif"
 
 # parse arguments
 parser = argparse.ArgumentParser(description='Swap two axes of stack images.', \

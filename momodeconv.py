@@ -3,7 +3,7 @@
 import argparse
 import numpy as np
 from pathlib import Path
-from mmtools import stack, deconvolve, log, gpuimage
+from momotools import stack, deconvolve, log, gpuimage
 
 # defaults
 psf_folder = Path(__file__).parent.joinpath('psf')

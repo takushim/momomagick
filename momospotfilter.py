@@ -2,7 +2,7 @@
 
 import argparse
 import numpy as np
-from mmtools import stack, log, particles
+from momotools import stack, log, particles
 
 # default values
 input_filename = None

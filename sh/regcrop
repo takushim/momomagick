@@ -104,16 +104,16 @@ do
     echo "Method: ${reg_method,,}" >> $output_log
     echo "Reg view: ${reg_view_x}" >> $output_log
 
-    mmregister.py -R "$reg_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -o "$output_reg" -L "$log_level" "$file"
-    mmcrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" -L "$log_level" "$output_reg"
+    momoregister.py -R "$reg_view_x" 0 256 256 -g 0 -e "$reg_method" -t "$opt_method" $scale_option -o "$output_reg" -L "$log_level" "$file"
+    momocrop.py -R "$first_view_x" 0 256 256 -o "$output_crop_0" -L "$log_level" "$output_reg"
     echo "First view: ${first_view_x}" >> $output_log
     
-    mmcrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" -L "$log_level" "$output_reg"
+    momocrop.py -R "$second_view_x" 0 256 256 -o "$output_crop_1" -L "$log_level" "$output_reg"
     echo "Second view: ${second_view_x}" >> $output_log
 
     if [[ $deconv == 1 ]]; then
         echo "Deconvolution iterating: ${iter}" >> $output_log
-        mmdeconv.py -g 0 -i "$iter" $psf_option1 $psf_option2 $scale_option -o "$output_deconv" -L "$log_level" "$output_crop_1"
+        momodeconv.py -g 0 -i "$iter" $psf_option1 $psf_option2 $scale_option -o "$output_deconv" -L "$log_level" "$output_crop_1"
     fi
 
 done

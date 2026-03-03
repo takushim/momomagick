@@ -54,7 +54,7 @@ do
         output_deconv="${stem}_deconv.tif"
         echo "Iteration: ${iter}" >> $output_log
         echo "Scaling: ${scaling_option}" >> $output_log
-        mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
+        momodeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
     fi
 
     if [[ "$iso_scale" == 1 ]]; then
@@ -62,13 +62,13 @@ do
         output_deconv="${stem}_deconv_iso.tif"
         echo "Iteration: ${iter}" >> $output_log
         echo "Scaling: ${scaling_option}" >> $output_log
-        mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
+        momodeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
     fi
 
     scaling_option="-s -r"
 	output_deconv="${stem}_deconv_res.tif"
     echo "Iteration: ${iter}" >> $output_log
     echo "Scaling: ${scaling_option}" >> $output_log
-    mmdeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
+    momodeconv.py -g 0 -i "$iter" $scaling_option -o "$output_deconv" -L "$log_level" "$file"
 
 done

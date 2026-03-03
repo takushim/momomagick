@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from matplotlib import pyplot
-from mmtools import stack, trackj, lifetime, particles, log
+from momotools import stack, trackj, lifetime, particles, log
 
 # default values
 input_filenames = None

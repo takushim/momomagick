@@ -3,7 +3,7 @@
 import json
 import pandas as pd
 from datetime import datetime
-from mmtools import npencode
+from . import npencode
 
 class TreeParseException (Exception):
     def __init__ (self, message = "Unknown exception"):

@@ -85,15 +85,15 @@ output_fitting="${stem_back}_fitting.tif"
 output_overlay="${stem_back}_overlay.tif"
 
 echo "Dropping unused channels from the EGFP file: ${file_egfp}" >> $output_log
-mmcrop.py -o "$output_egfp_single" $rev_egfp -c 0 -L "$log_level" "$file_egfp"
+momocrop.py -o "$output_egfp_single" $rev_egfp -c 0 -L "$log_level" "$file_egfp"
 
 echo "Overlaying EGFP (${output_egfp_single}) on the bridging file (${file_bridge}), method: ${reg_method,,}" >> $output_log
-mmoverlay.py -g 0 -o "$output_egfp_double" -c 0 0 -e "${reg_method}" -L "$log_level" "$output_egfp_single" "$file_bridge"
+momooverlay.py -g 0 -o "$output_egfp_double" -c 0 0 -e "${reg_method}" -L "$log_level" "$output_egfp_single" "$file_bridge"
 
 echo "Overlaying the combined file (${output_egfp_double}) on the background (${file_back}) using XY registration" >> $output_log
 echo "Post-shift: ${post_shift}" >> $output_log
-mmoverlay.py -g 0 -o "$output_fitting" -c 1 0 -e XY -L "$log_level" $post_shift "$output_egfp_double" "$file_back"
+momooverlay.py -g 0 -o "$output_fitting" -c 1 0 -e XY -L "$log_level" $post_shift "$output_egfp_double" "$file_back"
 
 echo "Dropping unused channels from the output file: ${output_overlay}" >> $output_log
-mmcrop.py -o "$output_overlay" -c -1 -L "$log_level" "$output_fitting"
+momocrop.py -o "$output_overlay" -c -1 -L "$log_level" "$output_fitting"
 

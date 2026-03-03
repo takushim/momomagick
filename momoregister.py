@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from progressbar import progressbar
 from statsmodels.nonparametric.smoothers_lowess import lowess
-from mmtools import gpuimage, stack, register, log, npencode
+from momotools import gpuimage, stack, register, log, npencode
 
 # defaults
 input_filename = None

@@ -3,7 +3,7 @@
 import argparse
 import numpy as np
 from PIL import Image, ImageDraw
-from mmtools import stack, log, particles, gpuimage, draw
+from momotools import stack, log, particles, gpuimage, draw
 
 # default values
 input_filename = None

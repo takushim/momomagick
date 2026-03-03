@@ -48,19 +48,19 @@ Some scripts can run faster using an NVIDIA GPU and CuPy. Please refer to the **
 
 ## Scripts
 This document explains the usages of the following scripts. Use `--help` option for the detailed usage.
-* `mmcrop.py` - Image cropping
-* `mmregister.py`- Registration of time-lapse images
-* `mmdeconv.py` - Deconvolution
-* `mmfusion.py` - Fusion and deconvolution of dual-channel images
+* `momocrop.py` - Image cropping
+* `momoregister.py`- Registration of time-lapse images
+* `momodeconv.py` - Deconvolution
+* `momofusion.py` - Fusion and deconvolution of dual-channel images
 
 Usages of these scripts are **not** covered by this documents.
-* `mmlifetime.py` - Calculate lifetime distribution or regression curves from the json file output from [momotrack](https://github.com/takushim/momotrack)
-* `mmmark.py` - Draw markers on images using the json file output from [momotrack](https://github.com/takushim/momotrack). Usually markers are drawn on images converted to the 8-bit format.
-* `mmspotfilter.py` - Filter the json file output from [momotrack](https://github.com/takushim/momotrack)
-* `mmoverlay.py` - Register two image stacks and output one multi-channel image
-* `mmswapaxis.py` - Swap T and Z axes of TIFF files output from ImageJ.
+* `momolifetime.py` - Calculate lifetime distribution or regression curves from the json file output from [momotrack](https://github.com/takushim/momotrack)
+* `momomark.py` - Draw markers on images using the json file output from [momotrack](https://github.com/takushim/momotrack). Usually markers are drawn on images converted to the 8-bit format.
+* `momospotfilter.py` - Filter the json file output from [momotrack](https://github.com/takushim/momotrack)
+* `momooverlay.py` - Register two image stacks and output one multi-channel image
+* `momoswap.py` - Swap T and Z axes of TIFF files output from ImageJ.
 
-Algorithms are provided by the modules in the `mmtools` folder.
+Algorithms are provided by the modules in the `momotools` folder.
 * `register.py` - Register two images using cpu or gpu
 * `deconvolve.py` - Deconvolve images using cpu or gpu
 * `stack.py` - Load TIFF/OME-TIFF files  (optimized for MicroManager)
@@ -70,24 +70,24 @@ Algorithms are provided by the modules in the `mmtools` folder.
 * `particles.py` - Handle tracking records output from [momotrack](https://github.com/takushim/momotrack)
 * `npencode.py` - Output numpy instances to json. Implemented referring to [NumpyEncoder](https://github.com/hmallen/numpyencoder).
 * `log.py` - Logger
-* `mmtiff.py` - Obsolete and retained for compatibility
+* `momotiff.py` - Obsolete and retained for compatibility
 * `trackj.py` - Obsolete and retained for compatibility
 
 The `psf` folder contains images of PSF (point spread function) for the diSPIM microscope output generated using [`PSF Generator`](https://bigwww.epfl.ch/algorithms/psfgenerator/). You may want to check the `sh` folder for the automation.
 
 ## Cropping
 
-`mmcrop.py` simply crop 2D/3D images. The output images will be used by other scripts. The output filename is `XXX_crop.tif` unless otherwise specified. The `-R` option specifies the cropping area by `X Y Width Height`. Use `-z` and `-t` options to specify the range along the z and t axes. You can use `-c` option to select one channel. 
+`momocrop.py` simply crop 2D/3D images. The output images will be used by other scripts. The output filename is `XXX_crop.tif` unless otherwise specified. The `-R` option specifies the cropping area by `X Y Width Height`. Use `-z` and `-t` options to specify the range along the z and t axes. You can use `-c` option to select one channel. 
 
 Usage:
 ```
-mmcrop.py -R 0 0 256 256 time_lapse_2d.tif
-mmcrop.py -R 0 0 256 256 time_lapse_3d.tif
+momocrop.py -R 0 0 256 256 time_lapse_2d.tif
+momocrop.py -R 0 0 256 256 time_lapse_3d.tif
 ```
 
 ## Registration
 
-`mmregister.py` corrects sample drift during the time-lapse imaging. The output filename is `XXX_reg.tif` unless otherwise specified. The area used for registration can be specified by the `-R` option by `X Y Width Height`. The reference image can be specified by the `-r` option.
+`momoregister.py` corrects sample drift during the time-lapse imaging. The output filename is `XXX_reg.tif` unless otherwise specified. The area used for registration can be specified by the `-R` option by `X Y Width Height`. The reference image can be specified by the `-r` option.
 
 Image registration is preformed after applying a Hanning window. The following algorithms are available for registration. The algorithm for optimization should be `Powell` or `Nelder-Mead` in most cases (ignored for some registration algorithms, such as POC). GPU calculation is highly recommended for processing 3D images.
 
@@ -102,19 +102,19 @@ Image registration is preformed after applying a Hanning window. The following a
 
 Usage for CPU calculation:
 ```
-mmregister.py -e POC -t Powell time_lapse_2d.tif
-mmregister.py -e Rigid -t Powell time_lapse_3d.tif
+momoregister.py -e POC -t Powell time_lapse_2d.tif
+momoregister.py -e Rigid -t Powell time_lapse_3d.tif
 ```
 
 Usage for GPU calculation:
 ```
-mmregister.py -g 0 -e POC -t Powell time_lapse_2d.tif
-mmregister.py -g 0 -e Rigid -t Powell time_lapse_3d.tif
+momoregister.py -g 0 -e POC -t Powell time_lapse_2d.tif
+momoregister.py -g 0 -e Rigid -t Powell time_lapse_3d.tif
 ```
 
 ## Deconvolution
 
-`mmdeconv.py` deconvolves 3D images using a PSF function saved in a TIFF image. Files in the `PSF` folder are automatically selected and used unless otherwise specified. The output filename is `XXX_deconv.tif` by default. The algorithm is Richardson–Lucy. The `-i` option specifies the number of iteration.
+`momodeconv.py` deconvolves 3D images using a PSF function saved in a TIFF image. Files in the `PSF` folder are automatically selected and used unless otherwise specified. The output filename is `XXX_deconv.tif` by default. The algorithm is Richardson–Lucy. The `-i` option specifies the number of iteration.
 
 **Note:** This script accepts 2D images, but deconvolution of 2D images is not recommended.
 
@@ -122,17 +122,17 @@ mmregister.py -g 0 -e Rigid -t Powell time_lapse_3d.tif
 
 Usage (GPU calculation highly recommended):
 ```
-mmregister.py -g 0 -i 10 -s single_channel_3d.tif
+momoregister.py -g 0 -i 10 -s single_channel_3d.tif
 ```
 
 ## Fusion of two channels for diSPIM imaging
 
-The diSPIM microscope can image samples through volume scans in two directions perpendicular to each other. `mmfusion.py` selects two channels from a 3D image (`-m` and `-s`), rotate one channel (`-s`) by 90 or -90 degrees (`-r`) along the Y axis and fuses the two channels after registration (`-e Full`). Deconvolution will be performed when the `-i` option is specified. See the sample image and the output for the detail.
+The diSPIM microscope can image samples through volume scans in two directions perpendicular to each other. `momofusion.py` selects two channels from a 3D image (`-m` and `-s`), rotate one channel (`-s`) by 90 or -90 degrees (`-r`) along the Y axis and fuses the two channels after registration (`-e Full`). Deconvolution will be performed when the `-i` option is specified. See the sample image and the output for the detail.
 
 Usage (GPU calculation highly recommended):
 
 ```
-mmfusion.py -g 0 -m 0 -s 1 -r 90 -e Full dual_channel_3d.tif
+momofusion.py -g 0 -m 0 -s 1 -r 90 -e Full dual_channel_3d.tif
 ```
 
 ## Author

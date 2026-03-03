@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
-from mmtools import stack, log
+from momotools import stack, log
 
 # default values
 input_filename = None
