@@ -46,23 +46,29 @@ def parse_tree (spot_list):
     leaf_list = [spot for spot in spot_list if len(find_children(spot, spot_list)) == 0]
 
     output_list = []
-    for index in range(len(leaf_list)):
-        current = leaf_list[index]
+    for track_index, leaf in enumerate(leaf_list):
+        current = leaf
         track_list = []
+        visited_indices = set()
+
         while current is not None:
-            current['track'] = index
-            track_list.append(current)
-            parent = [spot for spot in spot_list if spot['index'] == current['parent']]
+            if current['index'] in visited_indices:
+                raise TreeParseException(f'Loop detected while tracking spot {current["index"]}')
 
-            if len(parent) == 0:
+            visited_indices.add(current['index'])
+
+            track_spot = current.copy()
+            track_spot['track'] = track_index
+            track_list.append(track_spot)
+
+            parents = [spot for spot in spot_list if spot['index'] == current['parent']]
+
+            if len(parents) == 0:
                 current = None
-            elif len(parent) == 1:
-                current = parent[0]
+            elif len(parents) == 1:
+                current = parents[0]
             else:
-                raise TreeParseException('spot {0} has {1} parents.'.format(current['index'], len(parent)))
-
-            if current in track_list:
-                raise TreeParseException('Loop detected while tracking spot {0}'.format(current['index']))
+                raise TreeParseException(f'spot {current["index"]} has {len(parents)} parents.')
 
         output_list.extend(reversed(track_list))
 

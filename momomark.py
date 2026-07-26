@@ -2,6 +2,7 @@
 
 import argparse
 import numpy as np
+from itertools import groupby
 from PIL import Image, ImageDraw
 from momotools import stack, log, particles, gpuimage, draw
 
@@ -21,6 +22,7 @@ life_lead_offset = 0
 life_font_size = 10
 spot_scaling = None
 spot_shift = [0.0, 0.0, 0.0]
+filtering_label = None
 
 # constants
 marker_color = 'gray'
@@ -76,6 +78,9 @@ parser.add_argument('-t', '--ignore-time', action = 'store_true', \
 parser.add_argument('-z', '--ignore-z-index', action = 'store_true', \
                     help='ignore the z index (useful for marking on a maximum projection)')
 
+parser.add_argument('-b', '--filtering-label', type = str, default = filtering_label, \
+                    help='filter spots using the label of their first spot.')
+
 parser.add_argument('-i', '--invert-lut', action = 'store_true', \
                     help='invert the LUT of output image')
 
@@ -107,6 +112,7 @@ spot_scaling = args.spot_scaling if args.spot_scaling is not None else args.imag
 spot_shift = args.spot_shift[::-1]
 ignore_time = args.ignore_time
 ignore_z_index = args.ignore_z_index
+filtering_label = args.filtering_label
 
 if args.output_file is None:
     output_filename = stack.with_suffix(input_filename, output_suffix)
@@ -119,15 +125,15 @@ else:
     record_filename = args.record_file
 
 # load image and scale them
-logger.info("Loading image: {0}.".format(input_filename))
-input_stack = stack.Stack(input_filename)
+logger.info(f"Loading image: {input_filename}.")
+input_stack = stack.Stack(input_filename, keep_s_axis = True)
 
 if np.isclose(image_scaling, 1.0) == False:
-    logger.info("Scaling the image by: {0}.".format(image_scaling))
+    logger.info(f"Scaling the image by: {image_scaling}.")
     input_stack.scale_by_ratio(ratio = (1.0, image_scaling, image_scaling), gpu_id = gpu_id, progress = True)
 
 # read the JSON file
-logger.info("Reading records: {0}.".format(record_filename))
+logger.info(f"Reading records: {record_filename}.")
 spot_list = particles.parse_tree(particles.load_spots(record_filename))
 
 # add lifetime as text
@@ -135,16 +141,29 @@ for spot in spot_list:
     count = len([s for s in spot_list if s['track'] == spot['track']])
     spot['text'] = str(count)
 
+# filter spots using the label in the first spot of each trajectory
+if filtering_label is not None:
+    def filter_trajectories_by_first_label (spot_list, label):
+        output_list = []
+        for _, trajectory in groupby(spot_list, key = lambda spot: spot['track']):
+            trajectory = list(trajectory)
+            if trajectory[0].get('label') == label:
+                output_list.extend(trajectory)
+        return output_list
+
+    logger.info(f"Filtering spots using the label: {filtering_label}.")
+    spot_list = filter_trajectories_by_first_label(spot_list, filtering_label)
+
 # shift spots
 for pos, shift in zip(['z', 'y', 'x'], spot_shift):
     if np.isclose(shift, 0.0) == False:
-        logger.info("Shifting {0} by {1}.".format(pos, shift))
+        logger.info(f"Shifting {pos} by {shift}.")
         for spot in spot_list:
             spot[pos] = spot[pos] + shift
 
 # scale spot coordinates if necessary
 if np.isclose(spot_scaling, 1.0) == False:
-    logger.info("Scaling spots by: {0}.".format(spot_scaling))
+    logger.info(f"Scaling spots by: {spot_scaling}.")
     for spot in spot_list:
         spot['x'] = spot['x'] * spot_scaling
         spot['y'] = spot['y'] * spot_scaling
@@ -202,18 +221,21 @@ if new_channel:
         return image
 
     # draw markers
-    logger.info("Start marking spots.".format(output_filename))
+    logger.info(f"Start marking spots: {output_filename}")
     input_stack.extend_channel(mark_func, progress = True, alloc_c_count = 0)
 
 else:
-    logger.info("Preparing an RGB uint8 image.")
-    input_stack.clip_all(percentile = clip_percentile)
-    input_stack.fit_to_uint8(fit_always = False)
-    input_stack.add_s_axis(s_count = 3)
+    if input_stack.has_s_axis == True:
+        logger.info(f"Using the RGB uint8 image as is: {output_filename}")
+    else:
+        logger.info(f"Preparing an RGB uint8 image: {output_filename}")
+        input_stack.clip_all(percentile = clip_percentile)
+        input_stack.fit_to_uint8(fit_always = False)
+        input_stack.add_s_axis(s_count = 3)
 
-    if invert_lut:
-        logger.info("Inverting the LUT of the image.")
-        input_stack.invert_lut()
+        if invert_lut:
+            logger.info(f"Inverting the LUT of the image: {output_filename}")
+            input_stack.invert_lut()
 
     # spot lists
     spots_first = [spot for spot in spot_list if spot['parent'] is None]
@@ -239,9 +261,9 @@ else:
         return image
 
     # draw markers
-    logger.info("Marking spots.".format(output_filename))
+    logger.info(f"Marking spots: {output_filename}")
     input_stack.apply_all(mark_func, progress = True, with_s_axis = True)
 
 # save image
-logger.info("Saving image: {0}.".format(output_filename))
+logger.info(f"Saving image: {output_filename}")
 input_stack.save_imagej_tiff(output_filename)
